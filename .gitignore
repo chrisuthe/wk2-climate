@@ -22,3 +22,6 @@ captures/
 # OS
 .DS_Store
 Thumbs.db
+
+# SDD workspace: per-plan scratch (ledger, briefs, review packages)
+.superpowers/

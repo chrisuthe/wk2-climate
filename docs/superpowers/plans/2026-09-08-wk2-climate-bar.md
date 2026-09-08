@@ -1322,6 +1322,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.Temp
+import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
@@ -1411,9 +1412,14 @@ private fun Zone(
 /**
  * The numeral, with its degree mark at half size.
  *
- * Sentinels never render as a number: LO shows as "LO" and anything unknown as
- * a dash. Showing a driver a number the vehicle did not report is the failure
- * this guards against.
+ * Sentinels never render as a number. The words match the factory UI for this
+ * vehicle profile — `Car_0374_PA_Jeep_All.updateTemp` renders `"LOW"`,
+ * `"HIGH"` and `"---"` — so a driver sees the same vocabulary they already
+ * know. Showing a number the vehicle did not report is the failure this guards
+ * against.
+ *
+ * Fahrenheit renders as a whole number; Celsius carries a half-degree, so it
+ * renders with one decimal.
  */
 @Composable
 private fun tempText(temp: Temp, palette: Palette): AnnotatedString =
@@ -1421,7 +1427,12 @@ private fun tempText(temp: Temp, palette: Palette): AnnotatedString =
         withStyle(SpanStyle(color = palette.ink)) {
             when (temp) {
                 is Temp.Degrees -> {
-                    append(temp.fahrenheit.toString())
+                    append(
+                        when (temp.unit) {
+                            TempUnit.FAHRENHEIT -> temp.value.toInt().toString()
+                            TempUnit.CELSIUS -> String.format("%.1f", temp.value)
+                        },
+                    )
                     withStyle(
                         SpanStyle(
                             fontSize = Type.zoneDegree.fontSize,
@@ -1431,7 +1442,8 @@ private fun tempText(temp: Temp, palette: Palette): AnnotatedString =
                         append("\u00B0")
                     }
                 }
-                Temp.Lo -> append("LO")
+                Temp.Lo -> append("LOW")
+                Temp.Hi -> append("HIGH")
                 Temp.Unavailable -> append("\u2014")
             }
         }
@@ -1478,9 +1490,10 @@ the OEM equivalents are about 70px tall.
 Steppers use holdRepeatTarget, so one tap is one step and holding
 repeats every 150ms after a 400ms delay.
 
-Sentinels never render as numbers: LO shows as LO and anything unknown
-as a dash. Showing a driver a number the vehicle never reported is the
-failure this guards against.
+Sentinels never render as numbers, and the words match the factory UI
+for this vehicle profile -- LOW, HIGH and a dash -- so the driver sees
+vocabulary they already know. Showing a number the vehicle never
+reported is the failure this guards against.
 
 No animation on the numeral -- a moving number is unreadable at a glance."
 ```

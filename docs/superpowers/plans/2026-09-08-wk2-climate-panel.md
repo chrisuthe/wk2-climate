@@ -365,8 +365,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.wk2.climate.bus.FakeVehicleBus
 import com.wk2.climate.bus.Temp
+import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
@@ -461,7 +461,12 @@ private fun zoneText(temp: Temp, palette: Palette): AnnotatedString =
         withStyle(SpanStyle(color = palette.ink)) {
             when (temp) {
                 is Temp.Degrees -> {
-                    append(temp.fahrenheit.toString())
+                    append(
+                        when (temp.unit) {
+                            TempUnit.FAHRENHEIT -> temp.value.toInt().toString()
+                            TempUnit.CELSIUS -> String.format("%.1f", temp.value)
+                        },
+                    )
                     withStyle(
                         SpanStyle(
                             fontSize = Type.zoneDegreeLarge.fontSize,
@@ -469,7 +474,8 @@ private fun zoneText(temp: Temp, palette: Palette): AnnotatedString =
                         ),
                     ) { append("\u00B0") }
                 }
-                Temp.Lo -> append("LO")
+                Temp.Lo -> append("LOW")
+                Temp.Hi -> append("HIGH")
                 Temp.Unavailable -> append("\u2014")
             }
         }
@@ -485,10 +491,12 @@ private fun zoneText(temp: Temp, palette: Palette): AnnotatedString =
  */
 @Composable
 private fun RangeTrack(palette: Palette, temp: Temp) {
-    val fraction = (temp as? Temp.Degrees)?.let {
-        ((it.fahrenheit - FakeVehicleBus.TEMP_MIN).toFloat() /
-            (FakeVehicleBus.TEMP_MAX - FakeVehicleBus.TEMP_MIN)).coerceIn(0f, 1f)
-    }
+    val fraction = (temp as? Temp.Degrees)
+        ?.takeIf { it.unit == TempUnit.FAHRENHEIT }
+        ?.let {
+            ((it.value - REACHABLE_MIN_F) / (REACHABLE_MAX_F - REACHABLE_MIN_F))
+                .coerceIn(0f, 1f)
+        }
 
     Box(Modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.CenterStart) {
         Box(
@@ -520,10 +528,27 @@ private fun RangeTrack(palette: Palette, temp: Temp) {
 }
 ```
 
-> `FakeVehicleBus.TEMP_MIN`/`TEMP_MAX` are the only published range constants.
-> If the vehicle's real range differs (car-session checklist item 11 was not
-> fully answered), move them to `:bus` as `TempRange` and update both callers —
-> record that as a follow-up rather than hardcoding a second copy here.
+Add these constants at the bottom of `PanelZones.kt`:
+
+```kotlin
+/**
+ * The setpoint range this vehicle can actually reach, measured by sweeping the
+ * driver setpoint to both ends: it clamps at 60 and 84 F, then steps into the
+ * LOW and HIGH sentinels.
+ *
+ * Deliberately **not** the protocol's 30..128 window (`Temp.RAW_MIN`/`RAW_MAX`)
+ * — that is what the bus will *accept*, not what this car will produce, and
+ * using it would park the knob a third of the way along for a mid-range
+ * setpoint. Deliberately not `FakeVehicleBus`'s copy either: production UI must
+ * not depend on the test fake.
+ */
+private const val REACHABLE_MIN_F = 60f
+private const val REACHABLE_MAX_F = 84f
+```
+
+> The track is Fahrenheit-only for now: in Celsius mode the reachable range in
+> °C has not been measured, and guessing it would misplace the knob. In that
+> mode the knob is simply hidden, which is the same treatment as a sentinel.
 
 - [ ] **Step 3: Verify it builds**
 
