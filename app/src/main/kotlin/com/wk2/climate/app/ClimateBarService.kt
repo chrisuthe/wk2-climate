@@ -18,7 +18,9 @@ import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
+import com.wk2.climate.design.Dimens
 import com.wk2.climate.ui.bar.ClimateBar
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /**
@@ -114,9 +116,19 @@ class ClimateBarService : AccessibilityService() {
      * gravity resolves against the inset-reduced frame and the window cannot
      * enter the nav-bar region at all. Positioning from the TOP with an
      * absolute y sidesteps the negative-offset problem entirely.
+     *
+     * The height is the *design's* bar height, not the framework's
+     * `navigation_bar_height`. The two coincide on the target ROM, but the
+     * dimen is a reserved-inset value and need not equal the bar the system
+     * draws — an emulator was observed reporting 56px against a 169px nav-bar
+     * window. Sizing the window from the framework would silently clip screen
+     * 2a to its top row on any hardware that disagrees, so we draw the bar at
+     * the size it is designed for and [warnIfNavInsetDisagrees] makes a
+     * mismatch a log line instead.
      */
     private fun barWindowParams(): WindowManager.LayoutParams {
-        val height = navigationBarHeightPx()
+        val height = designBarHeightPx()
+        warnIfNavInsetDisagrees(height)
         val top = resources.displayMetrics.heightPixels - height
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -134,13 +146,34 @@ class ClimateBarService : AccessibilityService() {
     }
 
     /**
-     * The bar's height is the framework's own `navigation_bar_height`, which is
-     * where the 227px comes from in the first place. Reading it keeps us aligned
-     * with the inset the system reserves instead of asserting a number.
+     * The one source of truth for the bar's height: the design constant screen
+     * 2a is laid out against. Design rule 5 — the bar never grows — makes this
+     * a fixed size, so the window must never be smaller than it.
      */
-    private fun navigationBarHeightPx(): Int {
+    private fun designBarHeightPx(): Int =
+        (Dimens.barHeight.value * resources.displayMetrics.density).roundToInt()
+
+    /**
+     * Reads the framework's `navigation_bar_height` purely to compare.
+     *
+     * If it does not match the design height then this is not the hardware the
+     * bar was measured on, and the layout's assumptions — the 227px the whole
+     * of 2a is built to, which the handoff notes cannot be exceeded without
+     * root — no longer hold. That is worth a warning, and it is much better
+     * than the alternative symptom of rendering a fragment of the UI.
+     */
+    private fun warnIfNavInsetDisagrees(designHeightPx: Int) {
         val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (id > 0) resources.getDimensionPixelSize(id) else BAR_HEIGHT_FALLBACK_PX
+        if (id <= 0) return
+        val inset = resources.getDimensionPixelSize(id)
+        if (inset != designHeightPx) {
+            Log.w(
+                TAG,
+                "navigation_bar_height is ${inset}px but the bar is designed at " +
+                    "${designHeightPx}px — drawing at the design size. This is not the " +
+                    "hardware the bar was measured on; check what covers the factory bar.",
+            )
+        }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -163,13 +196,6 @@ class ClimateBarService : AccessibilityService() {
 
     private companion object {
         private const val TAG = "ClimateBarService"
-
-        /**
-         * Fallback for the framework's `navigation_bar_height`, which this ROM
-         * raises from AOSP's 48dp to 227px. Read the real value where possible
-         * rather than trusting this.
-         */
-        const val BAR_HEIGHT_FALLBACK_PX = 227
 
         /** The slot's own dwell is 30s, so polling faster than this buys nothing. */
         const val SLOT_POLL_MS = 5_000L
