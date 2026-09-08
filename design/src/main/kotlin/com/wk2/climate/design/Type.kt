@@ -1,8 +1,12 @@
+@file:OptIn(ExperimentalTextApi::class)
+
 package com.wk2.climate.design
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -22,7 +26,31 @@ import androidx.compose.ui.unit.sp
  */
 object Type {
 
-    val manrope = FontFamily(Font(R.font.manrope))
+    // A bare Font(resId) registers one static face and never samples the
+    // variable font's `wght` axis for anything but Normal, so every weight
+    // this scale uses gets its own entry with an explicit variation setting.
+    val manrope = FontFamily(
+        Font(
+            resId = R.font.manrope,
+            weight = FontWeight.Light,
+            variationSettings = FontVariation.Settings(FontVariation.weight(300)),
+        ),
+        Font(
+            resId = R.font.manrope,
+            weight = FontWeight.Normal,
+            variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+        ),
+        Font(
+            resId = R.font.manrope,
+            weight = FontWeight.Bold,
+            variationSettings = FontVariation.Settings(FontVariation.weight(700)),
+        ),
+        Font(
+            resId = R.font.manrope,
+            weight = FontWeight.ExtraBold,
+            variationSettings = FontVariation.Settings(FontVariation.weight(800)),
+        ),
+    )
 
     val plexMono = FontFamily(
         Font(R.font.ibm_plex_mono_medium, FontWeight.Medium),

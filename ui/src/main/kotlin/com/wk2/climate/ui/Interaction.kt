@@ -10,9 +10,9 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -56,32 +56,49 @@ fun Modifier.target(
 /**
  * A tappable region that repeats while held, on [HoldRepeat]'s schedule.
  * Used by every `-` / `+`.
+ *
+ * The `coroutineScope` wraps [awaitEachGesture] rather than using
+ * `rememberCoroutineScope()`, so `repeater` is a *structured child* of the
+ * currently running `pointerInput` coroutine, not of the composable's whole
+ * lifetime. `pointerInput` restarts this coroutine whenever [onFire]'s
+ * identity changes -- which happens on every recomposition a caller like
+ * `onCommand(Command.TEMP_L_UP)` causes -- and cancelling it now cancels
+ * `repeater` with it via the job hierarchy, regardless of where `repeater`
+ * happens to be suspended (typically mid-[HoldRepeat.INTERVAL_MS] delay).
+ * There is no longer-lived scope for it to be orphaned on.
+ *
+ * `AwaitPointerEventScope` (the receiver inside [awaitEachGesture]) is
+ * `@RestrictsSuspension`: only its own member/extension suspend functions
+ * ([awaitFirstDown], [waitForUpOrCancellation]) may be called there, so
+ * cleanup uses non-suspending calls only -- [kotlinx.coroutines.Job.cancel]
+ * and [MutableInteractionSource.tryEmit] -- both in a `finally`, so the
+ * Release/Cancel interaction is always emitted, even when this coroutine is
+ * cancelled out from under `waitForUpOrCancellation()`. Without that, the
+ * pressed state could stick "on" after a restart.
  */
 @Composable
 fun Modifier.holdRepeatTarget(
     interaction: MutableInteractionSource,
     enabled: Boolean = true,
     onFire: () -> Unit,
-): Modifier {
-    val scope = rememberCoroutineScope()
-    return pointerInput(enabled, onFire) {
-        if (!enabled) return@pointerInput
+): Modifier = pointerInput(enabled, onFire) {
+    if (!enabled) return@pointerInput
+    coroutineScope {
+        val gestureScope = this
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val press = PressInteraction.Press(down.position)
-            scope.launch { interaction.emit(press) }
+            interaction.tryEmit(press)
 
-            val repeater = scope.launch { HoldRepeat.run(onFire) }
-
-            // Stop repeating the instant the finger lifts or the gesture is
-            // cancelled -- a target that kept firing after release would run
-            // the temperature away from the driver.
-            val up = waitForUpOrCancellation()
-            repeater.cancel()
-            scope.launch {
-                interaction.emit(
-                    if (up == null) PressInteraction.Cancel(press)
-                    else PressInteraction.Release(press),
+            val repeater = gestureScope.launch { HoldRepeat.run(onFire) }
+            var releasedNormally = false
+            try {
+                releasedNormally = waitForUpOrCancellation() != null
+            } finally {
+                repeater.cancel()
+                interaction.tryEmit(
+                    if (releasedNormally) PressInteraction.Release(press)
+                    else PressInteraction.Cancel(press),
                 )
             }
         }
