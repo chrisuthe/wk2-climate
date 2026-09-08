@@ -136,11 +136,19 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 
     private fun ClimateState.stepTemp(signal: Signal, delta: Int): ClimateState {
         val current = this[signal] ?: return this
-        // Stepping out of the LO sentinel returns to the bottom of the range.
-        if (current == Temp.SENTINEL_LO) {
-            return if (delta > 0) with(signal, TEMP_MIN) else this
+        // Measured on vehicle: sweeping the setpoint steps *into* the LO/HI
+        // sentinels at the boundaries rather than clamping, so a UI built
+        // against this fake will see them too.
+        val next = when {
+            current == Temp.SENTINEL_LO && delta > 0 -> TEMP_MIN
+            current == Temp.SENTINEL_LO -> current
+            current == Temp.SENTINEL_HI && delta < 0 -> TEMP_MAX
+            current == Temp.SENTINEL_HI -> current
+            current == TEMP_MAX && delta > 0 -> Temp.SENTINEL_HI
+            current == TEMP_MIN && delta < 0 -> Temp.SENTINEL_LO
+            else -> (current + delta).coerceIn(TEMP_MIN, TEMP_MAX)
         }
-        return with(signal, (current + delta).coerceIn(TEMP_MIN, TEMP_MAX))
+        return with(signal, next)
     }
 
     private fun ClimateState.cycleSeat(level: Signal, opposite: Signal): ClimateState {
@@ -162,7 +170,7 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 
     companion object {
         const val TEMP_MIN = 60
-        const val TEMP_MAX = 85
+        const val TEMP_MAX = 84
         const val VOLUME_MAX = 40
 
         /**

@@ -34,7 +34,7 @@ class ClimateStateTest {
     fun `with stores a raw value and derives from it`() {
         val s = ClimateState.EMPTY.with(Signal.TEMP_LEFT, 68)
         assertEquals(68, s[Signal.TEMP_LEFT])
-        assertEquals(Temp.Degrees(68), s.tempLeft)
+        assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempLeft)
         assertFalse(s.isEmpty)
     }
 
@@ -51,8 +51,16 @@ class ClimateStateTest {
     fun `with returns a new instance when the value changes`() {
         val s = ClimateState.EMPTY.with(Signal.TEMP_LEFT, 68)
         val t = s.with(Signal.TEMP_LEFT, 69)
-        assertEquals(Temp.Degrees(69), t.tempLeft)
-        assertEquals("original must be untouched", Temp.Degrees(68), s.tempLeft)
+        assertEquals(Temp.Degrees(69f, TempUnit.FAHRENHEIT), t.tempLeft)
+        assertEquals("original must be untouched", Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempLeft)
+    }
+
+    @Test
+    fun `celsius mode decodes TEMP_LEFT as half-degrees`() {
+        val s = ClimateState.EMPTY
+            .with(Signal.TEMP_UNIT, 0)
+            .with(Signal.TEMP_LEFT, 40)
+        assertEquals(Temp.Degrees(20f, TempUnit.CELSIUS), s.tempLeft)
     }
 
     @Test
@@ -82,8 +90,8 @@ class ClimateStateTest {
         assertTrue(s.syncOn)
         assertFalse(s.recircOn)
         assertEquals(Fan.Auto, s.fan)
-        assertEquals(Temp.Degrees(68), s.tempLeft)
-        assertEquals(Temp.Degrees(68), s.tempRight)
+        assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempLeft)
+        assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempRight)
         assertEquals(AirflowMode.NONE, s.airflow)
         assertEquals(SeatLevel.OFF, s.seatHeatL)
         assertFalse(s.wheelHeatOn)

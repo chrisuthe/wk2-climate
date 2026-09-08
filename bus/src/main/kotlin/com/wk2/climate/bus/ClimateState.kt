@@ -27,8 +27,9 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
     val isEmpty: Boolean get() = raw.isEmpty()
 
     // ---- derived: zone temperatures ----
-    val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT])
-    val tempRight: Temp get() = Temp.from(raw[Signal.TEMP_RIGHT])
+    val tempUnit: TempUnit get() = TempUnit.from(raw[Signal.TEMP_UNIT])
+    val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT], tempUnit)
+    val tempRight: Temp get() = Temp.from(raw[Signal.TEMP_RIGHT], tempUnit)
 
     // ---- derived: blower ----
     val fan: Fan get() = Fan.from(raw[Signal.WIND_LEVEL])

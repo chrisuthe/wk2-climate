@@ -8,10 +8,17 @@ package com.wk2.climate.bus
  * a number, and never as OFF.
  */
 sealed interface Temp {
-    data class Degrees(val fahrenheit: Int) : Temp
+    /**
+     * A decoded setpoint. [unit] says how [value] was decoded so callers
+     * cannot mistake a Celsius reading for a Fahrenheit one, or vice versa.
+     */
+    data class Degrees(val value: Float, val unit: TempUnit) : Temp
 
     /** The minimum / LO sentinel. Set by the MAX A/C macro among others. */
     data object Lo : Temp
+
+    /** The maximum / HI sentinel. */
+    data object Hi : Temp
 
     /**
      * No value, or a sentinel we do not have a meaning for. Also what the
@@ -22,13 +29,46 @@ sealed interface Temp {
 
     companion object {
         const val SENTINEL_LO = -2
+        const val SENTINEL_HI = -3
+        const val SENTINEL_UNAVAILABLE = -1
 
-        fun from(raw: Int?): Temp = when {
+        /**
+         * The protocol's valid window for a raw setpoint. This vehicle's
+         * driver setpoint only ever reaches 60..84 (measured), but other raw
+         * values inside 30..128 are still decoded rather than shown as dashes.
+         */
+        const val RAW_MIN = 30
+        const val RAW_MAX = 128
+
+        /** OEM renderer, verbatim: sentinels first, then the unit-aware window check. */
+        fun from(raw: Int?, unit: TempUnit): Temp = when {
             raw == null -> Unavailable
+            raw == SENTINEL_HI -> Hi
             raw == SENTINEL_LO -> Lo
-            raw < 0 -> Unavailable
-            else -> Degrees(raw)
+            raw == SENTINEL_UNAVAILABLE -> Unavailable
+            raw < RAW_MIN || raw > RAW_MAX -> Unavailable
+            else -> Degrees(decode(raw, unit), unit)
         }
+
+        private fun decode(raw: Int, unit: TempUnit): Float = when (unit) {
+            TempUnit.FAHRENHEIT -> raw.toFloat()
+            TempUnit.CELSIUS -> raw * 5 / 10f
+        }
+    }
+}
+
+/** `U_AIR_TEMP_UNIT`: which unit a raw setpoint is encoded in. */
+enum class TempUnit {
+    CELSIUS, FAHRENHEIT;
+
+    companion object {
+        /**
+         * U_AIR_TEMP_UNIT: 0 is Celsius, anything else Fahrenheit. `null` also
+         * reads as FAHRENHEIT — deliberately: this vehicle reports `1`, and
+         * guessing CELSIUS would silently halve every reading instead of
+         * showing degrees correctly.
+         */
+        fun from(raw: Int?): TempUnit = if (raw == 0) CELSIUS else FAHRENHEIT
     }
 }
 

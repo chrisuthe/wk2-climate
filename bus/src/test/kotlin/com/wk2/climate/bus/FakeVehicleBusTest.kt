@@ -17,7 +17,7 @@ class FakeVehicleBusTest {
         assertTrue(s.powerOn)
         assertTrue(s.autoOn)
         assertEquals(Fan.Auto, s.fan)
-        assertEquals(Temp.Degrees(68), s.tempLeft)
+        assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempLeft)
         assertEquals(AirflowMode.NONE, s.airflow)
     }
 
@@ -149,10 +149,52 @@ class FakeVehicleBusTest {
     fun `temperature steps one degree per command per zone`() {
         val b = bus()
         b.send(Command.TEMP_L_UP)
-        assertEquals(Temp.Degrees(69), b.now.tempLeft)
-        assertEquals("the other zone must not move", Temp.Degrees(68), b.now.tempRight)
+        assertEquals(Temp.Degrees(69f, TempUnit.FAHRENHEIT), b.now.tempLeft)
+        assertEquals("the other zone must not move", Temp.Degrees(68f, TempUnit.FAHRENHEIT), b.now.tempRight)
         b.send(Command.TEMP_L_DOWN)
-        assertEquals(Temp.Degrees(68), b.now.tempLeft)
+        assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), b.now.tempLeft)
+    }
+
+    @Test
+    fun `temperature steps up from the ceiling into the HI sentinel and stays there`() {
+        val b = bus()
+        b.inject(Signal.TEMP_LEFT, FakeVehicleBus.TEMP_MAX)
+        b.send(Command.TEMP_L_UP)
+        assertEquals(Temp.Hi, b.now.tempLeft)
+        b.send(Command.TEMP_L_UP)
+        assertEquals("stepping up from HI stays at HI", Temp.Hi, b.now.tempLeft)
+    }
+
+    @Test
+    fun `temperature steps down from HI back to the ceiling`() {
+        val b = bus()
+        b.inject(Signal.TEMP_LEFT, Temp.SENTINEL_HI)
+        b.send(Command.TEMP_L_DOWN)
+        assertEquals(
+            Temp.Degrees(FakeVehicleBus.TEMP_MAX.toFloat(), TempUnit.FAHRENHEIT),
+            b.now.tempLeft,
+        )
+    }
+
+    @Test
+    fun `temperature steps down from the floor into the LO sentinel and stays there`() {
+        val b = bus()
+        b.inject(Signal.TEMP_LEFT, FakeVehicleBus.TEMP_MIN)
+        b.send(Command.TEMP_L_DOWN)
+        assertEquals(Temp.Lo, b.now.tempLeft)
+        b.send(Command.TEMP_L_DOWN)
+        assertEquals("stepping down from LO stays at LO", Temp.Lo, b.now.tempLeft)
+    }
+
+    @Test
+    fun `temperature steps up from LO back to the floor`() {
+        val b = bus()
+        b.inject(Signal.TEMP_LEFT, Temp.SENTINEL_LO)
+        b.send(Command.TEMP_L_UP)
+        assertEquals(
+            Temp.Degrees(FakeVehicleBus.TEMP_MIN.toFloat(), TempUnit.FAHRENHEIT),
+            b.now.tempLeft,
+        )
     }
 
     @Test
