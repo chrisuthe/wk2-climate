@@ -548,6 +548,23 @@ new code.
     left-only is authoritative.
 11. Fan really tops out at 7; temperature min and max in °F, and when `-2` appears.
 
+**Measuring the fallback, in case items 1–2 fail**
+
+12. With `com.syu.air` disabled (`pm disable-user --user 0 com.syu.air`):
+    does the **227px inset survive**, or is it released to apps? And does
+    SystemUI claim the vacated nav-bar slot and draw its own back/home/recents?
+    Wiki p3 confirms disabling is clean and that climate keeps working, and
+    wiki p7 implies the inset depends on `com.syu.air` holding the window — but
+    neither is measured. Compare `dumpsys window windows` app-area frames before
+    and after.
+
+    Worth measuring in the same session even though v1 keeps `com.syu.air`
+    running, because disabling it is the fallback if item 2 shows touch leakage,
+    and it may remove the need for item 1's negative-y offset entirely. Restore
+    with **both** `pm enable com.syu.air` **and**
+    `am start-service -n com.syu.air/.AirService` — `pm enable` alone leaves an
+    enabled package with no bar, since it only self-starts on `BOOT_COMPLETED`.
+
 ### Safety
 
 All bench work on a **stationary, parked** vehicle. Take a baseline with
@@ -564,7 +581,8 @@ unwind through `cmd()`; tap injection on the OEM airflow button
 | Risk | Impact | Mitigation |
 |---|---|---|
 | 2032 cannot be positioned over the nav-bar region (item 1) | 2a cannot sit where the design puts it | Spike first, before any window code. Fallbacks: 2038 with the same offset; or rest 2a in the app area above the OEM bar (handoff shape B, costs 227px of app content permanently) |
-| Overlay does not consume touches (item 2) | Double-actuation — our tap also hits an OEM control | Spike alongside item 1. If touches leak, disabling `com.syu.air` is the only fix, which violates design rule 6 and must be re-decided |
+| Overlay does not consume touches (item 2) | Double-actuation — our tap also hits an OEM control | Spike alongside item 1. If touches leak, disabling `com.syu.air` is the only fix — verified clean and climate survives it (wiki p3), but it violates design rule 6 and must be re-decided. Item 12 measures its cost in the same session |
+| Our service dies with `com.syu.air` disabled | **No climate control at all** in a vehicle with no physical HVAC controls; module holds last state | The reason design rule 6 exists. Recovery needs two adb commands and cannot be done from the unit itself, so v1 keeps `com.syu.air` running |
 | `U_TEMP_OUT` packing undecodable | Adaptive slot loses its premise | Pin the slot to `SEAT_HEAT`; geometry unchanged. Frame stream (7/1019) is a later avenue |
 | Service killed by the system | Bar disappears | `com.syu.air` still running underneath, so climate control is never lost (design rule 6). This is the reason for rule 6 |
 | Compose overlay lifecycle quirks | Panel fails to attach or leaks | Single shared `ComposeOverlayHost`; exercised on the AVD before hardware |
