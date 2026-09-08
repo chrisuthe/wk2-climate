@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:#f0eee9;font-family:Manrope,system-ui,sans-serif}a{color:#1a1a1a}a:hover{color:#7a5a12}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px 'IBM Plex Mono',monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 Manrope,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 Manrope,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:oklch(0.62 0.13 75);color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 Manrope,sans-serif;color:rgba(0,0,0,.5)}.dv-sub{font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:rgba(0,0,0,.4);margin:26px 0 14px}</style></helmet>
+
+<section id="brief" style="padding:44px 44px 38px;border-bottom:1px solid rgba(0,0,0,.08);max-width:1180px">
+  <div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:oklch(0.55 0.13 75)">FYT / SYU UIS7870 · Jeep Grand Cherokee WK2</div>
+  <h1 style="font:800 34px/1.15 Manrope,sans-serif;color:#141414;margin:12px 0 0;letter-spacing:-0.02em">System Navigation</h1>
+  <p style="font:400 15px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.62);margin:10px 0 0;max-width:640px;text-wrap:pretty">Replacement for the OEM <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">com.syu.air</span> bottom bar, plus the full-page climate view behind it. Everything below is drawn at native device pixels — the panel is 160&nbsp;dpi, so px = dp.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;background:transparent;margin:28px 0 0">
+    <div style="background:#fff;padding:16px 18px;border:1px solid rgba(0,0,0,.1);border-radius:8px"><div style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.45);text-transform:uppercase">Panel</div><div style="font:700 20px/1.2 Manrope,sans-serif;color:#141414;margin-top:7px">1080 × 1920</div><div style="font:400 12px/1.4 Manrope,sans-serif;color:rgba(0,0,0,.5);margin-top:3px">13.6" vertical, 160 dpi</div></div>
+    <div style="background:#fff;padding:16px 18px;border:1px solid rgba(0,0,0,.1);border-radius:8px"><div style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.45);text-transform:uppercase">Bar, at rest</div><div style="font:700 20px/1.2 Manrope,sans-serif;color:#141414;margin-top:7px">1080 × 227</div><div style="font:400 12px/1.4 Manrope,sans-serif;color:rgba(0,0,0,.5);margin-top:3px">framework <span style="font-family:'IBM Plex Mono',monospace">navigation_bar_height</span></div></div>
+    <div style="background:#fff;padding:16px 18px;border:1px solid rgba(0,0,0,.1);border-radius:8px"><div style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.45);text-transform:uppercase">Expanded</div><div style="font:700 20px/1.2 Manrope,sans-serif;color:#141414;margin-top:7px">1080 × 1693</div><div style="font:400 12px/1.4 Manrope,sans-serif;color:rgba(0,0,0,.5);margin-top:3px">covers app content while open</div></div>
+    <div style="background:#fff;padding:16px 18px;border:1px solid rgba(0,0,0,.1);border-radius:8px"><div style="font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.45);text-transform:uppercase">Min. target</div><div style="font:700 20px/1.2 Manrope,sans-serif;color:#141414;margin-top:7px">96 px</div><div style="font:400 12px/1.4 Manrope,sans-serif;color:rgba(0,0,0,.5);margin-top:3px">every tappable region in the bar</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:34px;margin:38px 0 0">
+    <div>
+      <div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:rgba(0,0,0,.4)">What we're replacing</div>
+      <div style="margin-top:14px;background:#0b0c0d;border-radius:6px;padding:10px"><img src="uploads/screens-1788891093576-5xtd.png" alt="OEM bottom bar" style="display:block;width:100%;height:auto;border-radius:3px"></div>
+      <p style="font:400 13.5px/1.65 Manrope,sans-serif;color:rgba(0,0,0,.62);margin:14px 0 0;text-wrap:pretty">Roughly 24 targets in three rows of 227 px. Nothing is bigger than about 70 px tall. Everything is the same weight, the same chrome-embossed grey, and the same size, so nothing reads first — the two temperatures you actually change are the same visual weight as the rear seat heater you touch twice a year.</p>
+    </div>
+    <div>
+      <div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:rgba(0,0,0,.4)">Design rules I'm working to</div>
+      <ol style="font:400 13.5px/1.7 Manrope,sans-serif;color:rgba(0,0,0,.68);margin:14px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:9px">
+        <li><strong>Six things in the bar, everything else one tap away.</strong> Driver temp, passenger temp, AUTO, heated wheel, volume, home/back. That's your list, and it's a third of what's there now.</li>
+        <li><strong>96 px minimum, and most targets much larger.</strong> Fewer controls is what buys the size — this is arithmetic, not styling.</li>
+        <li><strong>Direct selection, never cycling.</strong> Commands 8/9/10/11 are idempotent airflow setters, so four lit buttons replace the OEM four-step cycle.</li>
+        <li><strong>State visible without reading.</strong> Active = filled and bright; inactive = outline. Warm/cool is carried in colour and fill position, so a glance is enough.</li>
+        <li><strong>Rest at 227, expand on demand.</strong> Shape C. <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">com.syu.air</span> keeps running underneath, so the inset survives and a bug in this bar never leaves the car without climate control.</li>
+        <li><strong>Two themes.</strong> Night is the default; day raises luminance without changing layout, so muscle memory holds.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div style="margin:34px 0 0;padding:18px 20px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;max-width:760px">
+    <div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:rgba(0,0,0,.4)">Where the research lands</div>
+    <p style="font:400 13.5px/1.65 Manrope,sans-serif;color:rgba(0,0,0,.65);margin:11px 0 0;text-wrap:pretty">The direction of travel in production cars is away from what this unit does. Euro NCAP starts penalising touchscreen-only essential controls in 2026; comparison testing has task times going from about 10 seconds on a physical-knob Volvo to 23–30 seconds on Tesla and BMW touch UIs. You have no physical HVAC controls to fall back on, so the touch UI has to do the work of a knob: large targets in fixed positions, absolute rather than relative input, and no menu to enter. That is why every option below keeps both temperatures permanently on screen and never nests them.</p>
+  </div>
+
+  <p style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.42);margin:22px 0 0;max-width:760px">Icons here are deliberately primitive placeholders and the text labels are doing the work. Once you pick a direction I'd swap in a real icon set — or keep the labels, which for a driver is arguably the better answer.</p>
+</section>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Bar that reacts to outside temperature &#8212; built on <a class="dv-oid" href="#1a">1a</a></span></div>
+  <div class="dv-opts">
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>One adaptive slot &#8212; geometry never moves, three states shown</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:156px 768px 156px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:28px;height:28px;border:2.5px solid #f4f4f3;border-radius:5px"></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">HOME</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:300 32px/1 Manrope,sans-serif;margin-top:-4px">&#8249;</div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">BACK</div></div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 1fr">
+            <div style="display:grid;grid-template-columns:210px 200px 174px 184px;border-bottom:1px solid rgba(255,255,255,.09)">
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-right:1px solid rgba(255,255,255,.09)"><div style="width:19px;height:19px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">WHEEL</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-right:1px solid rgba(255,255,255,.09)"><span style="font:800 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">SEAT HEAT</span><span style="font:800 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.4)">OFF</span></div>
+              <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.78 0.15 75);color:#141414;font:800 19px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-left:1px solid rgba(255,255,255,.09)"><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em">CLIMATE</span><span style="font:400 13px/1 Manrope,sans-serif;color:rgba(244,244,243,.55)">&#9650;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">DRIVER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+              <div style="background:rgba(255,255,255,.09)"></div>
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">PASSENGER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 35px 96px;border-left:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.05)"><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">VOL</span><span style="font:700 17px/1 Manrope,sans-serif">10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+        <div style="padding:7px 20px;background:#141618;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.45);border-top:1px solid rgba(255,255,255,.06)">41&#176;F &#183; COOL &#8212; SLOT HOLDS SEAT HEAT</div>
+
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:156px 768px 156px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:28px;height:28px;border:2.5px solid #f4f4f3;border-radius:5px"></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">HOME</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:300 32px/1 Manrope,sans-serif;margin-top:-4px">&#8249;</div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">BACK</div></div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 1fr">
+            <div style="display:grid;grid-template-columns:210px 200px 174px 184px;border-bottom:1px solid rgba(255,255,255,.09)">
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-right:1px solid rgba(255,255,255,.09)"><div style="width:19px;height:19px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">WHEEL</span></div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;box-sizing:border-box;border-right:4px solid #0b0c0d;background:oklch(0.78 0.15 75);color:#141414"><img src="icons/light/defrost.png" alt="" style="height:34px;width:auto;display:block"><span style="font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em">DEFROST</span></div>
+              <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.78 0.15 75);color:#141414;font:800 19px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-left:1px solid rgba(255,255,255,.09)"><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em">CLIMATE</span><span style="font:400 13px/1 Manrope,sans-serif;color:rgba(244,244,243,.55)">&#9650;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">DRIVER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+              <div style="background:rgba(255,255,255,.09)"></div>
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">PASSENGER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 35px 96px;border-left:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.05)"><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">VOL</span><span style="font:700 17px/1 Manrope,sans-serif">10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+        <div style="padding:7px 20px;background:#141618;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.45);border-top:1px solid rgba(255,255,255,.06)">28&#176;F &#183; BELOW FREEZING &#8212; DEFROST OUTRANKS COMFORT, SLOT HOLDS FRONT DEFROST</div>
+
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:156px 768px 156px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:28px;height:28px;border:2.5px solid #f4f4f3;border-radius:5px"></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">HOME</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:300 32px/1 Manrope,sans-serif;margin-top:-4px">&#8249;</div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">BACK</div></div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 1fr">
+            <div style="display:grid;grid-template-columns:210px 200px 174px 184px;border-bottom:1px solid rgba(255,255,255,.09)">
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-right:1px solid rgba(255,255,255,.09)"><div style="width:19px;height:19px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">WHEEL</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-right:1px solid rgba(255,255,255,.09)"><span style="font:800 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:oklch(0.82 0.09 235)">SEAT COOL</span><span style="font:800 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.4)">OFF</span></div>
+              <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.78 0.15 75);color:#141414;font:800 19px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-left:1px solid rgba(255,255,255,.09)"><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em">CLIMATE</span><span style="font:400 13px/1 Manrope,sans-serif;color:rgba(244,244,243,.55)">&#9650;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">DRIVER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+              <div style="background:rgba(255,255,255,.09)"></div>
+              <div style="display:grid;grid-template-columns:100px 1fr 100px">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 48px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:24px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">PASSENGER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 35px 96px;border-left:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.05)"><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">VOL</span><span style="font:700 17px/1 Manrope,sans-serif">10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+        <div style="padding:7px 20px;background:#141618;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.45);border-top:1px solid rgba(255,255,255,.06)">94&#176;F &#183; HOT &#8212; SLOT FLIPS TO SEAT COOL</div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%;display:flex;flex-direction:column;gap:8px">
+        <div><strong>The rule:</strong> outside temperature can change <em>what one 200&nbsp;&times;&nbsp;96 slot contains</em>, and nothing else. It holds the seat control you’re actually going to want &#8212; seat heat when it’s cool out, seat cooling when it’s hot &#8212; and yields to front defrost below freezing, where clearing the glass outranks comfort. Every other control stays at the same coordinates at 28&deg;F and 94&deg;F, so nothing you reach for by feel ever moves. That's the constraint that makes this safe rather than clever — a bar that rearranges itself is a bar you have to read every time.</div>
+        <div>Reading outside temp is free: it's already on the bus you're subscribed to, alongside the <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px">U_AIR_*</span> codes. The bar no longer prints the number — that lives elsewhere on screen — it just spends it, and the reclaimed width goes to the heated wheel as a permanent control. Note this also fixed <a class="dv-oid" href="#1a">1a</a>'s one real flaw — its top pills were 56&nbsp;px tall, under your 96&nbsp;px floor. Here that whole row is 96&nbsp;px.</div>
+        <div><strong>Two things to decide:</strong> whether the slot ever hands you a control that exists <em>nowhere else</em> in the bar (I say no — it must always be a shortcut, never the only route), and whether the slot should also react to what the vehicle is doing rather than just ambient temperature, e.g. defrost promoted when the windshield is actually fogging rather than at a fixed 32&deg;F threshold.</div>
+      </div>
+    </div>
+  </div>
+  <p class="dv-next">Try next: "put the adaptive slot into <a class="dv-oid" href="#1c">1c</a> instead" · "make <a class="dv-oid" href="#2a">2a</a> tappable so I can feel the thresholds"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Bottom bar at rest — three layouts, night and day</span></div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Thumb rail — steppers, by the book</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:168px 1fr 168px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:30px;height:30px;border:2.5px solid #f4f4f3;border-radius:5px"></div><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">HOME</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><div style="font:300 34px/1 Manrope,sans-serif;color:#f4f4f3;margin-top:-4px">&#8249;</div><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.7)">BACK</div></div>
+          </div>
+          <div style="display:grid;grid-template-rows:76px 1fr">
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.09)">
+              <div style="flex:1;height:56px;border-radius:28px;background:oklch(0.78 0.15 75);color:#141414;display:flex;align-items:center;justify-content:center;font:800 19px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+              <div style="flex:1;height:56px;border-radius:28px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;gap:9px"><div style="width:19px;height:19px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 17px/1 Manrope,sans-serif;letter-spacing:.04em;color:#f4f4f3">WHEEL</span></div>
+              <div style="flex:1.2;height:56px;border-radius:28px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;gap:10px"><span style="font:700 17px/1 Manrope,sans-serif;letter-spacing:.04em;color:#f4f4f3">CLIMATE</span><span style="font:400 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.6)">&#9650;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="display:grid;grid-template-columns:112px 1fr 112px;align-items:stretch">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 52px/1 Manrope,sans-serif;letter-spacing:-0.03em;color:#f4f4f3">68<span style="font-size:26px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">DRIVER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+              <div style="background:rgba(255,255,255,.09)"></div>
+              <div style="display:grid;grid-template-columns:112px 1fr 112px;align-items:stretch">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 52px/1 Manrope,sans-serif;letter-spacing:-0.03em;color:#f4f4f3">70<span style="font-size:26px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.45)">PASSENGER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35)">+</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 35px 96px;border-left:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 26px/1 Manrope,sans-serif;color:#f4f4f3">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:7px;background:rgba(255,255,255,.05)"><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">VOL</span><span style="font:700 18px/1 Manrope,sans-serif;color:#f4f4f3">10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 26px/1 Manrope,sans-serif;color:#f4f4f3">&#9660;</div>
+          </div>
+        </div>
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:168px 1fr 168px;background:#eceae6;color:#16181a;font-family:Manrope,sans-serif;border-top:2px dashed rgba(255,255,255,.14)">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border-bottom:1px solid rgba(0,0,0,.1)"><div style="width:30px;height:30px;border:2.5px solid #16181a;border-radius:5px"></div><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.6)">HOME</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><div style="font:300 34px/1 Manrope,sans-serif;margin-top:-4px">&#8249;</div><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(0,0,0,.6)">BACK</div></div>
+          </div>
+          <div style="display:grid;grid-template-rows:76px 1fr">
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.1)">
+              <div style="flex:1;height:56px;border-radius:28px;background:oklch(0.62 0.13 75);color:#fff;display:flex;align-items:center;justify-content:center;font:800 19px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+              <div style="flex:1;height:56px;border-radius:28px;border:1.5px solid rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;gap:9px"><div style="width:19px;height:19px;border:2.5px solid oklch(0.55 0.16 35);border-radius:50%"></div><span style="font:700 17px/1 Manrope,sans-serif;letter-spacing:.04em">WHEEL</span></div>
+              <div style="flex:1.2;height:56px;border-radius:28px;border:1.5px solid rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;gap:10px"><span style="font:700 17px/1 Manrope,sans-serif;letter-spacing:.04em">CLIMATE</span><span style="font:400 15px/1 Manrope,sans-serif;color:rgba(0,0,0,.55)">&#9650;</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="display:grid;grid-template-columns:112px 1fr 112px;align-items:stretch">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.52 0.14 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 52px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:26px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.5)">DRIVER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.55 0.16 35)">+</div>
+              </div>
+              <div style="background:rgba(0,0,0,.1)"></div>
+              <div style="display:grid;grid-template-columns:112px 1fr 112px;align-items:stretch">
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.52 0.14 235)">&#8722;</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:700 52px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:26px;vertical-align:top;line-height:1.1">&#176;</span></div><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.5)">PASSENGER</div></div>
+                <div style="display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;color:oklch(0.55 0.16 35)">+</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:96px 35px 96px;border-left:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 26px/1 Manrope,sans-serif">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:7px;background:rgba(0,0,0,.05)"><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(0,0,0,.5)">VOL</span><span style="font:700 18px/1 Manrope,sans-serif">10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 26px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%">Closest to what's there now, so it needs no learning. Smallest target is 168&nbsp;×&nbsp;113 (nav) and the temp steppers are 112&nbsp;×&nbsp;151 each — roughly four times the OEM area. AUTO is the only lit chip at rest, so the bar has exactly one bright thing on it.</div>
+    </div>
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Zone cards — the temperature is the button</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:120px 320px 200px 320px 120px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:28px;height:28px;border:2.5px solid #f4f4f3;border-radius:5px"></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 38px/1 Manrope,sans-serif">&#8249;</div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235);border-right:1px solid rgba(255,255,255,.07)">&#8722;</div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.5)">DRIVER</div><div style="font:800 62px/1 Manrope,sans-serif;letter-spacing:-0.04em">68<span style="font-size:28px;vertical-align:top;line-height:1.2">&#176;</span></div><div style="width:104px;height:5px;border-radius:3px;background:linear-gradient(90deg,oklch(0.72 0.12 235),oklch(0.68 0.16 35));position:relative"><div style="position:absolute;left:38%;top:-3px;width:11px;height:11px;border-radius:50%;background:#f4f4f3"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35);border-left:1px solid rgba(255,255,255,.07)">+</div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.78 0.15 75);color:#141414;font:800 21px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-top:1px solid rgba(255,255,255,.09)"><div style="width:20px;height:20px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">WHEEL</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))">
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.72 0.12 235);border-right:1px solid rgba(255,255,255,.07)">&#8722;</div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.5)">PASSENGER</div><div style="font:800 62px/1 Manrope,sans-serif;letter-spacing:-0.04em">70<span style="font-size:28px;vertical-align:top;line-height:1.2">&#176;</span></div><div style="width:104px;height:5px;border-radius:3px;background:linear-gradient(90deg,oklch(0.72 0.12 235),oklch(0.68 0.16 35));position:relative"><div style="position:absolute;left:48%;top:-3px;width:11px;height:11px;border-radius:50%;background:#f4f4f3"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.68 0.16 35);border-left:1px solid rgba(255,255,255,.07)">+</div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-left:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif;border-bottom:1px solid rgba(255,255,255,.09)">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:120px 320px 200px 320px 120px;background:#eceae6;color:#16181a;font-family:Manrope,sans-serif;border-top:2px dashed rgba(255,255,255,.14)">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(0,0,0,.1)"><div style="width:28px;height:28px;border:2.5px solid #16181a;border-radius:5px"></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 38px/1 Manrope,sans-serif">&#8249;</div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;background:#fff;border-right:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.52 0.14 235);border-right:1px solid rgba(0,0,0,.08)">&#8722;</div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.5)">DRIVER</div><div style="font:800 62px/1 Manrope,sans-serif;letter-spacing:-0.04em">68<span style="font-size:28px;vertical-align:top;line-height:1.2">&#176;</span></div><div style="width:104px;height:5px;border-radius:3px;background:linear-gradient(90deg,oklch(0.52 0.14 235),oklch(0.55 0.16 35));position:relative"><div style="position:absolute;left:38%;top:-3px;width:11px;height:11px;border-radius:50%;background:#16181a"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.55 0.16 35);border-left:1px solid rgba(0,0,0,.08)">+</div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.62 0.13 75);color:#fff;font:800 21px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-top:1px solid rgba(0,0,0,.1)"><div style="width:20px;height:20px;border:2.5px solid oklch(0.55 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em">WHEEL</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;background:#fff">
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.52 0.14 235);border-right:1px solid rgba(0,0,0,.08)">&#8722;</div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.5)">PASSENGER</div><div style="font:800 62px/1 Manrope,sans-serif;letter-spacing:-0.04em">70<span style="font-size:28px;vertical-align:top;line-height:1.2">&#176;</span></div><div style="width:104px;height:5px;border-radius:3px;background:linear-gradient(90deg,oklch(0.52 0.14 235),oklch(0.55 0.16 35));position:relative"><div style="position:absolute;left:48%;top:-3px;width:11px;height:11px;border-radius:50%;background:#16181a"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:center;font:300 40px/1 Manrope,sans-serif;color:oklch(0.55 0.16 35);border-left:1px solid rgba(0,0,0,.08)">+</div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-left:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif;border-bottom:1px solid rgba(0,0,0,.1)">&#9650;</div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 24px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%">Each zone is a raised card: ± at the edges (80&nbsp;×&nbsp;227, edge-anchored so you can find them by feel), and the 160&nbsp;×&nbsp;227 middle opens that zone's page. No separate CLIMATE button — the thing you want to adjust is the way in. The small warm/cool bar under each numeral is where in the range you sit, readable without reading the number.</div>
+    </div>
+
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Drag tracks — absolute input, no counting presses</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:200px 580px 300px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.78 0.15 75);color:#141414;font:800 22px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-top:1px solid rgba(255,255,255,.09)"><div style="width:20px;height:20px;border:2.5px solid oklch(0.68 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">WHEEL</span></div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(255,255,255,.09)">
+            <div style="position:relative;display:flex;align-items:center;padding:0 20px;gap:16px;border-bottom:1px solid rgba(255,255,255,.09);overflow:hidden">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:38%;background:linear-gradient(90deg,oklch(0.45 0.09 235 / .25),oklch(0.6 0.13 235 / .55))"></div>
+              <div style="position:absolute;left:38%;top:0;bottom:0;width:3px;background:#f4f4f3"></div>
+              <div style="position:relative;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.6);width:74px">DRIVER</div>
+              <div style="position:relative;font:800 46px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:22px;vertical-align:top;line-height:1.2">&#176;F</span></div>
+              <div style="position:relative;margin-left:auto;font:500 12px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.35)">60 &#8212; 85</div>
+            </div>
+            <div style="position:relative;display:flex;align-items:center;padding:0 20px;gap:16px;overflow:hidden">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:48%;background:linear-gradient(90deg,oklch(0.45 0.09 235 / .2),oklch(0.62 0.13 120 / .45))"></div>
+              <div style="position:absolute;left:48%;top:0;bottom:0;width:3px;background:#f4f4f3"></div>
+              <div style="position:relative;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(244,244,243,.6);width:74px">PASS</div>
+              <div style="position:relative;font:800 46px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:22px;vertical-align:top;line-height:1.2">&#176;F</span></div>
+              <div style="position:relative;margin-left:auto;font:500 12px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.35)">60 &#8212; 85</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr">
+            <div style="display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)"><div style="width:28px;height:28px;border:2.5px solid #f4f4f3;border-radius:5px"></div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.09)"><span style="font:400 22px/1 Manrope,sans-serif">&#9650;</span><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">VOL 10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(255,255,255,.09);font:300 38px/1 Manrope,sans-serif">&#8249;</div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 22px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+        <div style="width:1080px;height:227px;display:grid;grid-template-columns:200px 580px 300px;background:#eceae6;color:#16181a;font-family:Manrope,sans-serif;border-top:2px dashed rgba(255,255,255,.14)">
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(0,0,0,.1)">
+            <div style="display:flex;align-items:center;justify-content:center;background:oklch(0.62 0.13 75);color:#fff;font:800 22px/1 Manrope,sans-serif;letter-spacing:.06em">AUTO</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:9px;border-top:1px solid rgba(0,0,0,.1)"><div style="width:20px;height:20px;border:2.5px solid oklch(0.55 0.16 35);border-radius:50%"></div><span style="font:700 16px/1 Manrope,sans-serif;letter-spacing:.04em">WHEEL</span></div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;border-right:1px solid rgba(0,0,0,.1);background:#fff">
+            <div style="position:relative;display:flex;align-items:center;padding:0 20px;gap:16px;border-bottom:1px solid rgba(0,0,0,.1);overflow:hidden">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:38%;background:linear-gradient(90deg,oklch(0.86 0.05 235),oklch(0.74 0.11 235))"></div>
+              <div style="position:absolute;left:38%;top:0;bottom:0;width:3px;background:#16181a"></div>
+              <div style="position:relative;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.6);width:74px">DRIVER</div>
+              <div style="position:relative;font:800 46px/1 Manrope,sans-serif;letter-spacing:-0.03em">68<span style="font-size:22px;vertical-align:top;line-height:1.2">&#176;F</span></div>
+              <div style="position:relative;margin-left:auto;font:500 12px/1 'IBM Plex Mono',monospace;color:rgba(0,0,0,.35)">60 &#8212; 85</div>
+            </div>
+            <div style="position:relative;display:flex;align-items:center;padding:0 20px;gap:16px;overflow:hidden">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:48%;background:linear-gradient(90deg,oklch(0.88 0.04 235),oklch(0.8 0.1 120))"></div>
+              <div style="position:absolute;left:48%;top:0;bottom:0;width:3px;background:#16181a"></div>
+              <div style="position:relative;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;color:rgba(0,0,0,.6);width:74px">PASS</div>
+              <div style="position:relative;font:800 46px/1 Manrope,sans-serif;letter-spacing:-0.03em">70<span style="font-size:22px;vertical-align:top;line-height:1.2">&#176;F</span></div>
+              <div style="position:relative;margin-left:auto;font:500 12px/1 'IBM Plex Mono',monospace;color:rgba(0,0,0,.35)">60 &#8212; 85</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr">
+            <div style="display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(0,0,0,.1);border-bottom:1px solid rgba(0,0,0,.1)"><div style="width:28px;height:28px;border:2.5px solid #16181a;border-radius:5px"></div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-bottom:1px solid rgba(0,0,0,.1)"><span style="font:400 22px/1 Manrope,sans-serif">&#9650;</span><span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(0,0,0,.5)">VOL 10</span></div>
+            <div style="display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(0,0,0,.1);font:300 38px/1 Manrope,sans-serif">&#8249;</div>
+            <div style="display:flex;align-items:center;justify-content:center;font:400 22px/1 Manrope,sans-serif">&#9660;</div>
+          </div>
+        </div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%">The knob answer. Each temperature is a 580&nbsp;×&nbsp;113 track you drag or tap anywhere along — absolute position, so 68&nbsp;&rarr;&nbsp;78 is one gesture instead of ten presses of <span style="font-family:'IBM Plex Mono',monospace">cmd(6,{1,4})</span>. The fill length is the temperature, so it reads at a glance in peripheral vision. Cost: the driver track is fill-only (cool) while the passenger's is graded — a decision to make. Swipe up anywhere on the bar expands climate; no dedicated button.</div>
+    </div>
+
+  </div>
+
+  <div class="dv-sub">Expanded climate page — 1080 × 1693, over app content</div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Stacked panel — every control addressable, no nesting</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+        <div style="width:1080px;height:1693px;background:#0b0c0d;color:#f4f4f3;font-family:Manrope,sans-serif;display:flex;flex-direction:column">
+          <div style="height:112px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;border-bottom:1px solid rgba(255,255,255,.09);flex:none">
+            <div style="display:flex;align-items:baseline;gap:14px"><span style="font:800 30px/1 Manrope,sans-serif;letter-spacing:-0.01em">Climate</span><span style="font:500 15px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.4)">CABIN 64&#176;F &#183; OUT 41&#176;F</span></div>
+            <div style="width:130px;height:96px;border-radius:26px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;gap:9px"><span style="font:400 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.6)">&#9660;</span><span style="font:700 16px/1 Manrope,sans-serif">CLOSE</span></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1px 1fr;flex:none">
+            <div style="padding:30px 34px 34px">
+              <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">DRIVER</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+                <div style="width:110px;height:110px;border-radius:20px;background:oklch(0.72 0.12 235 / .18);border:1.5px solid oklch(0.72 0.12 235 / .5);display:flex;align-items:center;justify-content:center;font:300 52px/1 Manrope,sans-serif;color:oklch(0.78 0.11 235)">&#8722;</div>
+                <div style="font:800 96px/1 Manrope,sans-serif;letter-spacing:-0.05em">68<span style="font-size:38px;vertical-align:top;line-height:1.4">&#176;</span></div>
+                <div style="width:110px;height:110px;border-radius:20px;background:oklch(0.68 0.16 35 / .18);border:1.5px solid oklch(0.68 0.16 35 / .5);display:flex;align-items:center;justify-content:center;font:300 52px/1 Manrope,sans-serif;color:oklch(0.74 0.15 35)">+</div>
+              </div>
+              <div style="height:8px;border-radius:4px;background:linear-gradient(90deg,oklch(0.6 0.13 235),oklch(0.72 0.14 35));margin-top:24px;position:relative"><div style="position:absolute;left:38%;top:-5px;width:18px;height:18px;border-radius:50%;background:#f4f4f3;border:3px solid #0b0c0d"></div></div>
+            </div>
+            <div style="background:rgba(255,255,255,.09)"></div>
+            <div style="padding:30px 34px 34px">
+              <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">PASSENGER</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+                <div style="width:110px;height:110px;border-radius:20px;background:oklch(0.72 0.12 235 / .18);border:1.5px solid oklch(0.72 0.12 235 / .5);display:flex;align-items:center;justify-content:center;font:300 52px/1 Manrope,sans-serif;color:oklch(0.78 0.11 235)">&#8722;</div>
+                <div style="font:800 96px/1 Manrope,sans-serif;letter-spacing:-0.05em">70<span style="font-size:38px;vertical-align:top;line-height:1.4">&#176;</span></div>
+                <div style="width:110px;height:110px;border-radius:20px;background:oklch(0.68 0.16 35 / .18);border:1.5px solid oklch(0.68 0.16 35 / .5);display:flex;align-items:center;justify-content:center;font:300 52px/1 Manrope,sans-serif;color:oklch(0.74 0.15 35)">+</div>
+              </div>
+              <div style="height:8px;border-radius:4px;background:linear-gradient(90deg,oklch(0.6 0.13 235),oklch(0.72 0.14 35));margin-top:24px;position:relative"><div style="position:absolute;left:48%;top:-5px;width:18px;height:18px;border-radius:50%;background:#f4f4f3;border:3px solid #0b0c0d"></div></div>
+            </div>
+          </div>
+
+          <div style="padding:20px 34px 24px;border-top:1px solid rgba(255,255,255,.09);flex:none">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">FAN</div><div style="font:700 20px/1 Manrope,sans-serif">7 <span style="font-weight:500;font-size:14px;color:rgba(244,244,243,.4)">/ 15</span></div></div>
+            <div style="display:flex;align-items:stretch;gap:14px;margin-top:16px">
+              <div style="width:104px;height:96px;border-radius:18px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;font:300 46px/1 Manrope,sans-serif;flex:none">&#8722;</div>
+              <div style="flex:1;height:96px;border-radius:18px;background:rgba(255,255,255,.05);display:flex;align-items:flex-end;gap:6px;padding:14px 16px">
+                <div style="flex:1;height:26%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:31%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:37%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:43%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:49%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:55%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:61%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:67%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:73%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:79%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:85%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:100%;border-radius:3px;background:rgba(255,255,255,.13)"></div>
+              </div>
+              <div style="width:104px;height:96px;border-radius:18px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;flex:none">+</div>
+            </div>
+          </div>
+
+          <div style="padding:20px 34px 24px;border-top:1px solid rgba(255,255,255,.09);flex:none">
+            <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">AIRFLOW &#8212; four modes, direct</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px">
+              <div style="height:136px;border-radius:18px;background:oklch(0.78 0.15 75);color:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="display:flex"><img src="icons/light/face.png" alt="" style="height:76px;width:auto;display:block"></div></div>
+              <div style="height:136px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="display:flex"><img src="icons/dark/face-feet.png" alt="" style="height:76px;width:auto;display:block"></div></div>
+              <div style="height:136px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="display:flex"><img src="icons/dark/feet.png" alt="" style="height:76px;width:auto;display:block"></div></div>
+              <div style="height:136px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="display:flex"><img src="icons/dark/feet-glass.png" alt="" style="height:86px;width:auto;display:block"></div></div>
+            </div>
+          </div>
+
+          <div style="padding:20px 34px 24px;border-top:1px solid rgba(255,255,255,.09);flex:none">
+            <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">MODE</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px">
+              <div style="height:104px;border-radius:18px;background:oklch(0.78 0.15 75);color:#141414;display:flex;align-items:center;justify-content:center;font:800 19px/1 Manrope,sans-serif;letter-spacing:.05em">AUTO</div>
+              <div style="height:104px;border-radius:18px;background:oklch(0.72 0.12 235);color:#0b0c0d;display:flex;align-items:center;justify-content:center;font:800 19px/1 Manrope,sans-serif;letter-spacing:.05em">A/C</div>
+              <div style="height:104px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 17px/1 Manrope,sans-serif;letter-spacing:.05em;color:rgba(244,244,243,.8)"><span style="display:flex;margin-right:10px"><img src="icons/dark/recirc.png" alt="" style="height:26px;width:auto;display:block"></span>RECIRC</div>
+              <div style="height:104px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 17px/1 Manrope,sans-serif;letter-spacing:.05em;color:rgba(244,244,243,.8)">MAX A/C</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">
+              <div style="height:104px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:10px"><span style="display:flex"><img src="icons/dark/defrost.png" alt="" style="height:44px;width:auto;display:block"></span><span style="font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">FRONT DEF</span></div>
+              <div style="height:104px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:10px"><span style="color:rgba(244,244,243,.8);display:flex"><svg width="50" height="44" viewBox="0 0 36 32" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="28" height="22" rx="3.5"/><path d="M11 24 c -3 -3.2 3 -4.8 0 -8"/><path d="M18 24 c -3 -3.2 3 -4.8 0 -8"/><path d="M25 24 c -3 -3.2 3 -4.8 0 -8"/></svg></span><span style="font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.85)">REAR DEF</span></div>
+              <div style="height:104px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:10px"><span style="font:800 17px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.85)">SYNC</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.4)">DUAL</span></div>
+            </div>
+          </div>
+
+          <div style="padding:20px 34px 24px;border-top:1px solid rgba(255,255,255,.09);flex:none">
+            <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">COMFORT</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">
+              <div style="height:96px;border-radius:18px;background:rgba(255,255,255,.05);border:1.5px solid oklch(0.68 0.16 35 / .5);padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.04em">SEAT HEAT &#183; L</div>
+                <div style="display:flex;align-items:center;gap:14px"><div style="display:flex;gap:8px;flex:1"><div style="flex:1;height:14px;border-radius:7px;background:oklch(0.68 0.16 35)"></div><div style="flex:1;height:14px;border-radius:7px;background:oklch(0.68 0.16 35)"></div></div><span style="font:800 13px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:oklch(0.78 0.14 35)">HIGH</span></div>
+              </div>
+              <div style="height:96px;border-radius:18px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.14);padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.8)">SEAT HEAT &#183; R</div>
+                <div style="display:flex;align-items:center;gap:14px"><div style="display:flex;gap:8px;flex:1"><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div></div><span style="font:800 13px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.4)">OFF</span></div>
+              </div>
+              <div style="height:96px;border-radius:18px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.14);padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.8)">SEAT COOL &#183; L</div>
+                <div style="display:flex;align-items:center;gap:14px"><div style="display:flex;gap:8px;flex:1"><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div></div><span style="font:800 13px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.4)">OFF</span></div>
+              </div>
+              <div style="height:96px;border-radius:18px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.14);padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.8)">SEAT COOL &#183; R</div>
+                <div style="display:flex;align-items:center;gap:14px"><div style="display:flex;gap:8px;flex:1"><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:14px;border-radius:7px;background:rgba(255,255,255,.13)"></div></div><span style="font:800 13px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.4)">OFF</span></div>
+              </div>
+            </div>
+            <div style="height:96px;border-radius:18px;border:1.5px solid oklch(0.68 0.16 35 / .5);background:oklch(0.68 0.16 35 / .12);margin-top:14px;display:flex;align-items:center;justify-content:center;gap:14px"><div style="width:26px;height:26px;border:3px solid oklch(0.74 0.15 35);border-radius:50%"></div><span style="font:800 18px/1 Manrope,sans-serif;letter-spacing:.05em">HEATED STEERING WHEEL</span></div>
+          </div>
+
+          <div style="margin-top:auto;padding:22px 34px;border-top:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:space-between;flex:none">
+            <div style="font:400 13px/1.45 Manrope,sans-serif;color:rgba(244,244,243,.4);max-width:640px">Climate power sits behind a press-and-hold. There are no physical HVAC controls in this vehicle, so a stray tap on <span style="font-family:'IBM Plex Mono',monospace">N=16</span> leaves the cabin with no way back.</div>
+            <div style="width:180px;height:96px;border-radius:26px;border:1.5px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:16px;height:16px;border-radius:50%;background:rgba(244,244,243,.35)"></div><span style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.6)">HOLD &#183; OFF</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%">Twenty-two controls, all one tap, nothing behind a submenu — which is the whole point of having 1693 px to spend. Grouped by how often you touch them: temperature, fan, airflow, mode, comfort, and the destructive one fenced off at the bottom. SYNC now sits with the defrosts instead of as a small pill on the passenger zone, so every target on the page is at least 96 px tall — the same floor as the bar.</div>
+    </div>
+
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Cabin plan — spatial, touch the seat you mean</div>
+      <div class="dv-card" style="width:1080px;background:#0b0c0d;border-color:rgba(255,255,255,.1)">
+        <div style="width:1080px;height:1693px;background:radial-gradient(120% 60% at 50% 0%,#15181b,#0a0b0c 70%);color:#f4f4f3;font-family:Manrope,sans-serif;display:flex;flex-direction:column">
+          <div style="height:112px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;border-bottom:1px solid rgba(255,255,255,.08);flex:none">
+            <div style="display:flex;align-items:baseline;gap:14px"><span style="font:800 30px/1 Manrope,sans-serif;letter-spacing:-0.01em">Cabin</span><span style="font:500 15px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.4)">AUTO &#183; A/C ON &#183; FAN 7</span></div>
+            <div style="width:130px;height:96px;border-radius:26px;border:1.5px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;gap:9px"><span style="font:400 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.6)">&#9660;</span><span style="font:700 16px/1 Manrope,sans-serif">CLOSE</span></div>
+          </div>
+
+          <div style="flex:none;padding:34px;position:relative">
+            <div style="position:relative;height:656px;border-radius:18px;background:rgba(255,255,255,.035);border:1.5px solid rgba(255,255,255,.1);overflow:hidden">
+              
+              <div style="box-sizing:border-box;position:absolute;left:26px;right:26px;top:22px;height:96px;border-radius:16px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.03);display:flex;align-items:center;justify-content:center;gap:14px"><span style="display:flex"><img src="icons/dark/defrost.png" alt="" style="height:48px;width:auto;display:block"></span><span style="font:800 17px/1 Manrope,sans-serif;letter-spacing:.05em;color:rgba(244,244,243,.85)">WINDSHIELD DEFROST</span><span style="font:800 13px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.4)">OFF</span></div>
+              <div style="position:absolute;left:50%;top:150px;transform:translateX(-50%);display:flex;gap:22px">
+                <div style="width:124px;height:124px;border-radius:20px;background:oklch(0.78 0.15 75);color:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="display:flex"><img src="icons/light/face.png" alt="" style="height:66px;width:auto;display:block"></span></div>
+                <div style="width:124px;height:124px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="display:flex"><img src="icons/dark/face-feet.png" alt="" style="height:66px;width:auto;display:block"></span></div>
+                <div style="width:124px;height:124px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="display:flex"><img src="icons/dark/feet.png" alt="" style="height:66px;width:auto;display:block"></span></div>
+                <div style="width:124px;height:124px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="display:flex"><img src="icons/dark/feet-glass.png" alt="" style="height:74px;width:auto;display:block"></span></div>
+              </div>
+              <div style="position:absolute;left:34px;bottom:34px;box-sizing:border-box;width:452px;height:300px;border-radius:26px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:2px solid oklch(0.78 0.15 75);padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.55)">DRIVER</span><span style="font:700 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:oklch(0.82 0.14 75)">SELECTED</span></div>
+                <div style="font:800 92px/1 Manrope,sans-serif;letter-spacing:-0.05em">68<span style="font-size:34px;vertical-align:top;line-height:1.5">&#176;F</span></div>
+                <div style="display:flex;gap:12px">
+                  <div style="flex:1;height:96px;border-radius:14px;background:oklch(0.68 0.16 35 / .16);border:1.5px solid oklch(0.68 0.16 35 / .45);display:flex;align-items:center;justify-content:center;gap:8px"><span style="font:700 13px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.9)">SEAT HEAT</span><span style="font:800 15px/1 Manrope,sans-serif;color:oklch(0.78 0.14 35)">HIGH</span></div>
+                  <div style="flex:1;height:96px;border-radius:14px;border:1.5px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;gap:8px"><span style="font:700 13px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.65)">COOL</span><span style="font:800 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.4)">OFF</span></div>
+                </div>
+              </div>
+              <div style="position:absolute;right:34px;bottom:34px;box-sizing:border-box;width:452px;height:300px;border-radius:26px;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.12);padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.55)">PASSENGER</span><span style="font:700 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:rgba(244,244,243,.35)">SYNC OFF</span></div>
+                <div style="font:800 92px/1 Manrope,sans-serif;letter-spacing:-0.05em;color:rgba(244,244,243,.85)">70<span style="font-size:34px;vertical-align:top;line-height:1.5">&#176;F</span></div>
+                <div style="display:flex;gap:12px">
+                  <div style="flex:1;height:96px;border-radius:14px;border:1.5px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;gap:8px"><span style="font:700 13px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.65)">SEAT HEAT</span><span style="font:800 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.4)">OFF</span></div>
+                  <div style="flex:1;height:96px;border-radius:14px;border:1.5px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;gap:8px"><span style="font:700 13px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.65)">COOL</span><span style="font:800 15px/1 Manrope,sans-serif;color:rgba(244,244,243,.4)">OFF</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="font:400 12.5px/1.5 Manrope,sans-serif;color:rgba(244,244,243,.35);margin-top:14px">Plan view of the cabin. Everything drawn here is tappable, positioned where the thing it controls actually is: defrost on the windshield, airflow at the vents, heat and cooling on the seat.</div>
+          </div>
+
+          <div style="padding:8px 34px 0;flex:none">
+            <div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">SELECTED ZONE &#8212; DRIVER</div>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:16px">
+              <div style="width:132px;height:132px;border-radius:22px;background:oklch(0.72 0.12 235 / .18);border:1.5px solid oklch(0.72 0.12 235 / .5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:none"><span style="font:300 46px/1 Manrope,sans-serif;color:oklch(0.78 0.11 235)">&#8722;</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">COOLER</span></div>
+              <div style="flex:1;height:132px;border-radius:22px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 22px;position:relative;overflow:hidden">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:38%;background:linear-gradient(90deg,oklch(0.5 0.1 235 / .35),oklch(0.62 0.13 235 / .5))"></div>
+                <div style="position:absolute;left:38%;top:0;bottom:0;width:4px;background:#f4f4f3"></div>
+                <div style="position:relative;display:flex;align-items:baseline;gap:14px"><span style="font:800 56px/1 Manrope,sans-serif;letter-spacing:-0.04em">68</span><span style="font:500 14px/1 'IBM Plex Mono',monospace;color:rgba(244,244,243,.4)">DRAG TO SET &#183; 60&#8212;85</span></div>
+              </div>
+              <div style="width:132px;height:132px;border-radius:22px;background:oklch(0.68 0.16 35 / .18);border:1.5px solid oklch(0.68 0.16 35 / .5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:none"><span style="font:300 42px/1 Manrope,sans-serif;color:oklch(0.74 0.15 35)">+</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:rgba(244,244,243,.5)">WARMER</span></div>
+            </div>
+          </div>
+
+          <div style="padding:26px 34px 0;flex:none">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.16em;color:rgba(244,244,243,.45)">FAN</div><div style="font:700 19px/1 Manrope,sans-serif">7 <span style="font-weight:500;font-size:13px;color:rgba(244,244,243,.4)">/ 15</span></div></div>
+            <div style="display:flex;gap:14px;margin-top:14px">
+              <div style="width:120px;height:100px;border-radius:18px;border:1.5px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font:300 42px/1 Manrope,sans-serif;flex:none">&#8722;</div>
+              <div style="flex:1;height:100px;border-radius:18px;background:rgba(255,255,255,.05);display:flex;align-items:flex-end;gap:6px;padding:14px 16px">
+                <div style="flex:1;height:26%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:31%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:37%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:43%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:49%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:55%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:61%;border-radius:3px;background:oklch(0.78 0.15 75)"></div><div style="flex:1;height:67%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:73%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:79%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:85%;border-radius:3px;background:rgba(255,255,255,.13)"></div><div style="flex:1;height:100%;border-radius:3px;background:rgba(255,255,255,.13)"></div>
+              </div>
+              <div style="width:120px;height:100px;border-radius:18px;border:1.5px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font:300 38px/1 Manrope,sans-serif;flex:none">+</div>
+            </div>
+          </div>
+
+          <div style="padding:26px 34px 0;flex:none">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+              <div style="height:100px;border-radius:18px;background:oklch(0.78 0.15 75);color:#141414;display:flex;align-items:center;justify-content:center;font:800 18px/1 Manrope,sans-serif;letter-spacing:.05em">AUTO</div>
+              <div style="height:100px;border-radius:18px;background:oklch(0.72 0.12 235);color:#0b0c0d;display:flex;align-items:center;justify-content:center;font:800 18px/1 Manrope,sans-serif;letter-spacing:.05em">A/C</div>
+              <div style="height:100px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 16px/1 Manrope,sans-serif;letter-spacing:.05em;color:rgba(244,244,243,.8)"><span style="display:flex;margin-right:10px"><img src="icons/dark/recirc.png" alt="" style="height:26px;width:auto;display:block"></span>RECIRC</div>
+              <div style="height:100px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.8)">SYNC</div>
+              <div style="height:100px;border-radius:18px;border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em;color:rgba(244,244,243,.8)">REAR DEF</div>
+              <div style="height:100px;border-radius:18px;border:1.5px solid oklch(0.68 0.16 35 / .5);background:oklch(0.68 0.16 35 / .12);display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:20px;height:20px;border:2.5px solid oklch(0.74 0.15 35);border-radius:50%"></div><span style="font:800 15px/1 Manrope,sans-serif;letter-spacing:.04em">WHEEL</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto;padding:22px 34px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;flex:none">
+            <div style="font:400 13px/1.45 Manrope,sans-serif;color:rgba(244,244,243,.4);max-width:640px">Seat heat and seat cooling live on the seat itself, so left/right can't be confused. MAX&nbsp;A/C is deliberately absent — it's a macro that fights front defrost and forces the &minus;2 sentinel.</div>
+            <div style="width:180px;height:96px;border-radius:26px;border:1.5px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:16px;height:16px;border-radius:50%;background:rgba(244,244,243,.35)"></div><span style="font:700 15px/1 Manrope,sans-serif;letter-spacing:.06em;color:rgba(244,244,243,.6)">HOLD &#183; OFF</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="font:400 12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);width:1080px;max-width:100%">Same commands, spatial instead of listed. Left/right ambiguity disappears because the control is drawn where the seat is, and the airflow buttons sit at the vents they open. Riskier: it needs a second glance the first few times, and it costs vertical space that <a class="dv-oid" href="#1d">1d</a> spends on controls.</div>
+    </div>
+
+  </div>
+
+  <p class="dv-next">Try next: "build <a class="dv-oid" href="#1c">1c</a>'s tracks into <a class="dv-oid" href="#1d">1d</a>" · "show <a class="dv-oid" href="#1b">1b</a> with real icons instead of labels" · "make <a class="dv-oid" href="#1a">1a</a> interactive so I can tap through it"</p>
+</section>
+</x-dc>
+</body>
+</html>
