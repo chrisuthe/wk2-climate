@@ -20,3 +20,5 @@ include(":design")
 include(":harness")
 
 include(":ui")
+
+include(":app")
