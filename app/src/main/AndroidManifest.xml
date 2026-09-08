@@ -1,8 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <application
-        android:label="WK2 Climate"
-        android:allowBackup="false" />
+    <!-- Required or bindService to the vendor toolkit fails SILENTLY on
+         Android 11+, even though the service is exported. -->
+    <queries>
+        <package android:name="com.syu.ms" />
+    </queries>
 
+    <application
+        android:label="@string/app_name"
+        android:allowBackup="false">
+
+        <service
+            android:name=".ClimateBarService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+    </application>
 </manifest>
