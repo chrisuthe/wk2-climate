@@ -93,7 +93,52 @@ because:
 
 **1d needs no offset trickery.** 1080x1693 is exactly the inset-reduced app area
 `[0,0][1080,1693]`, so it fills that area natively with the 227px bar visible below.
-Only 2a needs the negative-y positioning that section 11 item 1 must confirm.
+
+### Verified window parameters for 2a
+
+**MEASURED ON VEHICLE 2026-09-08 (checklist items 1 and 2 — both PASS).** The
+wiki's open question was whether a negative `y` offset could pull the bar over the
+OEM region. It is not needed: positioning from the **top** of the unrestricted
+screen works directly.
+
+```kotlin
+WindowManager.LayoutParams(
+    MATCH_PARENT, 227, TYPE_ACCESSIBILITY_OVERLAY /* 2032 */,
+    FLAG_NOT_FOCUSABLE or FLAG_LAYOUT_IN_SCREEN or FLAG_LAYOUT_NO_LIMITS,
+    PixelFormat.TRANSLUCENT
+).apply {
+    gravity = Gravity.TOP or Gravity.START
+    x = 0
+    y = 1693
+}
+```
+
+Result on device:
+
+```
+LANDED at screen (0,1693) size 1080x227  => covers [0,1693][1080,1920]
+Window #0 ... ty=2032 ... mAttrs={(0,1693)(fillx227) gr=TOP START
+           fl=NOT_FOCUSABLE LAYOUT_IN_SCREEN LAYOUT_NO_LIMITS
+```
+
+- Exactly the target region, and **`Window #0`** — topmost, above the OEM
+  `NavigationBar`.
+- `FLAG_LAYOUT_NO_LIMITS` is load-bearing. Without it, `gravity` resolves against
+  the inset-reduced frame and the window cannot enter the nav-bar region at all.
+  With `gravity = BOTTOM` it would land at 1693 and sit *above* the bar; using
+  `TOP` with an absolute `y` sidesteps that entirely.
+
+**Touches are consumed, not shared (item 2 — PASS).** Injected taps at the OEM
+A/C control (`875,1722`) and the OEM airflow button (`545,1793`) were both
+delivered to our view with correct local coordinates (`y = 29` and `y = 100`,
+i.e. `raw − 1693`), and **no `U_AIR_*` signal changed**. The OEM controls directly
+beneath did not fire. Design rule 6 is therefore fully achievable: cover
+`com.syu.air`, consume every touch, and keep it running as the safety net.
+
+**Global nav actions work (item 3 — PASS).** `GLOBAL_ACTION_HOME`,
+`GLOBAL_ACTION_BACK` and `GLOBAL_ACTION_RECENTS` all returned `true` from the
+service, and HOME/BACK were confirmed by observed focus changes, not by the
+return value alone.
 
 Compose in a raw `WindowManager` window has no lifecycle owner, so a
 `ComposeOverlayHost` (~40 lines, shared by both windows) creates the `ComposeView`
@@ -227,13 +272,29 @@ val airflow: AirflowMode = when (Triple(blowUp, blowBody, blowFoot)) {
     Triple(0, 1, 1) -> FACE_FEET
     Triple(0, 0, 1) -> FEET
     Triple(1, 0, 1) -> FEET_GLASS
+    Triple(0, 0, 0) -> NONE         // normal: AUTO owns airflow — see below
     else            -> UNKNOWN      // no tile lit — do not guess
 }
 ```
 
-`UNKNOWN` is load-bearing, not defensive padding. Command 12 is a macro and may
-leave the flags in an unnamed combination; lighting a *wrong* tile violates design
-rule 4 more badly than lighting none.
+**MEASURED 2026-09-08: `(0, 0, 0)` is the vehicle's resting state, not an edge
+case.** With `U_AIR_AUTO = 1`, all three flags read 0 — the vehicle reports no
+airflow mode at all while AUTO owns it. On the first `FAN_UP`, `AUTO` went
+`1 → 0` and `BLOW_BODY_LEFT` went `0 → 1` in the same update, i.e. leaving AUTO
+materialises a concrete airflow mode (FACE).
+
+This is why `NONE` is separated from `UNKNOWN`. They render identically — **no
+tile lit** — but they mean different things:
+
+- `NONE` is expected and correct whenever AUTO is engaged. Lighting a tile here
+  would be actively wrong: the driver has not selected a mode.
+- `UNKNOWN` is a combination we do not recognise, e.g. after the command 12
+  macro. It should be logged; `NONE` should not.
+
+Either way, lighting a *wrong* tile violates design rule 4 more badly than
+lighting none, so both fall back to the same safe rendering. The practical
+consequence for 1d: **with AUTO on, the airflow row correctly shows four
+unlit tiles.**
 
 ### What "render from bus state" gives free
 
@@ -273,29 +334,63 @@ deleted. When `WIND_LEVEL == 15` the meter renders an **AUTO** treatment — all
 bars in the accent colour, dimmed to read as not-driver-set — and the numeral is
 replaced by `AUTO`. Bar ramp heights from the handoff are re-spread across 7 bars.
 
-### 5.2 Seat heat/cool has 4 protocol states, presented as 3
+**MEASURED 2026-09-08 — confirmed.** From a baseline of `WIND_LEVEL = 15` with
+`AUTO = 1`, ten successive `FAN_UP` (command 6) commands produced:
 
-`U_AIR_SEAT_HOT_*` and `_BLOW_*` are **0–3** and cycle **downward from 3**
-(wiki p5). The handoff specifies two pips and ascending `OFF → LOW → HIGH`.
+```
+15 -> 3 -> 4 -> 5 -> 6 -> 7 -> 7 -> 7 -> 7 -> 7 -> 7
+```
 
-**Resolved:** keep the handoff's **two pips and three presented states**. Mapping:
+- **Max is 7**, and the command is **idempotent at the ceiling** — five further
+  presses produced no update at all, so the UI needs no clamping of its own.
+- The first press exited AUTO and landed on **3**, not 15 or 1. So 15 is
+  genuinely a sentinel and not a level, exactly as wiki p5 says; the fan was
+  physically at 3 while AUTO reported 15.
+- `AUTO` and `BLOW_BODY_LEFT` changed in the same update — see the airflow note
+  in section 4.
 
-| Bus | Rendered |
-|---|---|
-| 3 | HIGH |
-| 2 | HIGH |
-| 1 | LOW |
-| 0 | OFF |
+Sending command 2 (AUTO) restored `AUTO = 1`, `WIND_LEVEL = 15` and
+`BLOW_BODY_LEFT = 0` in one action, matching the pre-test baseline exactly.
 
-The descending raw cycle `0 → 3 → 2 → 1 → 0` would otherwise render as
-`OFF → HIGH → HIGH → LOW → OFF`, i.e. one tap that visibly does nothing.
-**Fix: when the current bus value is 3, a single tap sends the command twice**,
-landing on 1. Driver-visible cycle becomes `OFF → HIGH → LOW → OFF`, matching
-the design, while still rendering from bus state.
+### 5.2 Seat heat is a 3-state cycle — the handoff was right
 
-Cycle order is *inferred* from wiki p5's "cycles down from 3" and is item 5 in the
-car-session checklist. If the order differs, the double-send rule is revised —
-the presentation does not change.
+**MEASURED ON VEHICLE 2026-09-08. This section previously specified a
+double-send workaround; that was based on an inference which the measurement
+disproved. The workaround is removed — it would have been a bug.**
+
+Wiki p5 records `U_AIR_SEAT_HOT_*` as range **0–3**, cycling "downward from 3",
+from which this spec originally inferred a 4-state cycle `0 → 3 → 2 → 1 → 0`.
+
+Measured by sending command 17 five times from a known baseline of 0 and reading
+`U_AIR_SEAT_HOT_LEFT` (code 29) after each:
+
+```
+tap 1 -> 3      tap 4 -> 3
+tap 2 -> 1      tap 5 -> 1
+tap 3 -> 0
+```
+
+The actual cycle is **`0 → 3 → 1 → 0`**. **State 2 is never visited.** The range
+is 0–3, but only `{0, 1, 3}` are reachable through the cycle command.
+
+**Resolved:** the handoff's original design is exactly correct with no loss.
+
+| Bus | Rendered | Pips |
+|---|---|---|
+| 3 | HIGH | both lit |
+| 1 | LOW | one lit |
+| 0 | OFF | none lit |
+| 2 | HIGH | both lit — defensive only; unreachable via the cycle |
+
+- **Two pips, three states, no double-send.** A single command per tap.
+- Driver-visible cycle is `OFF → HIGH → LOW → OFF`, which is what the vehicle
+  natively does.
+- Value 2 is still *mapped* (to HIGH) because the cycle command is not
+  necessarily the only writer, but no code should rely on reaching it.
+
+Mutual exclusion with `SEAT_BLOW_*` was **not** exercised: seat vent was already
+0, so it never reported a change. Still modelled per section 4 — the protocol
+enforces it and we render both.
 
 ### 5.3 Cabin temperature has no signal; outside temperature is packed
 
@@ -509,61 +604,85 @@ command output to show for it.
 
 ---
 
-## 11. Car-session checklist
+## 11. Car-session results
 
-Everything answerable only by the vehicle, ordered by what it blocks. Items 5–11
-are readable from a stationary vehicle with the existing probe — one session, no
-new code.
+**Session 1: 2026-09-08.** Stationary vehicle (`vel=0.0` confirmed via the head
+unit's own GPS), `U_ACC_ON = 1`. Full 210-code baseline captured before any
+command and verified restored afterwards. A throwaway `AccessibilityService`
+(`com.wk2.spike`) provided the 2032 overlay; the existing probe provided state
+observation and command dispatch.
 
-**Blocking — the overlay spike**
+| # | Question | Result |
+|---|---|---|
+| 1 | 2032 overlay positionable over `[0,1693][1080,1920]`? | **PASS** — exact, no negative offset needed. Params in section 3 |
+| 2 | Does our overlay consume touches, or leak to `com.syu.air`? | **PASS** — fully consumed, zero leakage. Section 3 |
+| 3 | Do `GLOBAL_ACTION_HOME` / `BACK` work? | **PASS** — both, confirmed by focus change. Section 3 |
+| 4 | Decode `U_TEMP_OUT` | **PARTIAL** — value captured, needs ground truth. Below |
+| 5 | Seat heat cycle order | **ANSWERED — spec was wrong.** `0→3→1→0`, state 2 unreachable. Section 5.2 |
+| 6 | `U_AIR_ACMAX` moves on command 15 | **NOT TESTED** — requires the MAX A/C macro. Below |
+| 7 | Airflow flags after command 12 | **SUPERSEDED** — a better finding emerged without the macro. Section 4 |
+| 8 | `U_LAMPLET` polarity | **PARTIAL** — reads 0 in daylight. Needs a headlight toggle |
+| 9 | Does `VOL_HIDE_OSD` suppress the OEM OSD? | **LIKELY MOOT** — see below |
+| 10 | Are the `_RIGHT` fan/blow codes live? | **ANSWERED** — inert. Single fan, left is authoritative |
+| 11 | Fan ceiling | **ANSWERED** — max 7, clamps idempotently. Section 5.1 |
+| 12 | Does the 227px inset survive disabling `com.syu.air`? | **NOT TESTED** — and now low priority, since items 1–2 passed |
 
-1. Can a `TYPE_ACCESSIBILITY_OVERLAY` (2032) window from an `AccessibilityService`
-   be positioned over `[0,1693][1080,1920]`? Negative-y is the untested claim in
-   wiki p7. The probe's `OVERLAY` broadcast uses an Activity context, so 2032
-   needs a ~30-line throwaway service. **All of 2a depends on this.**
-2. **Does our overlay consume the touches, or do they also reach `com.syu.air`
-   underneath?** If they pass through, tapping our AUTO may also hit whatever OEM
-   control sits beneath it. Not addressed anywhere in the wiki, and as decisive as
-   item 1.
-3. Do `GLOBAL_ACTION_HOME` and `GLOBAL_ACTION_BACK` work from our service on this
-   ROM.
+### Item 4 — `U_TEMP_OUT` is packed
 
-**Blocking the adaptive slot**
+```
+MAIN U_TEMP_OUT c=40 [268437316]   =  0x10000744
+CANBUS U_EXIST_TEMP_OUT c=1012 [1] =  outside-temp sensor IS fitted
+```
 
-4. Decode `U_TEMP_OUT` (module 0, code 40). Log the full `int[]` against a known
-   outside temperature. Fallback is section 6.
+Clearly a bitfield, not a scalar. Two readings are plausible from a single
+sample and cannot be distinguished without ground truth:
 
-**Confirming assumptions this spec makes**
+- **low byte binary:** `0x44` = 68 → 68 °F
+- **low 12 bits as BCD:** `0x744` → 74.4 °F
 
-5. Seat heat cycle order — is it really `0 → 3 → 2 → 1 → 0`?
-6. `U_AIR_ACMAX = 53` moves when command 15 is sent. The pairing is inferred from
-   two tables; nothing states it.
-7. What the airflow flags read **after** command 12 — tells us whether `UNKNOWN`
-   is a real state or a theoretical one.
-8. `U_LAMPLET` (0/4) polarity and semantics — right day/night signal, and which
-   value is night.
-9. Does `VOL_HIDE_OSD` (`C_VOL` with `{-7}`) actually suppress the OEM volume OSD?
-10. Are the `_RIGHT` fan/auto/blow codes live, or is this vehicle single-fan? The
-    command table has only one fan pair (6/7) with no right variant, suggesting
-    left-only is authoritative.
-11. Fan really tops out at 7; temperature min and max in °F, and when `-2` appears.
+`0x44 = 68` is suspicious because `U_AIR_TEMP_LEFT` also read 68, which may be
+coincidence or may mean the low byte is not outside temperature at all.
 
-**Measuring the fallback, in case items 1–2 fail**
+**To resolve:** one sample paired with a known outside temperature, or two
+samples at materially different temperatures. Until then section 6's fallback
+applies (slot pins to `SEAT_HEAT`).
 
-12. With `com.syu.air` disabled (`pm disable-user --user 0 com.syu.air`):
-    does the **227px inset survive**, or is it released to apps? And does
-    SystemUI claim the vacated nav-bar slot and draw its own back/home/recents?
-    Wiki p3 confirms disabling is clean and that climate keeps working, and
-    wiki p7 implies the inset depends on `com.syu.air` holding the window — but
-    neither is measured. Compare `dumpsys window windows` app-area frames before
-    and after.
+### Item 6 — deliberately not tested
 
-    Worth measuring in the same session even though v1 keeps `com.syu.air`
-    running, because disabling it is the fallback if item 2 shows touch leakage,
-    and it may remove the need for item 1's negative-y offset entirely. Restore
-    with **both** `pm enable com.syu.air` **and**
-    `am start-service -n com.syu.air/.AirService` — `pm enable` alone leaves an
-    enabled package with no bar, since it only self-starts on `BOOT_COMPLETED`.
+Requires command 15 (MAX A/C), a macro that forces temperatures to the `-2`
+sentinel and toggles against command 12; wiki p6 records that unwinding it
+through `cmd()` takes several rounds. `U_AIR_ACMAX = 53` exists and reads 0, so
+the code is live. Left for a session where restoring state by tap injection on
+the OEM UI is acceptable.
+
+### Item 9 — probably unnecessary
+
+`C_VOL` writes work: `{-1}` moved `U_VOL` 10 → 11, `{-2}` returned it to 10.
+But `U_IS_VOLUI_SHOW` (SOUND code 25 — a read code not previously in this spec)
+stayed at 0 throughout, meaning the OEM volume OSD **never appeared** for a
+bus-driven volume change. If that holds, `VOL_HIDE_OSD` is redundant. Keep the
+command defined; do not rely on needing it. Worth one visual confirmation, since
+"never fired" only proves "never changed".
+
+### Incidental findings worth keeping
+
+| Finding | Why it matters |
+|---|---|
+| `U_AIR_SYNC = 1` while `U_AIR_DUAL = 0` | Confirms wiki p5's "label that lies" on live hardware |
+| `U_AIR_REAR_TEMP_LEFT = -2` | The `-2` sentinel also means **unavailable** on unfitted hardware, not only LO. Section 4's sentinel rule covers both |
+| `U_AIR_TEMP_UNIT = 1` | Fahrenheit confirmed |
+| `U_EXIST_AIR = 1`, `U_EXIST_TEMP_OUT = 1`, `U_EXIST_AIR_CONTROL = 0` | Capability flags usable to drive section 7's omit-absent-hardware rule |
+| `U_HANDBRAKE = 1` fired | Wiki p10 records it as never firing. It does |
+| `U_BRIGHT_LEVEL_DAY = 100`, `_NIGHT = 0` | Useful alongside `U_LAMPLET` for the theme signal |
+| `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
+
+### Remaining for session 2
+
+- Item 4: outside temperature ground truth (**blocks the adaptive slot**).
+- Item 8: toggle headlights, observe `U_LAMPLET`.
+- Item 9: one screenshot during a bus-driven volume change.
+- Item 6: only if a macro-recovery session is acceptable.
+- Item 12: optional now that items 1–2 passed.
 
 ### Safety
 
@@ -574,16 +693,21 @@ Commands **12** and **15** toggle into each other and take several rounds to
 unwind through `cmd()`; tap injection on the OEM airflow button
 (`input tap 545 1793`) clears the state in one action.
 
+Restoring `com.syu.air` after a disable needs **both** `pm enable com.syu.air`
+**and** `am start-service -n com.syu.air/.AirService` — `pm enable` alone leaves
+an enabled package with no bar, since it only self-starts on `BOOT_COMPLETED`.
+
 ---
 
 ## 12. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| 2032 cannot be positioned over the nav-bar region (item 1) | 2a cannot sit where the design puts it | Spike first, before any window code. Fallbacks: 2038 with the same offset; or rest 2a in the app area above the OEM bar (handoff shape B, costs 227px of app content permanently) |
-| Overlay does not consume touches (item 2) | Double-actuation — our tap also hits an OEM control | Spike alongside item 1. If touches leak, disabling `com.syu.air` is the only fix — verified clean and climate survives it (wiki p3), but it violates design rule 6 and must be re-decided. Item 12 measures its cost in the same session |
-| Our service dies with `com.syu.air` disabled | **No climate control at all** in a vehicle with no physical HVAC controls; module holds last state | The reason design rule 6 exists. Recovery needs two adb commands and cannot be done from the unit itself, so v1 keeps `com.syu.air` running |
-| `U_TEMP_OUT` packing undecodable | Adaptive slot loses its premise | Pin the slot to `SEAT_HEAT`; geometry unchanged. Frame stream (7/1019) is a later avenue |
+| ~~2032 cannot be positioned over the nav-bar region~~ | — | **RETIRED 2026-09-08** — measured working. Section 3 |
+| ~~Overlay does not consume touches~~ | — | **RETIRED 2026-09-08** — measured fully consumed, zero leakage. Section 3 |
+| Our service dies while `com.syu.air` is disabled | **No climate control at all** in a vehicle with no physical HVAC controls; module holds last state | The reason design rule 6 exists. Since items 1–2 passed, we never need to disable it — v1 keeps it running and simply covers it |
+| `U_TEMP_OUT` packing undecodable | Adaptive slot loses its premise | **The one remaining blocker.** Pin the slot to `SEAT_HEAT`; geometry unchanged. Frame stream (7/1019) is a later avenue |
+| The accessibility service is disabled by the user or an OS update | Bar disappears | `com.syu.air` still underneath and functional, so climate is never lost. Detect and prompt on next app launch |
 | Service killed by the system | Bar disappears | `com.syu.air` still running underneath, so climate control is never lost (design rule 6). This is the reason for rule 6 |
 | Compose overlay lifecycle quirks | Panel fails to attach or leaks | Single shared `ComposeOverlayHost`; exercised on the AVD before hardware |
 | `-2` and other sentinels rendered as numbers | Driver misled about vehicle state | Sentinels handled once in the mapper; adversarial fake covers them |
