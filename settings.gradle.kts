@@ -14,3 +14,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "wk2-climate"
 include(":bus")
+
+include(":design")
