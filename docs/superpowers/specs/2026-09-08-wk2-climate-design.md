@@ -782,6 +782,106 @@ unchanged, not unfitted" — applies to the value's *content* as much as to
 whether the callback fires. The fix was not cleverer arithmetic; it was making
 the signal move.
 
+### Session 3: 2026-09-08, decompiling the vendor apps
+
+Pulled `com.syu.canbus` (94 MB), `com.syu.air` (8 MB), `com.syu.ms` (8 MB) and
+`com.syu.ss` (6.7 MB) from the unit and decompiled with jadx 1.5.6.
+
+**`com.syu.air` is the valuable target, not `com.syu.canbus`.** Canbus's 94 MB is
+79.5 MB of `res/` and 22.7 MB of `assets/`, almost entirely `.webp` — per-vehicle
+door and parking graphics. Its 3248 decompiled classes hold no MCU frame or
+protocol code. All **228** `Car_NNNN_*` vehicle profiles live in `com.syu.air`,
+including our `Car_0374_PA_Jeep_All`.
+
+#### The command table, confirmed from source
+
+`Car_0374_PA_Jeep_Wrangler` uses indices **1–18 and 20–24**, with **19 and 25
+absent entirely** — so omitting them was correct, and not merely "no effect when
+swept". Method names give authoritative meanings, and every one matches the
+empirically-swept table:
+
+| N | Source method | Our `Command` |
+|---|---|---|
+| 1 | `airAc` | `AC` |
+| 2 | `airAuto` | `AUTO` |
+| 3 | `airCycle` | `RECIRC` |
+| 4 / 5 | `airTempLeftP` / `M` | `TEMP_L_UP` / `_DOWN` |
+| 6 / 7 | `airVolLeftP` / `M` | `FAN_UP` / `_DOWN` — "Vol" is *air volume* |
+| 8–11 | `airMode` (four branches) | the four `AIRFLOW_*` setters |
+| 12 | `airFront` | `FRONT_DEFROST` |
+| 13 | **`airDual`** | `SYNC` — the label lies in the source too |
+| 14 | `airRear` | `REAR_DEFROST` |
+| 16 | `airPower` | `CLIMATE_POWER` |
+| 17 / 18 | `airLeftSeatHot` / `airRightSeatHot` | `SEAT_HEAT_L` / `_R` |
+| 20 / 21 | `airTempRightP` / `M` | `TEMP_R_UP` / `_DOWN` |
+| 22 / 23 | `airLeftSeatBlow` / `airRightSeatBlow` | `SEAT_VENT_L` / `_R` |
+| 24 | `airSteer` | `WHEEL_HEAT` |
+
+Index **15** (MAX A/C) is absent from the Wrangler profile because its UI does
+not expose it, but it is fitted and functional on this WK2 — consistent with
+wiki p3 listing `U_AIR_ACMAX` as fitted but not on the bar.
+
+`Car_0374_PA_Jeep_All` confirms `C_TEMP_LEFT_UP = 4`, `LEFT_DOWN = 5`,
+`RIGHT_UP = 20`, `RIGHT_DOWN = 21` as explicit constants.
+
+#### The complete temperature model — corrects section 5.5
+
+From `Car_0374_PA_Jeep_All.updateTemp(boolean auto, int area, int arg, int format)`,
+verbatim logic:
+
+```java
+if      (arg == -2) tempStr = "LOW";
+else if (arg == -3) tempStr = "HIGH";
+else if (arg == -1) tempStr = "---";
+else if (format == 0) {                      // format is U_AIR_TEMP_UNIT
+    if (arg >= 30 && arg <= 128) tempStr = (arg * 5) / 10.0f + "℃";
+    else                         tempStr = "---";
+} else if (arg >= 30 && arg <= 128) {
+    tempStr = arg / 1.0f + "℉";
+} else                           tempStr = "---";
+```
+
+Four things follow, two of which are bugs in what is already committed:
+
+1. **`-3` is HIGH.** Confirmed by source and by an on-vehicle sweep
+   (`…83, 84, −3` climbing). `Temp` did not model this at all, so a HIGH setting
+   rendered as a dash. **Add `Temp.Hi`.**
+2. **The valid numeric range is `30..128`, not `60..84`.** This WK2 clamps at
+   60..84, but the *protocol* accepts 30..128 and the OEM renders anything
+   outside it as `---`. `Temp.from` currently returns `Degrees(raw)` for any
+   non-negative value, so `0` or `500` would render as a temperature.
+   **Restrict `Degrees` to `30..128`.**
+3. **`-1` is "unavailable".** Our mapping of `-1` to `Unavailable` was already
+   correct.
+4. **`U_AIR_TEMP_UNIT` (37) changes the meaning of the raw value.** `0` means
+   Celsius, and in that mode the raw value is **half-degrees Celsius**
+   (`arg * 5 / 10`); non-zero means Fahrenheit and the raw value is degrees
+   directly. This unit reads `1`, so °F is correct today — but the code ignores
+   `TEMP_UNIT` entirely, which is a latent bug for anyone who switches the head
+   unit to Celsius. **Decode against `TEMP_UNIT`.**
+
+Presented labels: the OEM renders `"LOW"` / `"HIGH"` for this vehicle (other
+profiles use `"LO"` / `"HI"`). Matching the OEM is the safer choice for driver
+familiarity.
+
+#### Cabin temperature does not exist — settled exhaustively
+
+`FinalCanbus` was searched for `CABIN|INSIDE|INDOOR|IN_CAR|INCAR|ROOM|INNER`:
+**no matches.** The only temperature codes in the entire table are
+`U_AIR_TEMP_LEFT` (27), `_RIGHT` (28), `U_AIR_TEMP_UNIT` (37),
+`U_AIR_REAR_TEMP_LEFT/_RIGHT` (40/41), `U_AIR_TEMP_TYPE` (75) and
+`U_EXIST_TEMP_OUT` (1012), plus `U_TEMP_OUT` (40) on MAIN.
+
+So section 5.5's removal of `CABIN` from 1d's header is not a workaround for a
+signal we could not find — the signal does not exist.
+
+#### The research table is exact
+
+`FinalCanbus` defines **89** `U_AIR_*` constants, and the repo's extracted
+`data/U_AIR_table.txt` matches it entry for entry with zero differences in
+either direction. Only the wiki's prose count of "87" is off by two — worth a
+one-line fix upstream.
+
 ### Safety
 
 All bench work on a **stationary, parked** vehicle. Take a baseline with
