@@ -14,6 +14,9 @@
 
 - **`compileSdk = 36`, `minSdk = 26`, `targetSdk = 33`.** targetSdk deliberately matches the target device (Android 13 / SDK 33) so no compat-behaviour changes apply to the accessibility service or overlay windows — the riskiest part of this project.
 - **JVM target 17** for both Java and Kotlin.
+- **Filter tests with `:bus:testDebugUnitTest --tests '<pattern>'`.** The `:bus:test`
+  lifecycle task is an aggregate and rejects `--tests` with "Unknown command-line
+  option". Bare `:bus:test` is fine for running everything.
 - **Do NOT apply `org.jetbrains.kotlin.android`.** AGP 9.0 has built-in Kotlin
   support and *rejects* that plugin with a hard error rather than ignoring it.
   The `kotlin { compilerOptions { jvmTarget } }` extension still works, and
@@ -656,7 +659,7 @@ class ValuesTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./gradlew :bus:test --tests '*ValuesTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*ValuesTest*'`
 Expected: FAIL — unresolved references `Temp`, `Fan`, `SeatLevel`.
 
 - [ ] **Step 3: Write `Values.kt`**
@@ -750,7 +753,7 @@ enum class SeatLevel {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./gradlew :bus:test --tests '*ValuesTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*ValuesTest*'`
 Expected: PASS, 13 tests.
 
 - [ ] **Step 5: Commit**
@@ -881,7 +884,7 @@ class AirflowModeTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./gradlew :bus:test --tests '*AirflowModeTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*AirflowModeTest*'`
 Expected: FAIL — unresolved reference `AirflowMode`.
 
 - [ ] **Step 3: Write `AirflowMode.kt`**
@@ -954,7 +957,7 @@ enum class AirflowMode {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./gradlew :bus:test --tests '*AirflowModeTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*AirflowModeTest*'`
 Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Commit**
@@ -1118,7 +1121,7 @@ class ClimateStateTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./gradlew :bus:test --tests '*ClimateStateTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*ClimateStateTest*'`
 Expected: FAIL — unresolved reference `ClimateState`.
 
 - [ ] **Step 3: Write `ClimateState.kt`**
@@ -1211,7 +1214,7 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./gradlew :bus:test --tests '*ClimateStateTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*ClimateStateTest*'`
 Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Commit**
@@ -1459,7 +1462,7 @@ class FakeVehicleBusTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./gradlew :bus:test --tests '*FakeVehicleBusTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*FakeVehicleBusTest*'`
 Expected: FAIL — unresolved references `VehicleBus`, `FakeVehicleBus`.
 
 - [ ] **Step 3: Write `VehicleBus.kt`**
@@ -1701,7 +1704,7 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `./gradlew :bus:test --tests '*FakeVehicleBusTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*FakeVehicleBusTest*'`
 Expected: PASS, 18 tests.
 
 - [ ] **Step 6: Run the whole suite**
@@ -1882,7 +1885,7 @@ class AdaptiveSlotTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./gradlew :bus:test --tests '*AdaptiveSlotTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*AdaptiveSlotTest*'`
 Expected: FAIL — unresolved references `AdaptiveSlot`, `SlotContent`.
 
 - [ ] **Step 3: Write `AdaptiveSlot.kt`**
@@ -1991,7 +1994,7 @@ class AdaptiveSlot(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./gradlew :bus:test --tests '*AdaptiveSlotTest*'`
+Run: `./gradlew :bus:testDebugUnitTest --tests '*AdaptiveSlotTest*'`
 Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Commit**
