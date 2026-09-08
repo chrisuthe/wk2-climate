@@ -408,6 +408,14 @@ code in any of the five extracted tables**. Outside temperature exists but is
 - If the decode fails, the header shows the title alone and the adaptive slot
   falls back per section 6.
 
+**UPDATE 2026-09-08:** `U_TEMP_OUT` did not decode and is now believed **not** to
+be a live reading at all — see section 11 item 4. The head unit's own status bar
+does render outside temperature, so the signal exists somewhere; the current
+candidate is the raw MCU frame stream. Until it is found, the fallback path is
+the shipping path: **no header status line, slot pinned to `SEAT_HEAT`.** Build
+both screens against that, and treat outside temperature as a later enhancement
+rather than a prerequisite.
+
 ### 5.4 The app needs three modules, not one
 
 The handoff implies a single climate subscription.
@@ -627,25 +635,51 @@ observation and command dispatch.
 | 11 | Fan ceiling | **ANSWERED** — max 7, clamps idempotently. Section 5.1 |
 | 12 | Does the 227px inset survive disabling `com.syu.air`? | **NOT TESTED** — and now low priority, since items 1–2 passed |
 
-### Item 4 — `U_TEMP_OUT` is packed
+### Item 4 — `U_TEMP_OUT` is probably NOT the live outside temperature
 
 ```
 MAIN U_TEMP_OUT c=40 [268437316]   =  0x10000744
 CANBUS U_EXIST_TEMP_OUT c=1012 [1] =  outside-temp sensor IS fitted
 ```
 
-Clearly a bitfield, not a scalar. Two readings are plausible from a single
-sample and cannot be distinguished without ground truth:
+Ground truth was obtained from the head unit's **own status bar**, which renders
+outside temperature: it read **86 °F**.
 
-- **low byte binary:** `0x44` = 68 → 68 °F
-- **low 12 bits as BCD:** `0x744` → 74.4 °F
+`0x10000744` does not decode to 86 °F, nor to 30 °C, under any of: low 8 bits
+(68), low 12 bits (1860), low 16 bits (1860), BCD (`744` → 74.4), ÷10 (186.0),
+÷100 (18.60), or °C→°F conversions of those. Byte-wise it is
+`[0x10, 0x00, 0x07, 0x44]`.
 
-`0x44 = 68` is suspicious because `U_AIR_TEMP_LEFT` also read 68, which may be
-coincidence or may mean the low byte is not outside temperature at all.
+Two further observations:
 
-**To resolve:** one sample paired with a known outside temperature, or two
-samples at materially different temperatures. Until then section 6's fallback
-applies (slot pins to `SEAT_HEAT`).
+- **The value did not change** across two reads 12 minutes apart. Codes are
+  push-on-change, so a live ambient temperature should have moved, or at least
+  not be guaranteed static.
+- **No code in the whole 210-code baseline holds 86, 30, 300 or 860** as a plain
+  value.
+
+**Revised hypothesis: `U_TEMP_OUT` on module 0 is a configuration or calibration
+word, not a live reading.** It sits among `U_BRIGHT_LEVEL`, `U_LAMPLET` and other
+settings in the MAIN module, and its top nibble (`0x1`) looks like a flag field.
+The wiki's "live, but the value is packed" may have been an over-read of the same
+static value.
+
+**Where to look next (session 2):** the live value the status bar renders is most
+likely in the **raw MCU frame stream** (module 7, code 1019). Use the wiki p11
+method with the probe's `RECORD` mode, which already writes TSV with per-row
+array lengths for exactly this. A useful correlation handle: a parked car's
+outside-temp reading drifts steadily in sun, so a 30-minute stationary recording
+should produce a slowly-moving byte while almost everything else stays frozen —
+the same set-difference approach that isolated steering angle.
+
+One frame already looks like the climate carrier and is worth starting from.
+Observed on screen: `2E 21 08 CC 0F 44 44 01 30 …` — id `0x21`, where `0x0F` = 15
+matches `WIND_LEVEL` (AUTO) and `0x44 0x44` = 68, 68 matches both set
+temperatures. Whatever carries ambient may be adjacent.
+
+**This does not block the build.** Section 6's fallback applies: the adaptive slot
+pins to `SEAT_HEAT` and the 1d header omits the status line. Every other signal
+both screens need is verified.
 
 ### Item 6 — deliberately not tested
 
