@@ -187,7 +187,7 @@ enum class Signal(val module: Int, val code: Int) {
     // module 4 — SOUND
     VOLUME(4, 2),
     // module 0 — MAIN
-    TEMP_OUT(0, 40), ILLUMINATION(0, 4),
+    TEMP_OUT(0, 40),   // packed; see section 5.3 for the decode ILLUMINATION(0, 4),
 }
 
 enum class Command(val module: Int, val code: Int, val payload: IntArray) {
@@ -392,29 +392,39 @@ Mutual exclusion with `SEAT_BLOW_*` was **not** exercised: seat vent was already
 0, so it never reported a change. Still modelled per section 4 — the protocol
 enforces it and we render both.
 
-### 5.3 Cabin temperature has no signal; outside temperature is packed
+### 5.3 Cabin temperature has no signal; outside temperature is DECODED
 
-The 1d header specifies `"CABIN 64°F · OUT 41°F"`. There is **no interior-temperature
-code in any of the five extracted tables**. Outside temperature exists but is
-`U_TEMP_OUT = 40` on **module 0 (MAIN)** — not module 7 — and is recorded as
-"live, but the value is packed, not a plain temperature" (wiki p10).
+The 1d header specifies `"CABIN 64°F · OUT 41°F"`. There is **no
+interior-temperature code in any of the five extracted tables**, so CABIN is
+removed — not stubbed, not faked, not shown as a placeholder.
 
-**Resolved:**
+Outside temperature is `U_TEMP_OUT = 40` on **module 0 (MAIN)**, and it **is a
+live sensor after all**. A stationary reading looked static because ambient
+barely moves in a parked car; a driving capture settled it.
 
-- **CABIN is removed** from the 1d header. It is not stubbed, faked, or shown as
-  a placeholder — no signal exists.
-- **`U_TEMP_OUT` is decoded** in a car session (checklist item 4). Header renders
-  `OUT 41°F` only.
-- If the decode fails, the header shows the title alone and the adaptive slot
-  falls back per section 6.
+**DECODED 2026-09-08 (session 2, driving capture):**
 
-**UPDATE 2026-09-08:** `U_TEMP_OUT` did not decode and is now believed **not** to
-be a live reading at all — see section 11 item 4. The head unit's own status bar
-does render outside temperature, so the signal exists somewhere; the current
-candidate is the raw MCU frame stream. Until it is found, the fallback path is
-the shipping path: **no header status line, slot pinned to `SEAT_HEAT`.** Build
-both screens against that, and treat outside temperature as a later enhancement
-rather than a prerequisite.
+```
+degreesF = ((raw and 0xFFFF) - 1000) / 10.0     // 0.1 °F resolution
+valid    = (raw shr 28) and 1 == 1              // bit 28 is a present/valid flag
+```
+
+Evidence — three values observed across a ten-minute drive, against the head
+unit's own status-bar reading as ground truth:
+
+| Raw | Hex | low 16 | Decoded | When |
+|---|---|---|---|---|
+| 268437296 | `0x10000730` | 1840 | **84.0 °F** | moving, air over the sensor |
+| 268437306 | `0x1000073A` | 1850 | **85.0 °F** | slowing |
+| 268437316 | `0x10000744` | 1860 | **86.0 °F** | parked, heat-soaking |
+
+The status bar read **86 °F** while raw was `268437316`, and the formula gives
+exactly 86.0. The offset of 1000 is the usual automotive trick for keeping
+sub-zero values unsigned: 0 °F encodes as 1000, −40 °F as 600.
+
+**Consequence: the adaptive slot works as designed.** Section 6's
+pinned-to-`SEAT_HEAT` fallback is no longer the shipping path — it remains only
+as the behaviour when the valid bit is clear.
 
 ### 5.4 The app needs three modules, not one
 
@@ -462,9 +472,10 @@ outsideTemp → SlotContent { FRONT_DEFROST | SEAT_HEAT | SEAT_COOL }
   route to a function.
 - Outside temperature is consumed, **not displayed**, in the bar.
 
-**Fallback if `U_TEMP_OUT` cannot be decoded:** the slot pins to `SEAT_HEAT`, which
-is the middle band and always safe. It is never left blank, and the geometry does
-not change.
+**Outside temperature is decoded** — see section 5.3 — so the slot is fully
+functional. The fallback survives for the case where the valid bit is clear or
+the signal has not yet arrived: the slot pins to `SEAT_HEAT`, the middle band,
+which is always safe. It is never left blank and the geometry never changes.
 
 Pure Kotlin with an injected clock, so hysteresis and dwell are unit-tested against
 a synthetic temperature series rather than by sitting in a cold car.
@@ -472,8 +483,11 @@ a synthetic temperature series rather than by sitting in a cold car.
 ### Theme
 
 Day/night follows `U_LAMPLET` (module 0, code 4), **not a clock**. Day is a
-luminance change only — no layout change, so muscle memory holds. Polarity is
-checklist item 8.
+luminance change only — no layout change, so muscle memory holds.
+
+**Polarity confirmed 2026-09-08 (session 2):** headlights on drove
+`U_LAMPLET` `0 → 1`, and off drove it back to `0`. So **1 means night**, and
+`ClimateState.isNight = (raw == 1)` is correct as written. No inversion needed.
 
 ---
 
@@ -625,11 +639,11 @@ observation and command dispatch.
 | 1 | 2032 overlay positionable over `[0,1693][1080,1920]`? | **PASS** — exact, no negative offset needed. Params in section 3 |
 | 2 | Does our overlay consume touches, or leak to `com.syu.air`? | **PASS** — fully consumed, zero leakage. Section 3 |
 | 3 | Do `GLOBAL_ACTION_HOME` / `BACK` work? | **PASS** — both, confirmed by focus change. Section 3 |
-| 4 | Decode `U_TEMP_OUT` | **PARTIAL** — value captured, needs ground truth. Below |
+| 4 | Decode `U_TEMP_OUT` | **SOLVED in session 2** — see section 5.3 |
 | 5 | Seat heat cycle order | **ANSWERED — spec was wrong.** `0→3→1→0`, state 2 unreachable. Section 5.2 |
 | 6 | `U_AIR_ACMAX` moves on command 15 | **NOT TESTED** — requires the MAX A/C macro. Below |
 | 7 | Airflow flags after command 12 | **SUPERSEDED** — a better finding emerged without the macro. Section 4 |
-| 8 | `U_LAMPLET` polarity | **PARTIAL** — reads 0 in daylight. Needs a headlight toggle |
+| 8 | `U_LAMPLET` polarity | **SOLVED in session 2** — 1 = night |
 | 9 | Does `VOL_HIDE_OSD` suppress the OEM OSD? | **LIKELY MOOT** — see below |
 | 10 | Are the `_RIGHT` fan/blow codes live? | **ANSWERED** — inert. Single fan, left is authoritative |
 | 11 | Fan ceiling | **ANSWERED** — max 7, clamps idempotently. Section 5.1 |
@@ -718,6 +732,56 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 - Item 6: only if a macro-recovery session is acceptable.
 - Item 12: optional now that items 1–2 passed.
 
+### Session 2: 2026-09-08, driving capture
+
+**The probe's `RECORD` mode does not work.** Its external files directory was
+never created and it logged nothing at all; its own README flagged the path as
+never hardware-tested, and that was accurate. Do not rely on it.
+
+**The replacement is better and needs no custom code:** a detached, rotating,
+device-side `logcat` capture.
+
+```bash
+adb shell "nohup logcat -v time -s HUPROBE:V Gps:V \
+  -f /sdcard/hu-drive.log -r 20480 -n 40 > /dev/null 2>&1 &"
+```
+
+This survives losing Wi-Fi because it is the unit's own process writing to the
+unit's own storage — verified by tearing down adb entirely and confirming the
+same PID kept writing. It captures the frame stream **and** the head unit's own
+GPS `vel=` lines in one timestamped file, which is the ground truth the probe's
+bespoke feature existed to provide. ~12 MB/hour.
+
+Ten-minute capture, 22 543 lines, GPS to 22.4 m/s (~50 mph).
+
+| # | Question | Result |
+|---|---|---|
+| 4 | Decode `U_TEMP_OUT` | **SOLVED** — see section 5.3. The stationary reading looked static only because ambient barely moves in a parked car |
+| 8 | `U_LAMPLET` polarity | **SOLVED** — 1 = night. `isNight` is correct as written |
+| 10 | Are the `_RIGHT` codes live? | Still inert, confirming single-fan |
+
+Newly answered, beyond the checklist:
+
+| Signal | Finding |
+|---|---|
+| `U_CUR_SPEED` (7/1031) | **Live, and the unit is km/h.** Mean `GPS-km/h ÷ code` = 1.020 across 485 paired samples; the mph ratio is 0.63. Code range 0–80 against a GPS range of 0–49.8 mph (= 80.1 km/h). Wiki p10 records it as "never fired", which was only ever true of a stationary vehicle |
+| `U_ENGINE_SPEED` (7/1032) | Live across 595–3102 rpm |
+| `U_STEER_ANGLE` (0/41) | **Still inert** — a flat `[80, 160, 80]` through the entire drive, confirming wiki p10 |
+| `U_RADAR` (0/13) | Fired, value `[0]` |
+
+Frame-stream volume by message id, for anyone decoding further: `2E5A` (3997),
+`2E52` (3710), `2E60` (2168), `2E28` (952), `2E29` (928, steering angle),
+`2E4D` (918), `2E21` (599, the climate carrier).
+
+**Method note.** The stationary session concluded `U_TEMP_OUT` was probably a
+configuration word, because two readings twelve minutes apart were identical
+and no simple decoding matched the display. That inference was wrong, and the
+reason is worth keeping: *a static value carries no information about which
+byte holds the signal.* Wiki p10's rule — "registered but silent means
+unchanged, not unfitted" — applies to the value's *content* as much as to
+whether the callback fires. The fix was not cleverer arithmetic; it was making
+the signal move.
+
 ### Safety
 
 All bench work on a **stationary, parked** vehicle. Take a baseline with
@@ -740,7 +804,7 @@ an enabled package with no bar, since it only self-starts on `BOOT_COMPLETED`.
 | ~~2032 cannot be positioned over the nav-bar region~~ | — | **RETIRED 2026-09-08** — measured working. Section 3 |
 | ~~Overlay does not consume touches~~ | — | **RETIRED 2026-09-08** — measured fully consumed, zero leakage. Section 3 |
 | Our service dies while `com.syu.air` is disabled | **No climate control at all** in a vehicle with no physical HVAC controls; module holds last state | The reason design rule 6 exists. Since items 1–2 passed, we never need to disable it — v1 keeps it running and simply covers it |
-| `U_TEMP_OUT` packing undecodable | Adaptive slot loses its premise | **The one remaining blocker.** Pin the slot to `SEAT_HEAT`; geometry unchanged. Frame stream (7/1019) is a later avenue |
+| ~~`U_TEMP_OUT` packing undecodable~~ | — | **RETIRED 2026-09-08** — decoded from a driving capture. Section 5.3 |
 | The accessibility service is disabled by the user or an OS update | Bar disappears | `com.syu.air` still underneath and functional, so climate is never lost. Detect and prompt on next app launch |
 | Service killed by the system | Bar disappears | `com.syu.air` still running underneath, so climate control is never lost (design rule 6). This is the reason for rule 6 |
 | Compose overlay lifecycle quirks | Panel fails to attach or leaks | Single shared `ComposeOverlayHost`; exercised on the AVD before hardware |
