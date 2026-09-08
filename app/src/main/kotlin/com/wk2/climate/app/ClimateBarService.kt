@@ -18,6 +18,7 @@ import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
+import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.ui.bar.ClimateBar
 import kotlin.math.roundToInt
@@ -43,7 +44,22 @@ class ClimateBarService : AccessibilityService() {
     private lateinit var barHost: ComposeOverlayHost
     private val slot = AdaptiveSlot()
 
+    /**
+     * The framework may call this more than once — re-enabling or
+     * reconfiguring the service on an always-on head unit is exactly when it
+     * would — so tear down first and start clean.
+     *
+     * Tearing down rather than early-returning: an early return would keep
+     * whatever host and bus the previous connection left behind, and if that
+     * connection's window token is already gone the bar is dead with no way to
+     * rebuild it. Overwriting the fields without tearing down is worse still —
+     * the old `ComposeView` stays added to the `WindowManager` and the old bus
+     * stays bound, both unreachable, which would strand a 2032 overlay over
+     * the factory bar that nothing short of a reboot could clear. [teardown]
+     * is safe on an uninitialised or already-torn-down state.
+     */
     override fun onServiceConnected() {
+        teardown()
         bus = SyuVehicleBus(this).also { it.connect() }
         barHost = ComposeOverlayHost(this)
         showBar()
@@ -85,7 +101,20 @@ class ClimateBarService : AccessibilityService() {
             onBack = { performGlobalAction(GLOBAL_ACTION_BACK) },
             onOpenClimate = { /* screen 1d arrives in plan 3 */ },
             onSlotPressChange = { down ->
-                if (down) slot.onFingerDown() else slot.onFingerUp()
+                if (down) {
+                    slot.onFingerDown()
+                } else {
+                    slot.onFingerUp()
+                    // Arm the tap lockout on release: the slot must not change
+                    // for a moment after the driver's finger leaves it, or
+                    // their next press lands on a control they did not aim at.
+                    // Release is the moment the tap completes — and taking it
+                    // from here rather than from `onCommand` avoids
+                    // duplicating the UI's SlotContent-to-Command mapping as a
+                    // second source of truth. A press dragged off the slot
+                    // arms it too, which only ever delays a swap.
+                    slot.onTap(System.currentTimeMillis())
+                }
             },
         )
     }
@@ -97,11 +126,20 @@ class ClimateBarService : AccessibilityService() {
      * bits, with bit 28 as a validity flag. Verified against the head unit's
      * own status bar on the vehicle: raw `0x10000744` -> 1860 tenths -> 86 F.
      *
-     * An invalid or out-of-range reading returns null, and [AdaptiveSlot] pins
-     * to SEAT HEAT in that case — so the slot is never blank and the bar's
-     * geometry never changes.
+     * Only trusted when the vehicle is reporting Fahrenheit. [AdaptiveSlot]'s
+     * thresholds are Fahrenheit, and whether `U_TEMP_OUT` is unit-scaled the
+     * way `TEMP_LEFT`/`TEMP_RIGHT` are is **unverified** — the vehicle
+     * observation above was taken with the unit set to Fahrenheit, so it does
+     * not distinguish the two. If it is scaled, a 30 C day would decode as
+     * "30" and swing the slot to FRONT DEFROST in the heat. So this fails safe
+     * rather than guessing.
+     *
+     * An invalid, out-of-range or non-Fahrenheit reading returns null, and
+     * [AdaptiveSlot] pins to SEAT HEAT in that case — so the slot is never
+     * blank and the bar's geometry never changes.
      */
     private fun outsideF(state: ClimateState): Int? {
+        if (state.tempUnit != TempUnit.FAHRENHEIT) return null
         val raw = state[Signal.TEMP_OUT] ?: return null
         if ((raw shr 28) and 1 != 1) return null
         val f = ((raw and 0xFFFF) - 1000) / 10
