@@ -1,6 +1,13 @@
 # wk2-climate Plan 1: Foundation and Bus Layer
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **STATUS: COMPLETE — 2026-09-08.** All nine tasks executed on branch
+> `task/bus-foundation`. Verified from a clean build: `./gradlew clean build`
+> succeeds, 71 unit tests pass with 0 failures, zero Material artifacts and
+> zero Material imports, no platform singletons outside `:app`, and the
+> harness was driven through all nine behaviours on an AVD reporting
+> 1080x1920 at density 160.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a unit-tested vehicle-bus layer that turns three vendor Binder modules into one immutable state flow plus one typed command sink, and prove it end-to-end with a debug harness app that runs on a plain emulator with no vehicle attached.
 
@@ -92,7 +99,7 @@ harness/src/main/kotlin/com/wk2/climate/harness/
 - Consumes: nothing (first task).
 - Produces: `enum class Signal(val module: Int, val code: Int)` with `Signal.of(module, code): Signal?` and `Signal.modules(): Set<Int>`. `enum class Command(val module: Int, val code: Int, val payload: IntArray, val destructive: Boolean)`. Both in package `com.wk2.climate.bus`.
 
-- [ ] **Step 1: Copy the Gradle wrapper**
+- [x] **Step 1: Copy the Gradle wrapper**
 
 There is no standalone Gradle on this machine, so the wrapper jar is copied from an existing local project rather than generated.
 
@@ -116,7 +123,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 ```
 
-- [ ] **Step 2: Write the version catalog**
+- [x] **Step 2: Write the version catalog**
 
 Write `gradle/libs.versions.toml`:
 
@@ -155,7 +162,7 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 
 > If dependency resolution fails on any pinned version, bump only that entry to the newest stable and record the change in the commit message. Do not switch to a BOM — explicit versions are intentional here.
 
-- [ ] **Step 3: Write the root build files**
+- [x] **Step 3: Write the root build files**
 
 `settings.gradle.kts`:
 
@@ -198,7 +205,7 @@ org.gradle.caching=true
 org.gradle.parallel=true
 ```
 
-- [ ] **Step 4: Write the `:bus` module build file**
+- [x] **Step 4: Write the `:bus` module build file**
 
 `bus/build.gradle.kts`:
 
@@ -245,7 +252,7 @@ dependencies {
 </manifest>
 ```
 
-- [ ] **Step 5: Point Gradle at the SDK**
+- [x] **Step 5: Point Gradle at the SDK**
 
 `local.properties` is gitignored, so it must be created locally. Two rules
 apply at once and each fails differently if you get it wrong:
@@ -275,7 +282,7 @@ and create no file at all — that also builds cleanly, and leaves nothing for
 lint to inspect. Opening the project in Android Studio generates a correct
 `local.properties` on its own.
 
-- [ ] **Step 6: Write the failing test**
+- [x] **Step 6: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/SignalCommandTableTest.kt`:
 
@@ -363,12 +370,12 @@ class SignalCommandTableTest {
 }
 ```
 
-- [ ] **Step 7: Run the test to verify it fails**
+- [x] **Step 7: Run the test to verify it fails**
 
 Run: `./gradlew :bus:test`
 Expected: FAIL — compilation error, `Signal` and `Command` are unresolved references.
 
-- [ ] **Step 8: Write `Signal.kt`**
+- [x] **Step 8: Write `Signal.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -441,7 +448,7 @@ enum class Signal(val module: Int, val code: Int) {
 }
 ```
 
-- [ ] **Step 9: Write `Command.kt`**
+- [x] **Step 9: Write `Command.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -531,7 +538,7 @@ enum class Command(
 }
 ```
 
-- [ ] **Step 10: Run the test to verify it passes**
+- [x] **Step 10: Run the test to verify it passes**
 
 Run: `./gradlew :bus:test`
 Expected: PASS, 10 tests.
@@ -544,7 +551,7 @@ If the first Gradle invocation fails on toolchain selection, point Gradle at the
 
 If that is needed, persist it in `gradle.properties` as `org.gradle.java.home` and note it in the commit.
 
-- [ ] **Step 11: Add a .gitignore entry check and commit**
+- [x] **Step 11: Add a .gitignore entry check and commit**
 
 Confirm the existing root `.gitignore` already covers `.gradle/`, `build/`, and `local.properties`. It does. Then:
 
@@ -581,7 +588,7 @@ The bus reports out-of-range sentinels for conditions that are not numbers. Rend
 - Consumes: nothing from Task 1 at compile time.
 - Produces: `sealed interface Temp` with `Temp.Degrees(fahrenheit: Int)`, `Temp.Lo`, `Temp.Unavailable`, and `Temp.from(raw: Int?): Temp`. `sealed interface Fan` with `Fan.Level(step: Int)`, `Fan.Auto`, `Fan.Unavailable`, `Fan.from(raw: Int?): Fan`, and `Fan.MAX_STEP = 7`. `enum class SeatLevel { OFF, LOW, HIGH, UNAVAILABLE }` with `SeatLevel.from(raw: Int?): SeatLevel`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/ValuesTest.kt`:
 
@@ -677,12 +684,12 @@ class ValuesTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*ValuesTest*'`
 Expected: FAIL — unresolved references `Temp`, `Fan`, `SeatLevel`.
 
-- [ ] **Step 3: Write `Values.kt`**
+- [x] **Step 3: Write `Values.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -771,12 +778,12 @@ enum class SeatLevel {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*ValuesTest*'`
 Expected: PASS, 13 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/Values.kt \
@@ -809,7 +816,7 @@ Airflow arrives as three independent booleans, and only four of the eight repres
 - Consumes: `Command` from Task 1.
 - Produces: `enum class AirflowMode { FACE, FACE_FEET, FEET, FEET_GLASS, NONE, UNKNOWN }` with `AirflowMode.from(up: Int?, body: Int?, foot: Int?): AirflowMode`, the property `isDriverSelected: Boolean`, the property `command: Command?`, and `AirflowMode.selectable: List<AirflowMode>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/AirflowModeTest.kt`:
 
@@ -902,12 +909,12 @@ class AirflowModeTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*AirflowModeTest*'`
 Expected: FAIL — unresolved reference `AirflowMode`.
 
-- [ ] **Step 3: Write `AirflowMode.kt`**
+- [x] **Step 3: Write `AirflowMode.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -975,12 +982,12 @@ enum class AirflowMode {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*AirflowModeTest*'`
 Expected: PASS, 9 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/AirflowMode.kt \
@@ -1012,7 +1019,7 @@ direct selection rather than reproducing the OEM's four-step cycle."
 - Consumes: `Signal`, `Temp`, `Fan`, `SeatLevel`, `AirflowMode`.
 - Produces: `class ClimateState` with `with(signal: Signal, value: Int): ClimateState`, `operator fun get(signal: Signal): Int?`, `has(signal: Signal): Boolean`, and derived read-only properties: `tempLeft`, `tempRight`, `fan`, `airflow`, `seatHeatL`, `seatHeatR`, `seatVentL`, `seatVentR`, `acOn`, `autoOn`, `recircOn`, `maxAcOn`, `frontDefrostOn`, `rearDefrostOn`, `syncOn`, `wheelHeatOn`, `powerOn`, `volume`, `isNight`, `isEmpty`. Also `ClimateState.EMPTY`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/ClimateStateTest.kt`:
 
@@ -1139,12 +1146,12 @@ class ClimateStateTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*ClimateStateTest*'`
 Expected: FAIL — unresolved reference `ClimateState`.
 
-- [ ] **Step 3: Write `ClimateState.kt`**
+- [x] **Step 3: Write `ClimateState.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -1232,12 +1239,12 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*ClimateStateTest*'`
 Expected: PASS, 9 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/ClimateState.kt \
@@ -1272,7 +1279,7 @@ This is the task that makes off-vehicle development possible. The fake is not a 
 - Consumes: `Signal`, `Command`, `ClimateState`, `Fan`, `SeatLevel`, `AirflowMode`.
 - Produces: `interface VehicleBus { val state: StateFlow<ClimateState>; val connected: StateFlow<Boolean>; fun send(command: Command) }`. `class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE)` implementing it, plus `FakeVehicleBus.VEHICLE_BASELINE: ClimateState`, `fun inject(signal: Signal, value: Int)`, `fun setConnected(value: Boolean)`, and `val sent: List<Command>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/FakeVehicleBusTest.kt`:
 
@@ -1480,12 +1487,12 @@ class FakeVehicleBusTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*FakeVehicleBusTest*'`
 Expected: FAIL — unresolved references `VehicleBus`, `FakeVehicleBus`.
 
-- [ ] **Step 3: Write `VehicleBus.kt`**
+- [x] **Step 3: Write `VehicleBus.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -1514,7 +1521,7 @@ interface VehicleBus {
 }
 ```
 
-- [ ] **Step 4: Write `FakeVehicleBus.kt`**
+- [x] **Step 4: Write `FakeVehicleBus.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -1722,17 +1729,17 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*FakeVehicleBusTest*'`
 Expected: PASS, 18 tests.
 
-- [ ] **Step 6: Run the whole suite**
+- [x] **Step 6: Run the whole suite**
 
 Run: `./gradlew :bus:test`
 Expected: PASS, 59 tests total (AdaptiveSlot's 12 arrive in Task 6).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/VehicleBus.kt \
@@ -1768,7 +1775,7 @@ Screen 2a has exactly one region whose contents change. Everything about *when* 
 - Consumes: nothing.
 - Produces: `enum class SlotContent { FRONT_DEFROST, SEAT_HEAT, SEAT_COOL }`. `class AdaptiveSlot(deadbandF: Int = 3, dwellMillis: Long = 30_000, tapLockoutMillis: Long = 1_000, initial: SlotContent = SlotContent.SEAT_HEAT)` with `fun update(outsideF: Int?, nowMillis: Long): SlotContent`, `fun onTap(nowMillis: Long)`, `fun onFingerDown()`, `fun onFingerUp()`, and `val content: SlotContent`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/AdaptiveSlotTest.kt`:
 
@@ -1903,12 +1910,12 @@ class AdaptiveSlotTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*AdaptiveSlotTest*'`
 Expected: FAIL — unresolved references `AdaptiveSlot`, `SlotContent`.
 
-- [ ] **Step 3: Write `AdaptiveSlot.kt`**
+- [x] **Step 3: Write `AdaptiveSlot.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -2012,12 +2019,12 @@ class AdaptiveSlot(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `./gradlew :bus:testDebugUnitTest --tests '*AdaptiveSlotTest*'`
 Expected: PASS, 12 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/AdaptiveSlot.kt \
@@ -2055,7 +2062,7 @@ The vendor framework is reached with hand-written Binder proxies. Transaction id
 
 There is no unit test for this task: it is pure platform-boundary code whose only meaningful verification is on the vehicle. It is exercised by Task 9's harness in fake mode and validated on hardware at the start of Plan 2. Keeping it free of derivation logic is what makes that acceptable — every decision it could get wrong lives in Tasks 2–4, which are tested.
 
-- [ ] **Step 1: Write `SyuVehicleBus.kt`**
+- [x] **Step 1: Write `SyuVehicleBus.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -2314,17 +2321,17 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [x] **Step 2: Verify it compiles**
 
 Run: `./gradlew :bus:assembleDebug`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 3: Verify the whole test suite still passes**
+- [x] **Step 3: Verify the whole test suite still passes**
 
 Run: `./gradlew :bus:test`
 Expected: PASS, 71 tests. (No new tests — see the note above this task.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add bus/src/main/kotlin/com/wk2/climate/bus/SyuVehicleBus.kt
@@ -2359,7 +2366,7 @@ here costs little. It is validated on hardware at the start of Plan 2."
 - Consumes: nothing.
 - Produces: `data class Palette(...)` with `Palette.NIGHT` and `Palette.DAY`; `object Dimens` with target sizes and radii. Package `com.wk2.climate.design`.
 
-- [ ] **Step 1: Add the module to settings and write its build file**
+- [x] **Step 1: Add the module to settings and write its build file**
 
 Append to `settings.gradle.kts`:
 
@@ -2410,7 +2417,7 @@ dependencies {
 <manifest />
 ```
 
-- [ ] **Step 2: Write `Colors.kt`**
+- [x] **Step 2: Write `Colors.kt`**
 
 The design is authored in `oklch`, which Android has no support for. Values are converted once and committed as hex with the source retained, so the design file stays the reference.
 
@@ -2505,7 +2512,7 @@ data class Palette(
 }
 ```
 
-- [ ] **Step 3: Write `Dimens.kt`**
+- [x] **Step 3: Write `Dimens.kt`**
 
 ```kotlin
 package com.wk2.climate.design
@@ -2573,12 +2580,12 @@ object Dimens {
 }
 ```
 
-- [ ] **Step 4: Verify it compiles**
+- [x] **Step 4: Verify it compiles**
 
 Run: `./gradlew :design:assembleDebug`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add settings.gradle.kts design
@@ -2611,7 +2618,7 @@ The deliverable that makes the rest of the project cheap: an app that renders li
 - Consumes: `FakeVehicleBus`, `VehicleBus`, `Command`, `ClimateState`, `AdaptiveSlot`, `SlotContent`, `Palette`, `Dimens`.
 - Produces: an installable debug app, `com.wk2.climate.harness`.
 
-- [ ] **Step 1: Add the module and write its build file**
+- [x] **Step 1: Add the module and write its build file**
 
 Append to `settings.gradle.kts`:
 
@@ -2683,7 +2690,7 @@ dependencies {
 </manifest>
 ```
 
-- [ ] **Step 2: Write `HarnessActivity.kt`**
+- [x] **Step 2: Write `HarnessActivity.kt`**
 
 ```kotlin
 package com.wk2.climate.harness
@@ -2905,7 +2912,7 @@ private fun Key(label: String, palette: Palette, onClick: () -> Unit) {
 }
 ```
 
-- [ ] **Step 3: Verify the whole project builds**
+- [x] **Step 3: Verify the whole project builds**
 
 Run: `./gradlew build`
 Expected: BUILD SUCCESSFUL, and `:bus:test` reports 71 passing tests.
@@ -2916,7 +2923,7 @@ Run: `./gradlew :harness:dependencies --configuration debugRuntimeClasspath`
 Expected: no `androidx.compose.material` entry. Also confirm no source imports it:
 `grep -rn 'androidx.compose.material' bus/src design/src harness/src` must be empty.
 
-- [ ] **Step 4: Create the emulator and run it**
+- [x] **Step 4: Create the emulator and run it**
 
 ```bash
 SDK="$HOME/AppData/Local/Android/Sdk"
@@ -2946,7 +2953,7 @@ If the `android-33` system image is not installed, install it first:
 "$SDK/cmdline-tools/latest/bin/sdkmanager.bat" "system-images;android-33;google_apis;x86_64"
 ```
 
-- [ ] **Step 5: Verify the behaviours by hand**
+- [x] **Step 5: Verify the behaviours by hand**
 
 Confirm on the emulator, and capture a screenshot for the commit:
 
@@ -2966,7 +2973,7 @@ adb pull /sdcard/harness.png docs/harness-screenshot.png
 adb shell rm /sdcard/harness.png
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add settings.gradle.kts harness docs/harness-screenshot.png
@@ -2991,11 +2998,11 @@ dependency stays out."
 
 ## Definition of done for Plan 1
 
-- [ ] `./gradlew build` succeeds.
-- [ ] `./gradlew :bus:test` reports **71 passing tests** (10 table + 13 values + 9 airflow + 9 state + 18 fake bus + 12 slot).
-- [ ] `./gradlew :harness:dependencies --configuration debugRuntimeClasspath` shows no Material artifact, **and** no source file imports `androidx.compose.material`.
-- [ ] The harness runs on a 1080x1920/160dpi AVD and all nine behaviours in Task 9 Step 5 are observed.
-- [ ] No module other than `:app` (which does not exist yet) references `AccessibilityService` or `WindowManager`.
+- [x] `./gradlew build` succeeds.
+- [x] `./gradlew :bus:test` reports **71 passing tests** (10 table + 13 values + 9 airflow + 9 state + 18 fake bus + 12 slot).
+- [x] `./gradlew :harness:dependencies --configuration debugRuntimeClasspath` shows no Material artifact, **and** no source file imports `androidx.compose.material`.
+- [x] The harness runs on a 1080x1920/160dpi AVD and all nine behaviours in Task 9 Step 5 are observed.
+- [x] No module other than `:app` (which does not exist yet) references `AccessibilityService` or `WindowManager`.
 
 ## What Plan 2 and Plan 3 cover
 
