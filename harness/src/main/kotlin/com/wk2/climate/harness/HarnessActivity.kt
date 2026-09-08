@@ -39,6 +39,7 @@ import com.wk2.climate.bus.FakeVehicleBus
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
+import com.wk2.climate.ui.bar.ClimateBar
 
 /**
  * Development harness. **Not shipped.**
@@ -83,6 +84,29 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
         outsideF = toF
         clock += 60_000L                      // step past the dwell window
         slotContent = slot.update(toF, clock)
+    }
+
+    var showBar by remember { mutableStateOf(false) }
+
+    if (showBar) {
+        Column(
+            Modifier.fillMaxSize().background(palette.surface),
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            Key("INSPECTOR", palette) { showBar = false }
+            ClimateBar(
+                state = state,
+                slot = slotContent,
+                onCommand = { bus.send(it) },
+                onHome = {},
+                onBack = {},
+                onOpenClimate = {},
+                onSlotPressChange = { down ->
+                    if (down) slot.onFingerDown() else slot.onFingerUp()
+                },
+            )
+        }
+        return
     }
 
     Column(
@@ -148,6 +172,7 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
                 bus.inject(Signal.ILLUMINATION, if (state.isNight) 0 else 1)
             }
             Key("DROP", palette) { bus.setConnected(!connected) }
+            Key("BAR", palette) { showBar = true }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Key("COLD", palette) { scrub(20) }
