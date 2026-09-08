@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -182,8 +180,8 @@ private fun AdaptiveSlotCell(
                     // Amber fill, with a 4dp surface-coloured right border to
                     // separate it from the adjacent amber AUTO.
                     Modifier
-                        .background(palette.accent)
                         .padding(end = 4.dp)
+                        .background(palette.accent)
                 } else {
                     Modifier.sideDivider(palette.divider, start = false)
                 },
