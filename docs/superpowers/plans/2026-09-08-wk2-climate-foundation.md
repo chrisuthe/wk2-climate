@@ -14,6 +14,11 @@
 
 - **`compileSdk = 36`, `minSdk = 26`, `targetSdk = 33`.** targetSdk deliberately matches the target device (Android 13 / SDK 33) so no compat-behaviour changes apply to the accessibility service or overlay windows — the riskiest part of this project.
 - **JVM target 17** for both Java and Kotlin.
+- **Do NOT apply `org.jetbrains.kotlin.android`.** AGP 9.0 has built-in Kotlin
+  support and *rejects* that plugin with a hard error rather than ignoring it.
+  The `kotlin { compilerOptions { jvmTarget } }` extension still works, and
+  `src/main/kotlin` is already on the source set — explicit `srcDir` calls are
+  both unnecessary and deprecated in Gradle 9.
 - **`1px = 1dp`.** The panel is 1080x1920 at 160dpi. Every measurement in the design handoff is used directly as a dp value.
 - **No Material dependency.** The design uses no Material components, no ripple, and no shadows. Depend on `compose.ui` and `compose.foundation` only.
 - **Read ids and write indices are separate types.** Never add a function that takes a raw `(module, code, payload)` triple. Module 4 code 0 is `C_VOL` for writes and `U_SPECTRUM` for reads — an untyped API makes that collision a live bug.
@@ -142,7 +147,6 @@ junit = { module = "junit:junit", version.ref = "junit" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ```
 
@@ -177,7 +181,6 @@ include(":bus")
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
-    alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.compose.compiler) apply false
 }
 ```
@@ -199,7 +202,6 @@ org.gradle.parallel=true
 ```kotlin
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -213,8 +215,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    sourceSets["main"].kotlin.srcDir("src/main/kotlin")
-    sourceSets["test"].kotlin.srcDir("src/test/kotlin")
 }
 
 kotlin {
@@ -242,7 +242,17 @@ dependencies {
 </manifest>
 ```
 
-- [ ] **Step 5: Write the failing test**
+- [ ] **Step 5: Point Gradle at the SDK**
+
+`local.properties` is gitignored, so it must be created locally. Use **forward
+slashes** — backslash-escaped Windows paths fail with `java.io.IOException:
+Invalid file path`.
+
+```bash
+echo 'sdk.dir=C:/Users/chris/AppData/Local/Android/Sdk' > local.properties
+```
+
+- [ ] **Step 6: Write the failing test**
 
 `bus/src/test/kotlin/com/wk2/climate/bus/SignalCommandTableTest.kt`:
 
@@ -330,12 +340,12 @@ class SignalCommandTableTest {
 }
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [ ] **Step 7: Run the test to verify it fails**
 
 Run: `./gradlew :bus:test`
 Expected: FAIL — compilation error, `Signal` and `Command` are unresolved references.
 
-- [ ] **Step 7: Write `Signal.kt`**
+- [ ] **Step 8: Write `Signal.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -408,7 +418,7 @@ enum class Signal(val module: Int, val code: Int) {
 }
 ```
 
-- [ ] **Step 8: Write `Command.kt`**
+- [ ] **Step 9: Write `Command.kt`**
 
 ```kotlin
 package com.wk2.climate.bus
@@ -498,7 +508,7 @@ enum class Command(
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it passes**
+- [ ] **Step 10: Run the test to verify it passes**
 
 Run: `./gradlew :bus:test`
 Expected: PASS, 10 tests.
@@ -511,7 +521,7 @@ If the first Gradle invocation fails on toolchain selection, point Gradle at the
 
 If that is needed, persist it in `gradle.properties` as `org.gradle.java.home` and note it in the commit.
 
-- [ ] **Step 10: Add a .gitignore entry check and commit**
+- [ ] **Step 11: Add a .gitignore entry check and commit**
 
 Confirm the existing root `.gitignore` already covers `.gradle/`, `build/`, and `local.properties`. It does. Then:
 
@@ -2339,7 +2349,6 @@ include(":design")
 ```kotlin
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -2357,7 +2366,6 @@ android {
     buildFeatures {
         compose = true
     }
-    sourceSets["main"].kotlin.srcDir("src/main/kotlin")
 }
 
 kotlin {
@@ -2593,7 +2601,6 @@ include(":harness")
 ```kotlin
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -2615,7 +2622,6 @@ android {
     buildFeatures {
         compose = true
     }
-    sourceSets["main"].kotlin.srcDir("src/main/kotlin")
 }
 
 kotlin {
