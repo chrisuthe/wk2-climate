@@ -441,6 +441,36 @@ The handoff implies a single climate subscription.
 `VOL_HIDE_UI = -7` (wiki p10), so our bar can own the volume readout without the
 OEM volume OSD painting over it.
 
+### 5.6 AUTO is an idempotent setter, not a toggle
+
+The handoff's interaction table lists AUTO alongside A/C, RECIRC, MAX A/C,
+defrost and SYNC as a **toggle**. The evidence says it is not.
+
+The repo's command table labels index 2 as **"AUTO on — macro"**, while labelling
+indices 1, 3, 13, 14 and 16 explicitly as **"toggle"**. That distinction was made
+by whoever swept the command space, and it is the only index given a directional
+name. There is also **no "AUTO off" command anywhere in the table** — the way you
+leave AUTO is to move the fan, which index 6 does as a documented side effect,
+and which the factory UI relies on too.
+
+**Resolved: AUTO is an idempotent set.** Tapping it engages AUTO; tapping it
+again does nothing. This is consistent with how the four airflow modes already
+work — the design explicitly specifies re-tapping an active airflow tile as a
+no-op — so it is a natural fit rather than a wart, and design rule 2 ("direct
+selection, never cycling") already establishes idempotent setters as the house
+pattern.
+
+`FakeVehicleBus` models it this way, which is what surfaced the discrepancy:
+Plan 2's verification asked for "tapping AUTO unfills it" and that behaviour is
+unreachable. Both halves that *are* verifiable were confirmed instead — the AUTO
+cell renders unfilled when the bus reports `autoOn = false`, and tapping it
+dispatches index 2 and drives the bus to `autoOn = true`.
+
+**Not yet measured on the vehicle:** what index 2 does when AUTO is already
+engaged. Added as car-session checklist item 13. If it turns out to toggle, the
+fake and this section change; the UI does not, because it renders from bus state
+either way.
+
 ---
 
 ## 6. Screen 2a — the resting bar
@@ -524,7 +554,8 @@ and lumbar seats.
 | Tap CLOSE / back gesture | Reverse. |
 | Tap `−` / `+` | One step per tap. Press-and-hold repeats at ~150 ms after a 400 ms delay. |
 | Tap airflow mode | Direct idempotent set. Re-tapping the active mode is a genuine no-op. |
-| Tap AUTO / A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. |
+| Tap A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. |
+| Tap AUTO | **Idempotent set, not a toggle** — see section 5.6. Re-tapping while AUTO is engaged is a no-op. |
 | Tap seat heat / cool | Presented cycle `OFF → HIGH → LOW → OFF` via section 5.2. |
 | Tap adaptive slot | Acts on whatever it currently holds. |
 | Press-and-hold HOLD · OFF | ~800 ms with visible fill progress. **Single tap does nothing.** |
@@ -723,6 +754,14 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 | `U_HANDBRAKE = 1` fired | Wiki p10 records it as never firing. It does |
 | `U_BRIGHT_LEVEL_DAY = 100`, `_NIGHT = 0` | Useful alongside `U_LAMPLET` for the theme signal |
 | `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
+
+### Remaining
+
+13. **Does command index 2 toggle AUTO, or only set it?** Send index 2 while
+    `U_AIR_AUTO` already reads 1 and see whether it goes to 0. The command table
+    calls it "AUTO on" rather than "toggle" and there is no AUTO-off index, so a
+    set is expected — but it has never been sent from the already-on state. See
+    section 5.6. Trivial and safe: one command, reversible by sending it again.
 
 ### Remaining for session 2
 
