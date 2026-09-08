@@ -16,3 +16,5 @@ rootProject.name = "wk2-climate"
 include(":bus")
 
 include(":design")
+
+include(":harness")

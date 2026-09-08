@@ -247,13 +247,33 @@ dependencies {
 
 - [ ] **Step 5: Point Gradle at the SDK**
 
-`local.properties` is gitignored, so it must be created locally. Use **forward
-slashes** — backslash-escaped Windows paths fail with `java.io.IOException:
-Invalid file path`.
+`local.properties` is gitignored, so it must be created locally. Two rules
+apply at once and each fails differently if you get it wrong:
+
+- Gradle's properties parser rejects a bare backslash separator with
+  `java.io.IOException: Invalid file path`.
+- Lint's `PropertyEscape` check **fails the build** unless the drive-letter
+  colon is escaped.
+
+The format that satisfies both is Android Studio's own: escape the colon as
+`\:` and double every separator to `\`. Note that shells and `printf` will
+collapse these, so write the file with a tool that does not reinterpret
+backslashes:
 
 ```bash
-echo 'sdk.dir=C:/Users/chris/AppData/Local/Android/Sdk' > local.properties
+python -c "open('local.properties','w').write(r'sdk.dir=C\:\Users\chris\AppData\Local\Android\Sdk')"
 ```
+
+The resulting file must contain exactly:
+
+```
+sdk.dir=C\:\Users\chris\AppData\Local\Android\Sdk
+```
+
+Alternatively, export `ANDROID_HOME=C:/Users/chris/AppData/Local/Android/Sdk`
+and create no file at all — that also builds cleanly, and leaves nothing for
+lint to inspect. Opening the project in Android Studio generates a correct
+`local.properties` on its own.
 
 - [ ] **Step 6: Write the failing test**
 
@@ -2639,8 +2659,6 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    debugImplementation(libs.compose.ui.tooling)
 }
 ```
 
@@ -2895,7 +2913,8 @@ Expected: BUILD SUCCESSFUL, and `:bus:test` reports 71 passing tests.
 Confirm no Material dependency crept in:
 
 Run: `./gradlew :harness:dependencies --configuration debugRuntimeClasspath`
-Expected: no `androidx.compose.material` or `androidx.compose.material3` entry.
+Expected: no `androidx.compose.material` entry. Also confirm no source imports it:
+`grep -rn 'androidx.compose.material' bus/src design/src harness/src` must be empty.
 
 - [ ] **Step 4: Create the emulator and run it**
 
@@ -2974,7 +2993,7 @@ dependency stays out."
 
 - [ ] `./gradlew build` succeeds.
 - [ ] `./gradlew :bus:test` reports **71 passing tests** (10 table + 13 values + 9 airflow + 9 state + 18 fake bus + 12 slot).
-- [ ] `./gradlew :harness:dependencies --configuration debugRuntimeClasspath` shows no Material artifact.
+- [ ] `./gradlew :harness:dependencies --configuration debugRuntimeClasspath` shows no Material artifact, **and** no source file imports `androidx.compose.material`.
 - [ ] The harness runs on a 1080x1920/160dpi AVD and all nine behaviours in Task 9 Step 5 are observed.
 - [ ] No module other than `:app` (which does not exist yet) references `AccessibilityService` or `WindowManager`.
 
