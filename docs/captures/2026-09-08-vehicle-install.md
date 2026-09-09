@@ -451,3 +451,114 @@ owner's head unit to fix something we have not yet proven.
 `CHECK_APPSTATE` and `com.wk2.climate`, and establish (a) what killed it,
 (b) whether the `deviceidle` whitelist changed anything, and (c) whether the
 kill happens at ignition-off, during the off period, or at ignition-on.
+
+---
+
+## Session 6 (2026-09-09): the panel runs, and the killer is identified
+
+### It is `com.syu.ms` — the vendor's own MCU service
+
+Reproduced again on restart: our accessibility entry gone, window count 0,
+`stopped=true`, uptime **11.95 days** (so still no reboot). The armed capture
+survived and holds the answer:
+
+```
+08:18:46.774 ActivityManager: forceStop Package:com.wk2.climate from pid:2354 uid:1000
+08:18:46.775 ActivityManager: Force stopping com.wk2.climate appid=10179 user=0: from pid 2354
+08:18:46.777 ActivityManager: Killing 17659:com.wk2.climate/u0a179 (adj 100)
+```
+
+`pid 2354` is **`com.syu.ms`** — the SYU MCU/toolkit service, *the very process
+we bind to for the climate bus*. It reaches the hidden
+`ActivityManager.forceStopPackage(String)` by reflection (tag `E/Reflex`) and
+sweeps **27 packages** in one pass:
+
+`android.ext.services`, `android.process.acore`, `com.google.*` (docs,
+messaging, calendar, dialer, quicksearchbox, gearhead, webview, gapps,
+gservices), `com.sprd.srmi`, `com.spreadtrum.ims`, `com.syu.bt`, `com.syu.cs`,
+`com.syu.music`, `com.syu.screensaver`, `com.syu.systemupdate`,
+`io.homeassistant.companion.android`, `com.tmobile.tuesdays`, **`system`**, and
+us.
+
+It force-stops `system` and its own siblings. This is an indiscriminate
+RAM-cleaner, not a battery optimiser and not a judgement about our app.
+
+### Two conclusions that change the fix
+
+1. **A foreground service with an ongoing notification would NOT have helped.**
+   `forceStopPackage` is unconditional — process importance, notifications and
+   `mProcState` are all irrelevant to it. Every earlier theory was built on the
+   `PowerController.RecogA` classifier fields, which turn out not to be the
+   mechanism at all. **Waiting for evidence avoided shipping a permanent
+   notification to the owner's dash for nothing.**
+2. **The `deviceidle` whitelist is irrelevant** for the same reason. Leave it;
+   it costs nothing, but it is not the fix.
+
+### What is actually left to try
+
+- **Decompile `com.syu.ms`** and find the sweep and any exclusion list. That is
+  the one place a real fix could live, and we have the tooling — `air` and
+  `canbus` are already decompiled; `ms` is not.
+- Establish the **trigger**. 08:18:46 was well after the ignition cycle, so it
+  is not an off/on hook. A timer, an idle threshold, or a memory-pressure
+  threshold are all plausible.
+- Nothing in our app can prevent it. A force-stopped package cannot re-enable
+  its own accessibility entry, because there is no process left to do it.
+
+### The panel, first run on hardware — it works
+
+Installed and enabled with the a11y toggle (no force-stop). Log:
+
+```
+bar window: y=1693 height=227 display=1920px
+module 7: registered 20/20 codes
+re-register attempt 1/4 -- 2 of 23 signals never reported: VOLUME, TEMP_OUT
+all 23 expected signals reported after 1 re-registration(s)
+panel window: y=0 app height=1693px (display=1920px bar=227px)
+```
+
+- **Both windows, exact geometry:** panel `frame=[0,0][1080,1693]`, bar
+  `frame=[0,1693][1080,1920]`. The bar stays visible below the panel — the half
+  the emulator could never show, because the AVD reserves no nav inset.
+- **The retry fix earned itself:** `VOLUME` and `TEMP_OUT` were both missing
+  from the first registration and filled in one second later without the owner
+  touching anything. That is the original "volume didn't show" complaint,
+  closed on hardware.
+- **State cross-checks against the vehicle independently:** `OUT 66°F`,
+  `VOL 9`, AUTO amber, A/C blue, fan meter dimmed under AUTO, and
+  `SEAT COOL · L` reading **HIGH** with both pips lit while the other three read
+  OFF — the owner had set that, and the panel drew what the vehicle reported.
+- The footer is fenced at the bottom edge with no dead band: the
+  `heightIn(min = maxHeight)` pin working on real geometry.
+- The day-palette fix is visible — fan meter and seat tiles are recessed greys,
+  not the opaque white cards they were before `fcee733`.
+- `com.syu.air` alive throughout.
+
+### Owner-verified checklist
+
+- `CLOSE` closes the panel — **pass**
+- `HOLD . OFF` powers climate off **and back on** — **pass** (the one test that
+  could have left the vehicle in a bad state)
+- Holding `-`/`+` repeats — **pass**, which settles the final review's F1
+  dispute on hardware: press-and-hold was never broken, and the relay of that
+  finding as fact was wrong.
+- Back **failed**, and was fixed in `c07488b` — see below. Re-verified: **BACK
+  and HOME both close the panel.**
+
+### The back defect: a fourth composition-only bug
+
+Our accessibility config was correct all along
+(`canRequestFilterKeyEvents` + `flagRequestFilterKeyEvents`) and `onKeyEvent`
+was wired properly. The bug was that **the bar's own BACK button never reaches
+`onKeyEvent`**: `performGlobalAction(GLOBAL_ACTION_BACK)` dispatches to the
+*focused* app, the panel window is `FLAG_NOT_FOCUSABLE` and so is never the
+target, and a global action does not route through our own key filter either.
+Back went to the app underneath while the panel sat on top.
+
+`c07488b`: BACK closes the panel when it is open, else performs a global back;
+HOME closes the panel first, because going home would otherwise leave the panel
+covering the launcher.
+
+Both halves were correct in isolation and the seam had no handler — the same
+shape as the `verticalScroll` that created two power-off paths, and the bar and
+panel wanting different screen heights from the same expression.
