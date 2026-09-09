@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * surprised by the car:
  *
  *  - seat heat cycles `0 -> 3 -> 1 -> 0`, skipping 2 (measured)
- *  - the AUTO macro forces A/C on, clears body-blow and sets fan to 15
+ *  - AUTO toggles; engaging it forces A/C on, clears body-blow and sets fan
+ *    to 15, and leaving it lands on fan 3 with FACE (measured)
  *  - `FAN_UP` exits AUTO as a side effect, landing on level 3 (measured)
  *  - fan clamps at 7 and reports nothing further (measured)
  *  - `FRONT_DEFROST` and `MAX_AC` force recirculation on
@@ -89,12 +90,22 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         Command.REAR_DEFROST -> s.toggle(Signal.REAR_DEFROST)
         Command.WHEEL_HEAT -> s.toggle(Signal.WHEEL_HEAT)
 
-        // Macro: A/C on, body-blow cleared, fan to the AUTO sentinel.
-        Command.AUTO -> s
-            .with(Signal.AUTO, 1)
-            .with(Signal.AC, 1)
-            .with(Signal.WIND_LEVEL, Fan.SENTINEL_AUTO)
-            .airflow(up = 0, body = 0, foot = 0)
+        // AUTO **toggles** -- measured on the vehicle 2026-09-09, correcting an
+        // earlier reading of the command table. Tapping it while engaged turns
+        // it off, and the off state is fan **3** with **FACE**: byte for byte
+        // the `exitAuto()` transition already measured via FAN_UP. Leaving AUTO
+        // lands in the same place however you leave it.
+        //
+        // On: A/C forced on, body-blow cleared, fan to the AUTO sentinel.
+        Command.AUTO ->
+            if (s.autoOn) {
+                s.exitAuto()
+            } else {
+                s.with(Signal.AUTO, 1)
+                    .with(Signal.AC, 1)
+                    .with(Signal.WIND_LEVEL, Fan.SENTINEL_AUTO)
+                    .airflow(up = 0, body = 0, foot = 0)
+            }
 
         Command.FAN_UP -> fanUp(s)
         Command.FAN_DOWN -> fanDown(s)

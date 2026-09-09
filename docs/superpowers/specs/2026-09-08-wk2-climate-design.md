@@ -469,35 +469,41 @@ Also confirmed by the same frame: `Temp.Lo` renders as the word `LOW` with the
 range knob pinned to the cold end rather than hidden, which is the final
 review's F4 fix working on hardware.
 
-### 5.6 AUTO is an idempotent setter, not a toggle
+### 5.6 AUTO is a toggle — measured, correcting an earlier ruling
 
-The handoff's interaction table lists AUTO alongside A/C, RECIRC, MAX A/C,
-defrost and SYNC as a **toggle**. The evidence says it is not.
+**Measured on the vehicle 2026-09-09: tapping AUTO while it is engaged turns it
+off.** AUTO is a toggle, like A/C, RECIRC, MAX A/C, SYNC and the defrosts.
 
-The repo's command table labels index 2 as **"AUTO on — macro"**, while labelling
-indices 1, 3, 13, 14 and 16 explicitly as **"toggle"**. That distinction was made
-by whoever swept the command space, and it is the only index given a directional
-name. There is also **no "AUTO off" command anywhere in the table** — the way you
-leave AUTO is to move the fan, which index 6 does as a documented side effect,
-and which the factory UI relies on too.
+The off state, captured from the panel: AUTO unlit, fan reading **`3 / 7`** with
+solid bars and no AUTO label, **FACE** lit, RECIRC and MAX A/C clear, A/C still
+on. That is byte for byte the `exitAuto()` transition already measured via
+`FAN_UP` — **you land in the same place however you leave AUTO**, which is a
+more satisfying model than two separate exits.
 
-**Resolved: AUTO is an idempotent set.** Tapping it engages AUTO; tapping it
-again does nothing. This is consistent with how the four airflow modes already
-work — the design explicitly specifies re-tapping an active airflow tile as a
-no-op — so it is a natural fit rather than a wart, and design rule 2 ("direct
-selection, never cycling") already establishes idempotent setters as the house
-pattern.
+#### What the earlier ruling got wrong, and why
 
-`FakeVehicleBus` models it this way, which is what surfaced the discrepancy:
-Plan 2's verification asked for "tapping AUTO unfills it" and that behaviour is
-unreachable. Both halves that *are* verifiable were confirmed instead — the AUTO
-cell renders unfilled when the bus reports `autoOn = false`, and tapping it
-dispatches index 2 and drives the bus to `autoOn = true`.
+This section previously concluded AUTO was an **idempotent set**, from two
+pieces of documentary evidence:
 
-**Not yet measured on the vehicle:** what index 2 does when AUTO is already
-engaged. Added as car-session checklist item 13. If it turns out to toggle, the
-fake and this section change; the UI does not, because it renders from bus state
-either way.
+1. the repo's command table labels index 2 `"AUTO on — macro"` while labelling
+   indices 1, 3, 13, 14 and 16 `"toggle"` — index 2 being the only one given a
+   directional name;
+2. there is **no "AUTO off" index anywhere** in the table.
+
+Both observations are true and the conclusion drawn from them was wrong. There
+is no AUTO-off index because index 2 *is* the off command as well; the table's
+annotation describes what whoever swept the command space happened to observe,
+not the command's semantics. It was also reinforced by a plausible-sounding
+argument from consistency — the four airflow setters *are* idempotent, so an
+idempotent AUTO looked like the house pattern.
+
+**The lesson: the command table's prose is a record of one observer's
+experiment, not an interface contract.** Where it disagrees with the vehicle,
+the vehicle wins — and a consistency argument is not evidence.
+
+Nothing in the UI changed, exactly as the original ruling predicted it would
+not: the panel and bar render AUTO from bus state either way. `FakeVehicleBus`
+now toggles, so a UI built against it sees the real behaviour.
 
 ---
 
@@ -582,8 +588,7 @@ and lumbar seats.
 | Tap CLOSE / back gesture | Reverse. |
 | Tap `−` / `+` | One step per tap. Press-and-hold repeats at ~150 ms after a 400 ms delay. |
 | Tap airflow mode | Direct idempotent set. Re-tapping the active mode is a genuine no-op. |
-| Tap A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. |
-| Tap AUTO | **Idempotent set, not a toggle** — see section 5.6. Re-tapping while AUTO is engaged is a no-op. |
+| Tap AUTO / A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. Leaving AUTO lands on fan 3 with FACE — see section 5.6. |
 | Tap seat heat / cool | Presented cycle `OFF → HIGH → LOW → OFF` via section 5.2. |
 | Tap adaptive slot | Acts on whatever it currently holds. |
 | Press-and-hold HOLD · OFF | ~800 ms with visible fill progress. **Single tap does nothing.** |
@@ -784,12 +789,6 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 | `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
 
 ### Remaining
-
-13. **Does command index 2 toggle AUTO, or only set it?** Send index 2 while
-    `U_AIR_AUTO` already reads 1 and see whether it goes to 0. The command table
-    calls it "AUTO on" rather than "toggle" and there is no AUTO-off index, so a
-    set is expected — but it has never been sent from the already-on state. See
-    section 5.6. Trivial and safe: one command, reversible by sending it again.
 
 ### Remaining for session 2
 
