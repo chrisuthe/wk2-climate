@@ -29,10 +29,21 @@ import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
+/**
+ * The two mode grids. Every tile's fill is a claim about the vehicle.
+ *
+ * [live] is false until the vehicle has reported a climate signal. The flags
+ * these tiles read are `raw[signal] == 1`, which collapses absent into false,
+ * so while [live] is false no tile is filled -- an unfilled tile says "not
+ * selected as far as we have been told", a filled one would say "the vehicle
+ * told us this is on". The tiles stay tappable: pressing one is what makes the
+ * vehicle report.
+ */
 @Composable
 fun PanelMode(
     palette: Palette,
     state: ClimateState,
+    live: Boolean,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -42,19 +53,19 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = state.autoOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.autoOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.AUTO) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = state.acOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.acOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("A/C", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = state.recircOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.recircOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.RECIRC) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -66,7 +77,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = state.maxAcOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.maxAcOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.MAX_AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
@@ -79,7 +90,7 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = state.frontDefrostOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.frontDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -91,7 +102,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = state.rearDefrostOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.rearDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.REAR_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -106,7 +117,7 @@ fun PanelMode(
             // target on this page falls below 96dp. It drives U_AIR_SYNC; the
             // factory label says DUAL, which is why DUAL is the sub-label.
             ModeTile(
-                palette, active = state.syncOn, height = Dimens.modeTileHeight,
+                palette, active = live && state.syncOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.SYNC) }, modifier = Modifier.weight(1f),
             ) { ink ->

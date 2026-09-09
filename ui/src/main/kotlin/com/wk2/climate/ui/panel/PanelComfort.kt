@@ -29,10 +29,20 @@ import com.wk2.climate.design.Type
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
+/**
+ * Seat heat, seat ventilation, and the heated wheel.
+ *
+ * [live] is false until the vehicle has reported a climate signal. Only the
+ * wheel needs it: its flag is `raw[signal] == 1` and collapses absent into
+ * false, so it is gated and lights nothing until there is data. The seat tiles
+ * need no gate -- [SeatLevel] carries UNAVAILABLE for an unreported signal and
+ * they already render that as a dash with no lit pips.
+ */
 @Composable
 fun PanelComfort(
     palette: Palette,
     state: ClimateState,
+    live: Boolean,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,7 +70,7 @@ fun PanelComfort(
         }
 
         Spacer(Modifier.height(14.dp))
-        HeatedWheel(palette, state.wheelHeatOn) { onCommand(Command.WHEEL_HEAT) }
+        HeatedWheel(palette, live && state.wheelHeatOn) { onCommand(Command.WHEEL_HEAT) }
     }
 }
 

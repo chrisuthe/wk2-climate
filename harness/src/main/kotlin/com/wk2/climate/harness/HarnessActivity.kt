@@ -41,6 +41,7 @@ import com.wk2.climate.bus.Signal
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
+import com.wk2.climate.ui.panel.ClimatePanel
 
 /**
  * Development harness. **Not shipped.**
@@ -88,6 +89,22 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
     }
 
     var showBar by remember { mutableStateOf(false) }
+    var showPanel by remember { mutableStateOf(false) }
+
+    if (showPanel) {
+        // The surface behind the INSPECTOR key: without it the strip is the
+        // window background, which stays light in the night palette.
+        Column(Modifier.fillMaxSize().background(palette.surface)) {
+            Key("INSPECTOR", palette) { showPanel = false }
+            ClimatePanel(
+                state = state,
+                outsideF = outsideF,
+                onCommand = { bus.send(it) },
+                onClose = { showPanel = false },
+            )
+        }
+        return
+    }
 
     if (showBar) {
         Column(
@@ -181,6 +198,7 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             }
             Key("DROP", palette) { bus.setConnected(!connected) }
             Key("BAR", palette) { showBar = true }
+            Key("PANEL", palette) { showPanel = true }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // The cold-start case the emulator cannot otherwise reach: a bound
