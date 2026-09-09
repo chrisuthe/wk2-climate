@@ -77,7 +77,14 @@ data class Palette(
             // `surface-card #ffffff` in README's day token list names a token
             // this UI has no equivalent of -- nothing on 1d or 2a is a card.
             surfaceRaised      = Color(0x0D000000),   // rgba(0,0,0,.05)
-            surfaceInset       = Color(0x0D000000),   // rgba(0,0,0,.05)
+            // rgba(0,0,0,.035) -- the darkening equivalent of night's
+            // rgba(255,255,255,.035), by the same polarity rule as the row
+            // above. The README gives no day value for this token, but it does
+            // give night's, and the rule determines the rest: this is a
+            // *lighter* overlay than surfaceRaised in both palettes, and
+            // collapsing it onto surfaceRaised's literal made it a duplicate
+            // of its neighbour rather than the mirror of its own night value.
+            surfaceInset       = Color(0x09000000),   // rgba(0,0,0,.035)
             ink                = Color(0xFF16181A),
             inkDim             = Color(0xCC16181A),
             inkMuted           = Color(0x80000000),   // rgba(0,0,0,.5)

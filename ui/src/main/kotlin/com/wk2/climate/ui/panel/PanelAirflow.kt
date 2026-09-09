@@ -39,6 +39,13 @@ import com.wk2.climate.ui.target
  * which is not in [AirflowMode.selectable] — but four full-strength glyphs
  * read as four modes we have been told are unselected, so the inactive tint
  * drops to muted ink alongside the rest of the page's climate controls.
+ *
+ * [AirflowMode.UNKNOWN] takes that same muted treatment even when [live] is
+ * true, because it *is* absence: [AirflowMode.from] returns it precisely when
+ * a `BLOW_*` signal is null. `live` is `hasClimateData`, i.e. any one CANBUS
+ * key present, so a partial arrival can reach here with a known-absent
+ * airflow, and rendering that at full strength would be the page's one
+ * confident claim about something the vehicle never said.
  */
 @Composable
 fun PanelAirflow(
@@ -55,7 +62,13 @@ fun PanelAirflow(
         AirflowMode.selectable.forEach { candidate ->
             AirflowTile(
                 palette = palette,
-                live = live,
+                // AirflowMode.from returns UNKNOWN precisely when a BLOW_*
+                // signal is null, so it is absence, not a measured state --
+                // the same thing `live` describes, arriving one signal at a
+                // time instead of all at once. NONE is deliberately *not*
+                // included: it is the genuine resting airflow while AUTO owns
+                // it, and the vehicle really did tell us so.
+                reported = live && mode != AirflowMode.UNKNOWN,
                 active = candidate == mode,
                 res = candidate.glyphRes(),
                 glyphHeight = candidate.glyphHeight(),
@@ -69,7 +82,8 @@ fun PanelAirflow(
 @Composable
 private fun AirflowTile(
     palette: Palette,
-    live: Boolean,
+    /** Whether the vehicle has actually reported an airflow mode. */
+    reported: Boolean,
     active: Boolean,
     res: Int,
     glyphHeight: Dp,
@@ -96,7 +110,7 @@ private fun AirflowTile(
             res = res,
             tint = when {
                 active -> palette.accentInk
-                !live -> palette.inkMuted
+                !reported -> palette.inkMuted
                 else -> palette.ink
             },
             height = glyphHeight,

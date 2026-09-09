@@ -41,6 +41,35 @@ class SurfaceOverlayPolarityTest {
         assertMovesGroundTowardInk("NIGHT.surfaceInset", Palette.NIGHT) { it.surfaceInset }
         assertMovesGroundTowardInk("DAY.surfaceInset", Palette.DAY) { it.surfaceInset }
     }
+
+    /**
+     * The relationship the day palette used to lose by holding one literal in
+     * both tokens: an inset is a *lighter* overlay than a raised one, in both
+     * palettes, so it must move its own ground less far.
+     *
+     * Stated as a distance rather than a direction, so it is one assertion for
+     * a palette that lightens and a palette that darkens, and so it survives a
+     * retune of either value. It is the assertion the previous three could not
+     * make while `DAY.surfaceInset` was a copy of `DAY.surfaceRaised` — that
+     * comparison was a quantity against itself and could only ever have failed
+     * on NIGHT.
+     */
+    @Test
+    fun `the inset overlay is the lighter of the two in both palettes`() {
+        assertInsetIsLighter("NIGHT", Palette.NIGHT)
+        assertInsetIsLighter("DAY", Palette.DAY)
+    }
+}
+
+private fun assertInsetIsLighter(name: String, palette: Palette) {
+    val ground = palette.surface.luminance()
+    val raised = Math.abs(palette.surfaceRaised.over(palette.surface).luminance() - ground)
+    val inset = Math.abs(palette.surfaceInset.over(palette.surface).luminance() - ground)
+    assertTrue(
+        "$name.surfaceInset must move its ground less far than $name.surfaceRaised " +
+            "(raised=$raised, inset=$inset)",
+        inset < raised,
+    )
 }
 
 /**
@@ -51,8 +80,8 @@ class SurfaceOverlayPolarityTest {
  * That is what "recessed" means on both grounds without naming a direction —
  * night's ink is light and its overlay lightens, day's ink is dark and its
  * overlay darkens. It is deliberately not "raised and inset agree with each
- * other": DAY's two tokens currently hold the same literal, so comparing them
- * would compare a quantity to itself and could only ever fail on NIGHT.
+ * other", which would say nothing about either one's polarity; their
+ * *relative* magnitudes are pinned separately, by the fourth case.
  */
 private fun assertMovesGroundTowardInk(
     name: String,

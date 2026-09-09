@@ -87,7 +87,4 @@ object Dimens {
     const val HOLD_REPEAT_INTERVAL_MS = 150L
     const val POWER_HOLD_MS = 800L
     const val PANEL_TRANSITION_MS = 220
-
-    /** How long to wait for the vehicle before resolving a pressed state anyway. */
-    const val COMMAND_SETTLE_MS = 600L
 }

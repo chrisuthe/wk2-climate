@@ -10,7 +10,9 @@ import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -65,12 +67,20 @@ fun Modifier.target(
  * The `coroutineScope` wraps [awaitEachGesture] rather than using
  * `rememberCoroutineScope()`, so `repeater` is a *structured child* of the
  * currently running `pointerInput` coroutine, not of the composable's whole
- * lifetime. `pointerInput` restarts this coroutine whenever [onFire]'s
- * identity changes -- which happens on every recomposition a caller like
- * `onCommand(Command.TEMP_L_UP)` causes -- and cancelling it now cancels
- * `repeater` with it via the job hierarchy, regardless of where `repeater`
- * happens to be suspended (typically mid-[HoldRepeat.INTERVAL_MS] delay).
- * There is no longer-lived scope for it to be orphaned on.
+ * lifetime. Cancelling that coroutine -- which `pointerInput` does when
+ * [enabled] flips or the node leaves composition -- cancels `repeater` with it
+ * via the job hierarchy, regardless of where `repeater` happens to be
+ * suspended (typically mid-[HoldRepeat.INTERVAL_MS] delay). There is no
+ * longer-lived scope for it to be orphaned on.
+ *
+ * `pointerInput` is keyed on [enabled] alone, and [onFire] is read through a
+ * [rememberUpdatedState] -- the same construction `HoldOffButton` uses in
+ * `panel/PanelFooter.kt`. Keying on the callback instead would make a bus
+ * update able to restart the gesture mid-hold: a held finger produces only
+ * *moves*, and [awaitFirstDown] needs a `changedToDown()`, so a restart under
+ * a still-pressed finger could neither re-arm the repeat nor keep the pressed
+ * wash on. Reading the callback through a `State` also means a repeat fires
+ * into the *current* [onFire] rather than the first one this composable saw.
  *
  * `AwaitPointerEventScope` (the receiver inside [awaitEachGesture]) is
  * `@RestrictsSuspension`: only its own member/extension suspend functions
@@ -86,25 +96,28 @@ fun Modifier.holdRepeatTarget(
     interaction: MutableInteractionSource,
     enabled: Boolean = true,
     onFire: () -> Unit,
-): Modifier = pointerInput(enabled, onFire) {
-    if (!enabled) return@pointerInput
-    coroutineScope {
-        val gestureScope = this
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            val press = PressInteraction.Press(down.position)
-            interaction.tryEmit(press)
+): Modifier {
+    val fire by rememberUpdatedState(onFire)
+    return pointerInput(enabled) {
+        if (!enabled) return@pointerInput
+        coroutineScope {
+            val gestureScope = this
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val press = PressInteraction.Press(down.position)
+                interaction.tryEmit(press)
 
-            val repeater = gestureScope.launch { HoldRepeat.run(onFire) }
-            var releasedNormally = false
-            try {
-                releasedNormally = waitForUpOrCancellation() != null
-            } finally {
-                repeater.cancel()
-                interaction.tryEmit(
-                    if (releasedNormally) PressInteraction.Release(press)
-                    else PressInteraction.Cancel(press),
-                )
+                val repeater = gestureScope.launch { HoldRepeat.run { fire() } }
+                var releasedNormally = false
+                try {
+                    releasedNormally = waitForUpOrCancellation() != null
+                } finally {
+                    repeater.cancel()
+                    interaction.tryEmit(
+                        if (releasedNormally) PressInteraction.Release(press)
+                        else PressInteraction.Cancel(press),
+                    )
+                }
             }
         }
     }

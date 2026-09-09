@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
@@ -293,10 +294,20 @@ class ClimateBarService : AccessibilityService() {
         // The slot is re-evaluated on a timer rather than per state change: its
         // own hysteresis and dwell decide whether anything moves, and outside
         // temperature moves far more slowly than the poll interval.
+        //
+        // SystemClock.elapsedRealtime(), never the settable wall clock:
+        // this head unit sets its clock from GPS and the network while the bar
+        // is live, and AdaptiveSlot only ever compares this value against
+        // `lockedUntil` and `lastChangeAt + dwellMillis`. A forward wall-clock
+        // sync would leap past both, swapping the slot immediately after a tap
+        // -- so the driver's second press lands on FRONT DEFROST instead of the
+        // seat heat they aimed at, which is the exact harm the tap lockout
+        // exists to prevent. elapsedRealtime is monotonic, unsettable, and a
+        // drop-in because nothing here persists across a process restart.
         var slotContent by remember { mutableStateOf(slot.content) }
         LaunchedEffect(Unit) {
             while (true) {
-                slotContent = slot.update(outsideF(state), System.currentTimeMillis())
+                slotContent = slot.update(outsideF(state), SystemClock.elapsedRealtime())
                 delay(SLOT_POLL_MS)
             }
         }
@@ -321,7 +332,9 @@ class ClimateBarService : AccessibilityService() {
                     // duplicating the UI's SlotContent-to-Command mapping as a
                     // second source of truth. A press dragged off the slot
                     // arms it too, which only ever delays a swap.
-                    slot.onTap(System.currentTimeMillis())
+                    //
+                    // Same clock as the poll above, and for the same reason.
+                    slot.onTap(SystemClock.elapsedRealtime())
                 }
             },
         )
@@ -346,8 +359,34 @@ class ClimateBarService : AccessibilityService() {
      * are sitting over the factory bar with no working UI. Here the bar is
      * already up and working, so the honest response is to log and stay as we
      * were.
+     *
+     * The bus check ahead of that is the one that must come first: **never
+     * create a page that cannot drive the vehicle.** Two orderings reach here
+     * with no working bus, both because a CLIMATE touch can already be in the
+     * input pipeline when the thing that invalidates it runs on the same main
+     * looper. Either [followConnection]'s hide callback has just pulled both
+     * windows -- in which case nothing on the bus path will fire again until a
+     * reconnect, so a panel added now is orphaned -- or [teardown] has run, in
+     * which case `scope` is cancelled and every service-side route to
+     * [closePanel] is already unreachable. `bus` is read through
+     * `::bus.isInitialized` because [teardown] can precede the very first
+     * [onServiceConnected].
+     *
+     * Dropping the tap is the right direction: the same code path that
+     * invalidated the bus also removed our bar, so the `com.syu.air` factory
+     * bar is exposed and taking touches, and it is a working control rather
+     * than a stale one.
      */
     private fun openPanel() {
+        if (scope == null || !::bus.isInitialized || !bus.connected.value) {
+            Log.w(
+                TAG,
+                "CLIMATE ignored — no vehicle bus, so screen 1d would render frozen " +
+                    "values and drop every command. Our bar is already gone with the " +
+                    "bus, so the factory bar is the fallback.",
+            )
+            return
+        }
         if (panelHost != null) {
             panelClosing.value = false
             return

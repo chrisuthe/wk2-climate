@@ -195,24 +195,40 @@ private fun zoneText(temp: Temp, palette: Palette, live: Boolean): AnnotatedStri
  * drag-to-set was explored during design and rejected. If it is ever added it
  * must not shrink the 110dp steppers.
  *
- * A sentinel or unknown temperature hides the knob rather than parking it at
- * one end, which would imply a setpoint the vehicle never reported.
- *
- * With no climate data the track itself drops to a flat divider-weight
- * neutral. Hiding the knob is not enough on its own: a fully saturated
+ * The gradient and the knob stand or fall together. A fully saturated
  * blue-to-red readout with no knob reads as a working range whose knob is
  * merely off-screen, which is the same false confidence the muted numerals
- * exist to remove. The track is the loudest claim in the section, so it is the
- * one that most needs to stop making it.
+ * exist to remove -- and the track is the loudest claim in the section, so it
+ * is the one that most needs to stop making it. So there is exactly one
+ * condition: if the knob cannot be placed, the track drops to a flat
+ * divider-weight neutral.
+ *
+ * [Temp.Lo] and [Temp.Hi] therefore **do** get a knob, pinned to `0f` / `1f`.
+ * They are not unknown values -- LOW is below the reachable 60 F and HIGH is
+ * above 84 F, so the ends of the track are exactly where they belong, and
+ * showing them there is strictly more informative than hiding them.
+ *
+ * A Celsius reading gets neither. There are no Celsius range constants, so the
+ * position is genuinely unknown, and that is the same state as no climate data
+ * at all.
  */
 @Composable
 private fun RangeTrack(palette: Palette, live: Boolean, temp: Temp) {
-    val fraction = (temp as? Temp.Degrees)
-        ?.takeIf { it.unit == TempUnit.FAHRENHEIT }
-        ?.let {
-            ((it.value - REACHABLE_MIN_F) / (REACHABLE_MAX_F - REACHABLE_MIN_F))
-                .coerceIn(0f, 1f)
+    val fraction = if (!live) {
+        null
+    } else {
+        when (temp) {
+            is Temp.Degrees -> temp
+                .takeIf { it.unit == TempUnit.FAHRENHEIT }
+                ?.let {
+                    ((it.value - REACHABLE_MIN_F) / (REACHABLE_MAX_F - REACHABLE_MIN_F))
+                        .coerceIn(0f, 1f)
+                }
+            Temp.Lo -> 0f
+            Temp.Hi -> 1f
+            Temp.Unavailable -> null
         }
+    }
 
     Box(Modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.CenterStart) {
         Box(
@@ -221,7 +237,7 @@ private fun RangeTrack(palette: Palette, live: Boolean, temp: Temp) {
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .background(
-                    if (live) {
+                    if (fraction != null) {
                         Brush.horizontalGradient(listOf(palette.trackStart, palette.trackEnd))
                     } else {
                         SolidColor(palette.divider)
