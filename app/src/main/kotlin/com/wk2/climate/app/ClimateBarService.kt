@@ -316,8 +316,25 @@ class ClimateBarService : AccessibilityService() {
             state = state,
             slot = slotContent,
             onCommand = { bus.send(it) },
-            onHome = { performGlobalAction(GLOBAL_ACTION_HOME) },
-            onBack = { performGlobalAction(GLOBAL_ACTION_BACK) },
+            // Both nav keys close the panel first when it is open.
+            //
+            // `performGlobalAction` dispatches to the *focused* app, and the
+            // panel window is FLAG_NOT_FOCUSABLE, so it is never the target --
+            // and a global action does not route through our own `onKeyEvent`
+            // either. Measured on the vehicle: with the panel open, BACK went
+            // to the app underneath and the panel stayed put.
+            //
+            // HOME gets the same treatment for a different reason: going home
+            // while the panel is up would leave our panel covering the
+            // launcher.
+            onHome = {
+                requestPanelClose()
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            },
+            onBack = {
+                if (panelHost != null) requestPanelClose()
+                else performGlobalAction(GLOBAL_ACTION_BACK)
+            },
             onOpenClimate = { openPanel() },
             onSlotPressChange = { down ->
                 if (down) {
