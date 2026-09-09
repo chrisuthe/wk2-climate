@@ -11,6 +11,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.wk2.climate.bus.AdaptiveSlot
@@ -38,6 +40,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -71,6 +75,25 @@ class ClimateBarService : AccessibilityService() {
      * [onKeyEvent] both test.
      */
     private var panelHost: ComposeOverlayHost? = null
+
+    /**
+     * Whether the open panel has been asked to leave, which is the one input to
+     * the reverse transition.
+     *
+     * A `MutableState` rather than a plain flag because [PanelContent]'s
+     * animation coroutine has to observe it: the request arrives from a tap
+     * ([requestPanelClose], off the CLOSE button or filtered BACK) and has to
+     * reach a coroutine that lives inside the panel's composition.
+     *
+     * It is **not** vehicle state and nothing renders from it -- no control
+     * reads it, and the panel's contents still come only from `bus.state`. It
+     * says nothing about the world, only whether this window is on its way out.
+     *
+     * One field for the service rather than one per open: [closePanel] clears
+     * it whenever a window goes, and [openPanel] clears it before showing one,
+     * so a composition never starts life already closing.
+     */
+    private val panelClosing = mutableStateOf(false)
 
     /**
      * The service's own scope, created in [onServiceConnected] and cancelled in
@@ -311,6 +334,13 @@ class ClimateBarService : AccessibilityService() {
      * the panel is open, because the bar stays visible below it, so a second
      * tap must be a no-op rather than a second window over the first.
      *
+     * That guard now also covers the 220ms in which the panel is sliding *out*,
+     * because the window and its composition are still alive for the whole of
+     * it. Rather than drop the tap — leaving the driver looking at a page that
+     * is leaving with the button that summons it apparently dead — clearing
+     * [panelClosing] cancels the outgoing slide and brings the same page back to
+     * rest. There is never a second window, and CLIMATE always does something.
+     *
      * `addView` failing leaves only the panel dead, not the service — unlike
      * [showBar], which tears down, because a bar that cannot be added means we
      * are sitting over the factory bar with no working UI. Here the bar is
@@ -318,9 +348,13 @@ class ClimateBarService : AccessibilityService() {
      * were.
      */
     private fun openPanel() {
-        if (panelHost != null) return
+        if (panelHost != null) {
+            panelClosing.value = false
+            return
+        }
         val host = ComposeOverlayHost(this)
         panelHost = host
+        panelClosing.value = false
         try {
             host.show(panelWindowParams()) { PanelContent() }
         } catch (t: Throwable) {
@@ -330,7 +364,31 @@ class ClimateBarService : AccessibilityService() {
     }
 
     /**
-     * Removes screen 1d's window and drops the host with it.
+     * Asks the open panel to leave, playing the reverse transition first.
+     *
+     * The **only** two routes through here are the ones the spec's transition
+     * table names — "Tap CLOSE / back gesture" — and both are the driver's own
+     * doing. The animation is affordable precisely because of that: the driver
+     * asked, is looking at the screen, and 220ms of motion is what tells them
+     * the page went away rather than the app crashing.
+     *
+     * The dead-bus and teardown routes deliberately do **not** come through
+     * here; they call [closePanel] and the window goes on that frame. The spec
+     * row covers interactions, and neither of those is one — a bus that has
+     * stopped answering is not the driver asking for a nice exit, it is the one
+     * moment a trusted overlay over the whole app area must be gone *now*.
+     *
+     * This only marks the intent. The window is removed by the animation
+     * coroutine in [PanelContent] when the slide reaches the bottom, so a tap
+     * arriving inside those 220ms can still countermand it — see [openPanel].
+     */
+    private fun requestPanelClose() {
+        if (panelHost == null) return
+        panelClosing.value = true
+    }
+
+    /**
+     * Removes screen 1d's window and drops the host with it, on this frame.
      *
      * Safe to call with no panel open — `panelHost` is then null and this does
      * nothing — which is what lets [teardown] and [hidePanelAndBar] call it
@@ -338,22 +396,35 @@ class ClimateBarService : AccessibilityService() {
      * reused, so its lifecycle must reach DESTROYED and its ViewModel store
      * must be cleared, or every open leaks one.
      *
-     * The close is **not** animated, and that asymmetry is deliberate. Every
-     * exit route ends here -- CLOSE, [onKeyEvent]'s BACK, [hidePanelAndBar] on
-     * a dead bus, [teardown] on unbind -- and the last two must remove a
-     * trusted overlay covering the whole app area *now*, not after a frame
-     * budget. Reversing the entrance would mean deferring `destroy()` until an
-     * animation finished, which either leaves those two routes with a second,
-     * immediate path (so the exit is inconsistent anyway) or delays handing
-     * the screen back during exactly the failure this file exists to handle.
-     * It would also swallow a CLIMATE tap landing inside those 220ms, since
-     * [openPanel]'s double-open guard would still see a live `panelHost`. The
-     * spec asks for the entrance by name and direction; nothing depends on a
-     * reverse, so the page simply goes.
+     * This is the single place a panel window is ever removed, and it never
+     * waits for anything. The reverse transition does not replace it — it only
+     * delays the call, and it delays it from inside the panel's own
+     * composition, which the window owns. So every route ends the same way:
+     *
+     *  - CLOSE or BACK: [requestPanelClose] marks the panel closing, the slide
+     *    plays, the coroutine calls this.
+     *  - dead bus ([hidePanelAndBar]) and [teardown]: this, directly, with no
+     *    animation and nothing to wait for. Both may land mid-slide, and both
+     *    then win — removing the view disposes the composition, which cancels
+     *    the animation coroutine before it reaches its own call to this.
+     *  - [openPanel]'s `addView` failure: this, to drop the host it just made.
+     *
+     * The animation therefore cannot strand the window. It has no path to
+     * removing it other than this method; it cannot outlive the composition,
+     * because `LaunchedEffect` makes it a structured child of it; and the
+     * composition cannot outlive the window, because disposal is what removing
+     * the view does. A cancelled slide is either a window that has already gone
+     * or a panel that has deliberately been kept ([openPanel]) — never a page
+     * left half off-screen with nothing left to remove it.
+     *
+     * Clearing [panelClosing] here is what makes a *subsequent* open honest: a
+     * dead bus removing a panel mid-slide must not leave the flag set for the
+     * next window to inherit.
      */
     private fun closePanel() {
         panelHost?.destroy()
         panelHost = null
+        panelClosing.value = false
     }
 
     @Composable
@@ -395,11 +466,60 @@ class ClimateBarService : AccessibilityService() {
             )
         }
 
+        // Screen 1d's reverse, and the removal of the window at the end of it.
+        //
+        // `EaseIn` because the reverse of the motion is the reverse of the
+        // curve: the entrance runs ease-out, which leaves fast and arrives
+        // slowly, so played backwards it leaves slowly and arrives fast, and
+        // that is what ease-in is. Same `Animatable`, same offset, same
+        // duration, same one property -- nothing here fades and no value is
+        // interpolated.
+        //
+        // Keyed on `Unit` like the entrance, and for the same reason: `bus.state`
+        // recomposes this many times a second. The close *request* reaches it
+        // through `snapshotFlow` instead, so the effect is never restarted and
+        // the panel is never re-slid under the driver's finger.
+        //
+        // `drop(1)` discards `snapshotFlow`'s replay of the current value.
+        // [openPanel] clears the flag before the window is shown, so that first
+        // emission is always `false` and always means "nothing has asked to
+        // leave yet" -- acting on it would start a second `animateTo` against
+        // the entrance's, and one would cancel the other.
+        //
+        // `collectLatest` is the whole re-entry story. A CLIMATE tap inside the
+        // 220ms clears the flag, which cancels the block below *before* it
+        // reaches `closePanel()`, and re-runs it to slide the page back to rest
+        // from wherever it had got to. So the reopen is never dropped, the
+        // window is never removed after the driver asked for it back, and there
+        // is never a second one -- it is the same window throughout.
+        //
+        // No `finally` around the animation, deliberately. Cancellation here has
+        // exactly two causes: the composition being disposed, which only happens
+        // because the window was already removed, and the re-entry above, where
+        // removing the window is precisely the wrong thing to do. A `finally`
+        // would be a no-op in the first case and a bug in the second.
+        LaunchedEffect(Unit) {
+            snapshotFlow { panelClosing.value }.drop(1).collectLatest { closing ->
+                if (closing) {
+                    slide.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseIn),
+                    )
+                    closePanel()
+                } else {
+                    slide.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseOut),
+                    )
+                }
+            }
+        }
+
         ClimatePanel(
             state = state,
             outsideF = outsideF(state),
             onCommand = { bus.send(it) },
-            onClose = { closePanel() },
+            onClose = { requestPanelClose() },
             // On `ClimatePanel`'s own modifier parameter, not a wrapper: it
             // adds no layout node, so the footer-pinning `BoxWithConstraints`
             // still measures against the window's own bounded constraints.
@@ -640,7 +760,7 @@ class ClimateBarService : AccessibilityService() {
      */
     override fun onKeyEvent(event: KeyEvent?): Boolean {
         if (event?.keyCode == KeyEvent.KEYCODE_BACK && panelHost != null) {
-            if (event.action == KeyEvent.ACTION_UP) closePanel()
+            if (event.action == KeyEvent.ACTION_UP) requestPanelClose()
             return true
         }
         return super.onKeyEvent(event)
