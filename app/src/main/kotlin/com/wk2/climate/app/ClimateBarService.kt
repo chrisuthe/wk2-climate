@@ -302,30 +302,30 @@ class ClimateBarService : AccessibilityService() {
     private fun BarContent() {
         val state by bus.state.collectAsState()
 
-        // The slot is re-evaluated on a timer rather than per state change: its
-        // own hysteresis and dwell decide whether anything moves, and outside
-        // temperature moves far more slowly than the poll interval.
+        // The adaptive pair is re-evaluated on a timer rather than per state
+        // change: its own hysteresis and dwell decide whether anything moves,
+        // and outside temperature moves far more slowly than the poll interval.
         //
         // SystemClock.elapsedRealtime(), never the settable wall clock:
         // this head unit sets its clock from GPS and the network while the bar
         // is live, and AdaptiveSlot only ever compares this value against
         // `lockedUntil` and `lastChangeAt + dwellMillis`. A forward wall-clock
-        // sync would leap past both, swapping the slot immediately after a tap
+        // sync would leap past both, swapping the pair immediately after a tap
         // -- so the driver's second press lands on FRONT DEFROST instead of the
         // seat heat they aimed at, which is the exact harm the tap lockout
         // exists to prevent. elapsedRealtime is monotonic, unsettable, and a
         // drop-in because nothing here persists across a process restart.
-        var slotContent by remember { mutableStateOf(slot.content) }
+        var band by remember { mutableStateOf(slot.band) }
         LaunchedEffect(Unit) {
             while (true) {
-                slotContent = slot.update(outsideF(state), SystemClock.elapsedRealtime())
+                band = slot.update(outsideF(state), SystemClock.elapsedRealtime())
                 delay(SLOT_POLL_MS)
             }
         }
 
         ClimateBar(
             state = state,
-            slot = slotContent,
+            band = band,
             onCommand = { bus.send(it) },
             // Both nav keys close the panel first when it is open.
             //
@@ -348,19 +348,21 @@ class ClimateBarService : AccessibilityService() {
             },
             panelOpen = panelOpen.value,
             onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
-            onSlotPressChange = { down ->
+            onSlotPressChange = { cell, down ->
                 if (down) {
-                    slot.onFingerDown()
+                    slot.onFingerDown(cell)
                 } else {
-                    slot.onFingerUp()
-                    // Arm the tap lockout on release: the slot must not change
-                    // for a moment after the driver's finger leaves it, or
-                    // their next press lands on a control they did not aim at.
+                    slot.onFingerUp(cell)
+                    // Arm the tap lockout on release: neither cell must change
+                    // for a moment after the driver's finger leaves either of
+                    // them, or their next press lands on a control they did
+                    // not aim at. The lockout is deliberately not per-cell --
+                    // the pair moves as one, so a tap on either freezes both.
                     // Release is the moment the tap completes — and taking it
                     // from here rather than from `onCommand` avoids
                     // duplicating the UI's SlotContent-to-Command mapping as a
-                    // second source of truth. A press dragged off the slot
-                    // arms it too, which only ever delays a swap.
+                    // second source of truth. A press dragged off a cell arms
+                    // it too, which only ever delays a swap.
                     //
                     // Same clock as the poll above, and for the same reason.
                     slot.onTap(SystemClock.elapsedRealtime())
@@ -665,8 +667,8 @@ class ClimateBarService : AccessibilityService() {
      * rather than guessing.
      *
      * An invalid, out-of-range or non-Fahrenheit reading returns null, and
-     * [AdaptiveSlot] pins to SEAT HEAT in that case — so the slot is never
-     * blank and the bar's geometry never changes.
+     * [AdaptiveSlot] pins to the middle band in that case, so neither cell is
+     * ever blank and the bar's geometry never changes.
      */
     private fun outsideF(state: ClimateState): Int? {
         if (state.tempUnit != TempUnit.FAHRENHEIT) return null

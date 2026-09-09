@@ -28,9 +28,18 @@ object Dimens {
     val barTopRow = 96.dp
     val barBottomRow = 131.dp
     val barNavRow = 113.5.dp
-    val slotWheel = 210.dp
-    val slotAdaptive = 200.dp         // the only region whose contents change
-    val slotAuto = 174.dp
+    // The top row, left to right. These four must sum to [barCenterColumn] --
+    // asserted in ui's BarGeometryTest, because an overflow here would push
+    // CLIMATE off the edge silently rather than failing.
+    //
+    // AUTO is leftmost and takes the widest cell: it is the most important
+    // control in the row. The two adaptive cells are the only region whose
+    // contents change, and they change together. The first is 200 because
+    // FRONT DEFROST -- glyph plus the longest label in the row -- is what has
+    // to fit it; the second holds only SEAT HEAT or MAX A/C and fits 174.
+    val slotAuto = 210.dp
+    val slotAdaptiveFirst = 200.dp
+    val slotAdaptiveSecond = 174.dp
     val slotClimate = 184.dp
     val barStepper = 100.dp
     val volumeReadout = 35.dp         // deliberately below minTarget: not tappable

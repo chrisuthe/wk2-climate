@@ -34,7 +34,7 @@ vehicle's own dual-zone state, and the fan meter is dimmed because AUTO owns it.
 
 | | |
 |---|---|
-| **Screen 2a — the bar** | Replaces the factory bar in place at `[0,1693][1080,1920]`. Nav, volume, an adaptive slot that follows outside temperature, both setpoints, and CLIMATE. |
+| **Screen 2a — the bar** | Replaces the factory bar in place at `[0,1693][1080,1920]`. Nav, volume, AUTO, a pair of adaptive cells that follow outside temperature, both setpoints, and CLIMATE. |
 | **Screen 1d — the panel** | Opens over app content at `[0,0][1080,1693]`, so the bar stays visible beneath it. Zones, fan, four airflow modes, seven mode tiles, comfort grid, hold-to-confirm power-off. |
 | **`:bus`** | The vendor protocol behind a testable seam, with an adversarial fake that reproduces measured vehicle quirks. |
 

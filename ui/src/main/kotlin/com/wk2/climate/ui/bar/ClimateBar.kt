@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.SlotBand
+import com.wk2.climate.bus.SlotCell
 import com.wk2.climate.bus.SlotContent
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
@@ -18,9 +20,10 @@ import com.wk2.climate.design.Palette
  * framework's `navigation_bar_height` and claiming more would cover app
  * content. Screen 1d opens *over* app content instead.
  *
- * Six functions live here permanently, plus one adaptive slot. Everything else
- * is one tap away on 1d. Rendered entirely from [state]; every tap dispatches
- * a [Command] and mutates nothing locally.
+ * Five functions live here permanently, plus the two adaptive cells that hold
+ * a [SlotBand]'s pair and change together. Everything else is one tap away on
+ * 1d. Rendered entirely from [state]; every tap dispatches a [Command] and
+ * mutates nothing locally.
  *
  * Until the vehicle has reported its first climate signal the climate half of
  * the bar renders *indeterminate* — see [ClimateState.hasClimateData]. Nothing
@@ -32,13 +35,13 @@ import com.wk2.climate.design.Palette
 @Composable
 fun ClimateBar(
     state: ClimateState,
-    slot: SlotContent,
+    band: SlotBand,
     onCommand: (Command) -> Unit,
     onHome: () -> Unit,
     onBack: () -> Unit,
     panelOpen: Boolean,
     onToggleClimate: () -> Unit,
-    onSlotPressChange: (Boolean) -> Unit,
+    onSlotPressChange: (SlotCell, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Day and night differ in luminance only, never in layout, so muscle
@@ -63,23 +66,33 @@ fun ClimateBar(
             BarTopRow(
                 palette = palette,
                 live = live,
-                wheelOn = state.wheelHeatOn,
+                band = band,
                 autoOn = state.autoOn,
-                slot = slot,
+                wheelOn = state.wheelHeatOn,
+                frontDefrostOn = state.frontDefrostOn,
+                maxAcOn = state.maxAcOn,
                 panelOpen = panelOpen,
                 seatHeat = state.seatHeatL,
                 seatVent = state.seatVentL,
-                onWheel = { onCommand(Command.WHEEL_HEAT) },
-                onSlot = {
+                onAuto = { onCommand(Command.AUTO) },
+                // Keyed on the content the tapped cell was actually showing,
+                // not on the band, so a cell can never dispatch its
+                // neighbour's command.
+                onSlot = { content ->
                     onCommand(
-                        when (slot) {
+                        when (content) {
                             SlotContent.FRONT_DEFROST -> Command.FRONT_DEFROST
+                            SlotContent.WHEEL -> Command.WHEEL_HEAT
                             SlotContent.SEAT_HEAT -> Command.SEAT_HEAT_L
                             SlotContent.SEAT_COOL -> Command.SEAT_VENT_L
+                            // The measured macro: recirculation on, fan to 7,
+                            // AUTO cleared, both setpoints to LO. A plain
+                            // toggle with no confirmation, by the owner's
+                            // choice.
+                            SlotContent.MAX_AC -> Command.MAX_AC
                         },
                     )
                 },
-                onAuto = { onCommand(Command.AUTO) },
                 onClimate = onToggleClimate,
                 onSlotPressChange = onSlotPressChange,
             )

@@ -80,12 +80,12 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
     // from the button handlers below and its result held in Compose state.
     var outsideF by remember { mutableStateOf<Int?>(null) }
     var clock by remember { mutableStateOf(0L) }
-    var slotContent by remember { mutableStateOf(slot.content) }
+    var band by remember { mutableStateOf(slot.band) }
 
     fun scrub(toF: Int?) {
         outsideF = toF
         clock += 60_000L                      // step past the dwell window
-        slotContent = slot.update(toF, clock)
+        band = slot.update(toF, clock)
     }
 
     var showBar by remember { mutableStateOf(false) }
@@ -114,7 +114,7 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             Key("INSPECTOR", palette) { showBar = false }
             ClimateBar(
                 state = state,
-                slot = slotContent,
+                band = band,
                 onCommand = { bus.send(it) },
                 onHome = {},
                 onBack = {},
@@ -122,8 +122,8 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
                 // there is no panel over this bar to toggle: the caret stays up.
                 panelOpen = false,
                 onToggleClimate = {},
-                onSlotPressChange = { down ->
-                    if (down) slot.onFingerDown() else slot.onFingerUp()
+                onSlotPressChange = { cell, down ->
+                    if (down) slot.onFingerDown(cell) else slot.onFingerUp(cell)
                 },
             )
         }
@@ -170,7 +170,8 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             item { Mono("refreshes   ${bus.refreshes}", palette.ink) }
             item { Mono("--- adaptive slot ---", palette.inkMuted) }
             item { Mono("outside     ${outsideF ?: "undecoded (null)"}", palette.ink) }
-            item { Mono("slot holds  $slotContent", palette.accent) }
+            item { Mono("band        $band", palette.accent) }
+            item { Mono("cells       ${band.first} / ${band.second}", palette.accent) }
         }
 
         Mono("commands", palette.inkMuted)
