@@ -49,6 +49,30 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
     val hasClimateData: Boolean
         get() = raw.keys.any { it.module == Signal.MODULE_CANBUS }
 
+    /**
+     * Every [Signal] we registered for and have still never been told a value
+     * for, in declaration order.
+     *
+     * The stopping rule for the re-registration retry. `hasClimateData` is the
+     * wrong rule for it: the MCU streams climate frames continuously, so on
+     * the vehicle climate landed within a second of registering — measured,
+     * `climate data present after 0 re-registration(s)` — and the retry
+     * finished on its first check without ever giving the signals that *do*
+     * need nagging a chance. Those are the ones that only change when someone
+     * acts: `VOLUME` until the knob turns, `ILLUMINATION` until the headlights
+     * switch, `TEMP_OUT` until the reading moves.
+     *
+     * Registered-for and expected are the same thing here — [Signal.entries]
+     * is exactly the list handed to `register` — so there is no second list to
+     * keep in step.
+     *
+     * Empty is the goal state, not the normal one: some of these may simply
+     * not exist on this vehicle, so a non-empty set after the last attempt is
+     * information, not a fault. It is logged for that reason.
+     */
+    val missingSignals: Set<Signal>
+        get() = Signal.entries.filterNotTo(LinkedHashSet()) { raw.containsKey(it) }
+
     // ---- derived: zone temperatures ----
     val tempUnit: TempUnit get() = TempUnit.from(raw[Signal.TEMP_UNIT])
     val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT], tempUnit)

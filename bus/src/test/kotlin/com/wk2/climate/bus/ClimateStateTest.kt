@@ -126,6 +126,37 @@ class ClimateStateTest {
     }
 
     @Test
+    fun `an empty state reports every expected signal as missing`() {
+        assertEquals(Signal.entries.toSet(), ClimateState.EMPTY.missingSignals)
+    }
+
+    @Test
+    fun `a reported signal leaves the missing set, at zero as well as one`() {
+        assertFalse(ClimateState.EMPTY.with(Signal.VOLUME, 0).missingSignals.contains(Signal.VOLUME))
+        assertFalse(
+            ClimateState.EMPTY.with(Signal.ILLUMINATION, 1).missingSignals
+                .contains(Signal.ILLUMINATION),
+        )
+    }
+
+    @Test
+    fun `the measured vehicle baseline is missing only the outside temperature`() {
+        // The baseline is the snapshot captured from the vehicle, and it does
+        // NOT carry TEMP_OUT — that capture was stationary and the signal was
+        // decoded later. So this asserts what is real rather than "nothing
+        // missing": every signal the baseline holds is accounted for, and the
+        // one gap is named, so adding TEMP_OUT to the baseline later fails
+        // here loudly instead of silently.
+        assertEquals(setOf(Signal.TEMP_OUT), FakeVehicleBus.VEHICLE_BASELINE.missingSignals)
+    }
+
+    @Test
+    fun `the missing set is in declaration order, so a log line is stable`() {
+        val missing = ClimateState.EMPTY.missingSignals.toList()
+        assertEquals(Signal.entries.toList(), missing)
+    }
+
+    @Test
     fun `the MAX AC macro outcome renders as LO, not as a number`() {
         val s = ClimateState.EMPTY
             .with(Signal.TEMP_LEFT, -2)

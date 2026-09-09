@@ -4,7 +4,7 @@ import kotlinx.coroutines.delay
 
 /**
  * The observable behaviour behind nagging the vendor service into reporting
- * climate state after a cold start.
+ * the signals we registered for but have never been told a value for.
  *
  * Kept as a suspend function with no Android dependency, for the same reason
  * [ConnectionGate] is: the only place this ever runs for real is a vehicle
@@ -26,7 +26,7 @@ object RefreshRetry {
      *    than that, so by 1s the subscribe-only path has demonstrably produced
      *    nothing and a re-register is worth trying. Asking sooner would race
      *    our own registration.
-     *  - **Doubling.** If the MCU is reporting no climate frames at all —
+     *  - **Doubling.** If the vehicle is not reporting a signal at all —
      *    which is what `seeded 0/20` with the ignition off means — then no
      *    number of re-registrations will help, and hammering a vendor service
      *    that is answering correctly is the wrong response to our own
@@ -39,33 +39,59 @@ object RefreshRetry {
      *    unit, wrapping in well under a minute — evicting everything else for
      *    the rest of the drive.
      *
-     * Four attempts, ~8s total. If climate data has not arrived by then the
-     * bar honestly shows that it does not know, which is Part B's job.
+     * Four attempts, ~8s total. Whatever is still missing after that is
+     * logged and left alone: the bar renders honestly from what it has, and
+     * an unknown illumination selects the night palette.
      */
     val DEFAULT_DELAYS_MS: List<Long> = listOf(1_000L, 1_000L, 2_000L, 4_000L)
 
     /**
-     * Waits [delaysMs] entry, checks [hasData], calls [refresh] — repeated for
-     * each entry, then returns for good.
+     * Waits a [delaysMs] entry, asks [missing], calls [refresh] — repeated for
+     * each entry, then settles for good.
      *
-     * Returns immediately if [hasData] is already true, and returns as soon as
-     * it becomes true, so a bus that answered the first attempt costs nothing
-     * further. [refresh] is never called after data has arrived.
+     * The completion condition is **nothing expected is still missing**, not
+     * "some data arrived". Gating on the latter is what let the reported
+     * defect through: climate frames stream continuously, so the retry
+     * completed on its first check while `VOLUME` and `ILLUMINATION` — signals
+     * that are static until someone acts — had never been pushed at all, and
+     * were never asked for again.
+     *
+     * Returns immediately if [missing] is already empty, and returns as soon
+     * as it becomes empty, so a bus that answered costs nothing further.
+     * [refresh] is never called once nothing is missing.
+     *
+     * [onAttempt] is called once per attempt, before [refresh], with the set
+     * that is still missing at that moment; [onSettled] is called exactly once
+     * on the way out with the final set — empty or not. Both are the caller's
+     * logging: keeping them as callbacks is what keeps this file Android-free
+     * and its timing provable with virtual time.
+     *
+     * A non-empty set at [onSettled] is a normal outcome. Some of these
+     * signals may not exist on this vehicle at all, and no number of
+     * re-registrations will conjure one; this is deliberately not escalated
+     * past a fact the caller can log.
      *
      * Bounded by construction: there is no loop that outlives [delaysMs]. The
      * caller's coroutine is still the owner — cancelling the scope cancels the
      * [delay] and stops this mid-schedule.
      */
-    suspend fun refreshUntilData(
-        hasData: () -> Boolean,
+    suspend fun refreshUntilNothingMissing(
+        missing: () -> Set<Signal>,
         refresh: () -> Unit,
+        onAttempt: (attempt: Int, total: Int, missing: Set<Signal>) -> Unit = { _, _, _ -> },
+        onSettled: (attempts: Int, missing: Set<Signal>) -> Unit = { _, _ -> },
         delaysMs: List<Long> = DEFAULT_DELAYS_MS,
     ) {
+        var attempt = 0
         for (waitMs in delaysMs) {
-            if (hasData()) return
+            if (missing().isEmpty()) break
             delay(waitMs)
-            if (hasData()) return
+            val stillMissing = missing()
+            if (stillMissing.isEmpty()) break
+            attempt++
+            onAttempt(attempt, delaysMs.size, stillMissing)
             refresh()
         }
+        onSettled(attempt, missing())
     }
 }

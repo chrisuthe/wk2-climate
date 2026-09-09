@@ -87,7 +87,7 @@ class ClimateBarService : AccessibilityService() {
             // The *same* scope, so teardown() cancels this with everything
             // else. A second scope, or a coroutine launched anywhere it could
             // outlive this connection, is the bug this file exists to prevent.
-            it.launch { nagForClimateData() }
+            it.launch { nagForMissingSignals() }
         }
     }
 
@@ -123,58 +123,71 @@ class ClimateBarService : AccessibilityService() {
     }
 
     /**
-     * Forces the vendor service to report climate state after a cold start.
+     * Forces the vendor service to report the signals it has never pushed.
      *
-     * Registration subscribes to *changes* only. On an ignition cycle the head
-     * unit restarts, this process comes up with an empty state map, all 20
-     * climate codes register successfully — and nothing arrives until the
-     * driver moves something. That is exactly what the owner hit: blank
-     * temperatures and a bar that read as a powered-off HVAC until a `+`
-     * press produced the first change.
+     * Registration subscribes to *changes* only, and nothing replays a current
+     * value — `IRemoteModule.get` was measured on the vehicle to answer with
+     * presence `0` for every code even with the engine running, and was
+     * removed in `18de2be`; it is not the mechanism. What is left is the OEM's
+     * own `Registrar.notify()`, which is nothing but a re-registration.
      *
-     * `SyuVehicleBus.seedAll()` already asks directly via `IRemoteModule.get`
-     * on connect, and is kept: it is correct against the vendor contract and
-     * costs about 5ms. But measured on the vehicle with the ignition **off**
-     * it returned `seeded 0/20` with no exception, so whether it answers with
-     * the engine running is unknown. This is the second, independent attempt —
-     * the OEM's own `Registrar.notify()`, which is nothing but a
-     * re-registration.
+     * Climate needs little of this: the MCU streams climate frames
+     * continuously, so on the vehicle values landed within a second of
+     * registering (`climate data present after 0 re-registration(s)`). The
+     * signals that need it are the ones that are static until someone acts —
+     * `VOLUME` until the knob turns, `ILLUMINATION` until the headlights
+     * switch. The owner reported exactly that: the volume slot showed its em
+     * dash until the volume was changed.
      *
      * Waits for the connection first: re-registering before any module is
      * bound would do nothing. A bus that never connects leaves this suspended
      * until [teardown] cancels the scope, which is correct — there is nothing
      * to refresh, and `ConnectionGate` has already pulled the bar.
      *
-     * The schedule and the stopping rule are [RefreshRetry.refreshUntilData],
-     * kept in `:bus` so they are provable with virtual time rather than only
-     * on a vehicle whose ignition has just been cycled. This is the Android
-     * wiring: which flow to wait on, what a refresh is, and what to log.
+     * The schedule and the stopping rule are
+     * [RefreshRetry.refreshUntilNothingMissing], kept in `:bus` so they are
+     * provable with virtual time rather than only on a vehicle whose ignition
+     * has just been cycled. This is the Android wiring: which flow to wait on,
+     * what a refresh is, and what to log.
+     *
+     * The logging is the point of this as much as the retry is. The retry has
+     * never actually fired on the vehicle, so it has never been shown that
+     * re-registration forces a push at all. One line per attempt naming what
+     * is still missing, plus one settling line, is enough to settle that from
+     * a single session — and one line per attempt is the budget: this unit's
+     * main log ring buffer is 256 KiB and wraps in well under a minute.
      */
-    private suspend fun nagForClimateData() {
+    private suspend fun nagForMissingSignals() {
         bus.connected.first { it }
-        var attempt = 0
-        val total = RefreshRetry.DEFAULT_DELAYS_MS.size
-        RefreshRetry.refreshUntilData(
-            hasData = { bus.state.value.hasClimateData },
-            refresh = {
-                attempt++
-                // One line per attempt, never per signal: this unit's main log
-                // ring buffer is 256 KiB and wraps in well under a minute.
-                Log.i(TAG, "no climate data yet — re-registering, attempt $attempt/$total")
-                bus.refresh()
+        RefreshRetry.refreshUntilNothingMissing(
+            missing = { bus.state.value.missingSignals },
+            refresh = { bus.refresh() },
+            onAttempt = { attempt, total, missing ->
+                Log.i(TAG, "re-register attempt $attempt/$total — ${describe(missing)}")
+            },
+            onSettled = { attempts, missing ->
+                // Not a warning: a signal this vehicle does not fit is never
+                // going to arrive, and that is a fact about the vehicle rather
+                // than a fault of ours. If this line still names ILLUMINATION
+                // or VOLUME after the last attempt, re-registration does not
+                // force a push and the mechanism needs rethinking.
+                if (missing.isEmpty()) {
+                    Log.i(
+                        TAG,
+                        "all ${Signal.entries.size} expected signals reported after " +
+                            "$attempts re-registration(s)",
+                    )
+                } else {
+                    Log.i(TAG, "settled after $attempts re-registration(s) — ${describe(missing)}")
+                }
             },
         )
-        if (bus.state.value.hasClimateData) {
-            Log.i(TAG, "climate data present after $attempt re-registration(s)")
-        } else {
-            Log.w(
-                TAG,
-                "still no climate data after $attempt re-registration(s) — the bar is " +
-                    "showing an indeterminate state and waits for the vehicle to report " +
-                    "a change. Expected with the ignition off.",
-            )
-        }
     }
+
+    /** Signal names, never codes, in declaration order, on one line. */
+    private fun describe(missing: Set<Signal>): String =
+        "${missing.size} of ${Signal.entries.size} signals never reported: " +
+            missing.joinToString(", ") { it.name }
 
     private fun showBar() {
         // `addView` on a raw overlay window can genuinely fail — a bad token, a
