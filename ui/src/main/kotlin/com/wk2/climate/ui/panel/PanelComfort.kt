@@ -26,6 +26,9 @@ import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.SeatHeatLeftGlyph
+import com.wk2.climate.ui.SeatHeatRightGlyph
+import com.wk2.climate.ui.SeatCoolRightGlyph
+import com.wk2.climate.ui.SeatCoolLeftGlyph
 import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
@@ -58,24 +61,31 @@ fun PanelComfort(
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
             ComfortTile(
-                palette, "SEAT HEAT \u00B7 L", state.seatHeatL, palette.warm,
-                { onCommand(Command.SEAT_HEAT_L) }, Modifier.weight(1f),
-                glyph = { tint -> SeatHeatLeftGlyph(tint = tint, size = 30.dp) },
+                palette, state.seatHeatL, palette.warm,
+                glyph = { tint -> SeatHeatLeftGlyph(tint, SEAT_GLYPH) },
+                onClick = { onCommand(Command.SEAT_HEAT_L) },
+                modifier = Modifier.weight(1f),
             )
             ComfortTile(
-                palette, "SEAT HEAT \u00B7 R", state.seatHeatR, palette.warm,
-                { onCommand(Command.SEAT_HEAT_R) }, Modifier.weight(1f),
+                palette, state.seatHeatR, palette.warm,
+                glyph = { tint -> SeatHeatRightGlyph(tint, SEAT_GLYPH) },
+                onClick = { onCommand(Command.SEAT_HEAT_R) },
+                modifier = Modifier.weight(1f),
             )
         }
         Spacer(Modifier.height(Dimens.tileGap))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
             ComfortTile(
-                palette, "SEAT COOL \u00B7 L", state.seatVentL, palette.cool,
-                { onCommand(Command.SEAT_VENT_L) }, Modifier.weight(1f),
+                palette, state.seatVentL, palette.cool,
+                glyph = { tint -> SeatCoolLeftGlyph(tint, SEAT_GLYPH) },
+                onClick = { onCommand(Command.SEAT_VENT_L) },
+                modifier = Modifier.weight(1f),
             )
             ComfortTile(
-                palette, "SEAT COOL \u00B7 R", state.seatVentR, palette.cool,
-                { onCommand(Command.SEAT_VENT_R) }, Modifier.weight(1f),
+                palette, state.seatVentR, palette.cool,
+                glyph = { tint -> SeatCoolRightGlyph(tint, SEAT_GLYPH) },
+                onClick = { onCommand(Command.SEAT_VENT_R) },
+                modifier = Modifier.weight(1f),
             )
         }
 
@@ -97,20 +107,19 @@ fun PanelComfort(
 @Composable
 private fun ComfortTile(
     palette: Palette,
-    title: String,
     level: SeatLevel,
     litColor: Color,
+    glyph: @Composable (Color) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    glyph: (@Composable (Color) -> Unit)? = null,
 ) {
     val (interaction, pressed) = rememberPressState()
     val shape = RoundedCornerShape(Dimens.radiusTile)
     val on = level.isOn
-    // An UNAVAILABLE level already renders a dash, but full-strength ink makes
-    // that dash read as a considered value. Muting the title as well is what
-    // `BarTopRow`'s SeatSlot does, and it is driven by the level rather than by
-    // a separate `live` flag because the level is already the honest reading.
+    // Drives the glyph's tint as well as the readout. Taken from the level
+    // rather than from a separate `live` flag, because the level is already the
+    // honest reading -- `hasClimateData == false` means UNAVAILABLE by
+    // construction.
     val known = level != SeatLevel.UNAVAILABLE
 
     Column(
@@ -127,40 +136,33 @@ private fun ComfortTile(
             )
             .target(interaction, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 16.dp),
-        // A glyph says which seat and what it does, so the tile does not need
-        // the words as well -- and with the title gone the single remaining row
-        // centres rather than being pushed to the top by SpaceBetween.
-        verticalArrangement = if (glyph == null) Arrangement.SpaceBetween else Arrangement.Center,
+        // One centred row. The glyph says which seat and what it does, so the
+        // tile carries no words: there is nothing to push apart.
+        verticalArrangement = Arrangement.Center,
     ) {
-        if (glyph == null) {
-            BasicText(
-                text = title,
-                style = Type.comfortTitle.copy(color = if (known) palette.ink else palette.inkMuted),
-            )
-        }
-
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (glyph != null) {
-                // Same three-state tint as every other drawn glyph: lit when
-                // the seat is on, neutral ink when we know it is off, faint
-                // when the level is UNAVAILABLE.
-                glyph(
-                    when {
-                        !known -> palette.inkFaint
-                        on -> litColor
-                        else -> palette.ink
-                    },
-                )
-                Spacer(Modifier.width(14.dp))
-            }
+            // Same three-state tint as every other drawn glyph: lit when the
+            // seat is on, neutral ink when we know it is off, faint when the
+            // level is UNAVAILABLE.
+            glyph(
+                when {
+                    !known -> palette.inkFaint
+                    on -> litColor
+                    else -> palette.ink
+                },
+            )
+            Spacer(Modifier.width(16.dp))
             repeat(2) { index ->
                 Box(
                     Modifier
                         .weight(1f)
-                        .height(14.dp)
+                        // Slimmer than the handoff's 14dp: the glyph is now
+                        // the tile's subject and the pips are the qualifier,
+                        // so they read better as a lighter weight beside it.
+                        .height(10.dp)
                         .background(
                             if (index < level.litPips) litColor else palette.ink.copy(alpha = 0.13f),
-                            RoundedCornerShape(7.dp),
+                            RoundedCornerShape(5.dp),
                         ),
                 )
                 // 8dp between the two pips, per the handoff mockup's
@@ -249,3 +251,13 @@ private fun HeatedWheel(palette: Palette, live: Boolean, on: Boolean, onClick: (
         )
     }
 }
+
+/**
+ * The seat glyphs' size.
+ *
+ * One value for all four tiles: they are a set, and the left/right pair on each
+ * row must be identical or the asymmetry reads as a bug. Larger than the 30dp
+ * first tried -- at 30 it was legible but did not carry a 96dp tile, which is
+ * why the pips gave up 4dp of height to it.
+ */
+private val SEAT_GLYPH = 40.dp

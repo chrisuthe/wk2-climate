@@ -190,8 +190,6 @@ object Type {
     /** SYNC's "DUAL" sub-label. IBM Plex Mono 500 12px. */
     val syncSub = mono(12.sp, FontWeight.Medium, 0.sp)
 
-    /** Comfort tile titles. Manrope 700 15px, ls .04em. */
-    val comfortTitle = ui(15.sp, FontWeight.Bold, 0.6.sp)
 
     /** OFF / LOW / HIGH. IBM Plex Mono 800 13px, ls .12em. */
     val comfortState = mono(13.sp, FontWeight.Bold, 1.56.sp)
