@@ -313,3 +313,95 @@ to watch.
 
 Also still unproven: that the accessibility entry survives an ignition cycle now
 that nothing has force-stopped the package.
+
+---
+
+## Session 5 (2026-09-09 morning): the bar did not come back, and the reason is the ROM
+
+Owner started the truck; factory bar showed, ours did not.
+
+### State found
+
+```
+enabled_accessibility_services = <the two originals only, ours gone>
+accessibility_enabled          = 1
+our window count               = 0
+package stopped flag           = stopped=true
+uptime                         = 11.8 days
+com.syu.air                    = ALIVE
+```
+
+Restored by re-adding our entry to the accessibility list. Window count went to
+1 and the stopped flag cleared on its own.
+
+### Correction to session 4's theory
+
+Session 4 recorded that a force-stopped package "is pruned from the enabled list
+**at boot**". The boot half is wrong: **uptime is 11.8 days**, so the head unit
+does not restart on an ignition cycle. It stays powered and merely blanks the
+display. Nothing was pruned at boot because there was no boot — something
+force-stopped the package and dropped its accessibility entry **while the system
+kept running**.
+
+That also means the earlier `am force-stop` was not the root cause it appeared
+to be. It was *a* way to reach the stopped state; the ROM has its own.
+
+### What is doing it
+
+The ROM ships a vendor power manager that is visible in its own logs:
+
+```
+PowerController.BgClean:  new APK:<pkg> is installed! for userId:0
+PowerController.RecogA:   packageName:<pkg> mFgEvent:... mProcState:...
+                          mNotificationState:0 mHasNoClearNotificationWhenNavi:false
+BroadcastQueue:           com.android.server.powercontroller.CHECK_APPSTATE
+```
+
+and it keeps per-app state in `/data/system/appPowerSaveConfig.xml`,
+`powercontroller.xml` and `power_info.db`. **`appPowerSaveConfig.xml` has an
+mtime of 08:00 today** — the same window in which our service disappeared. The
+files are `-rw-------` system-owned and adb here is `uid=2000(shell)` with no
+root, so they cannot be read or edited from outside.
+
+The classifier's own log lines name what it weighs: `mFgEvent`, `mProcState`,
+`mNotificationState`, `mHasNoClearNotificationWhenNavi`. **Our app scores
+nothing on any of them** — an accessibility service with no activity, no
+notification and no audio is exactly the profile a background cleaner is built
+to kill.
+
+### Mitigation applied
+
+`dumpsys deviceidle whitelist +com.wk2.climate` — now shows
+`user,com.wk2.climate,10179`. This exempts us from **AOSP** doze. It may well
+not bind the vendor's PowerController, which is a separate mechanism, so this is
+a first attempt rather than a fix.
+
+### Evidence capture left running
+
+A rotating whole-buffer capture is now on the device:
+
+```
+logcat -f /sdcard/wk2-persist.log -r 2048 -n 6 -v time
+```
+
+Whole-buffer deliberately: this ROM silently ignores `logcat` tag filters, and a
+filtered capture writes an **empty file**, which reads exactly like "the code
+logged nothing" (it cost most of session 2 to that misreading). 12 MB of
+rotation is enough to survive an ignition cycle, where the 256 KiB ring buffer
+wraps in under a minute.
+
+The next cycle should therefore capture the actual `forceStop` line and whatever
+precedes it.
+
+### Candidate real fixes, not yet chosen
+
+1. **A foreground service with an ongoing, non-dismissible notification.** Raises
+   `mProcState` and sets `mNotificationState`, both of which the ROM's own
+   recognizer reads. Standard Android answer, and it costs a permanent
+   notification on the head unit.
+2. **The vendor's own whitelist UI**, if one is reachable in Settings — no code
+   change, but a manual step that may not survive a factory reset.
+3. Both.
+
+Deliberately not chosen unilaterally: option 1 changes what the app puts on the
+owner's screen.
