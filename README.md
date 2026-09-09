@@ -8,7 +8,52 @@ than ~70px, and none of it is adjustable. This replaces the resting bar with six
 functions at a 96dp minimum target and moves everything else one tap away onto a
 full-page climate view.
 
-**Status: design complete, implementation not started.**
+**Status: built and running in the vehicle.** Both screens are implemented,
+reviewed and verified on hardware. 129 tests.
+
+---
+
+## What is built
+
+| | |
+|---|---|
+| **Screen 2a — the bar** | Replaces the factory bar in place at `[0,1693][1080,1920]`. Nav, volume, an adaptive slot that follows outside temperature, both setpoints, and CLIMATE. |
+| **Screen 1d — the panel** | Opens over app content at `[0,0][1080,1693]`, so the bar stays visible beneath it. Zones, fan, four airflow modes, seven mode tiles, comfort grid, hold-to-confirm power-off. |
+| **`:bus`** | The vendor protocol behind a testable seam, with an adversarial fake that reproduces measured vehicle quirks. |
+
+### Things the vehicle taught us that no document did
+
+- **Registration notifies on *change*** and replays the vendor's cache;
+  `IRemoteModule.get` is answered but always empty. So registration is the only
+  read path, and signals the vendor has not learned yet arrive late — a bounded
+  re-registration retry closes that gap.
+- **`AUTO` toggles**, it does not merely set. The command table's `"AUTO on"`
+  label described one observer's experiment, not the semantics.
+- **`SYNC`'s signal is the vendor's `DUAL` flag**, so it is inverted: `1` means
+  the zones are *independent*. Dual zone means two zones.
+- **`MAX A/C`** drives the fan to 7, clears AUTO and forces recirculation.
+- **The seat cycle is `0 -> 3 -> 1 -> 0`** — high before low, and state 2 is
+  never visited.
+- **There is no cabin-temperature signal at all**, confirmed by decompiling the
+  vendor CANBUS app.
+
+Full write-ups, including the failed hypotheses, are in
+[`docs/captures/`](docs/captures/).
+
+### The one thing that needs a workaround
+
+The vendor MCU service (`com.syu.ms`) force-stops **27 packages** on sleep
+through a hidden `ActivityManager` API, skipping only names that match a regex
+compiled from an asset inside its own APK — and `com.syu.air` is on that list,
+which is why the factory bar survives. Being force-stopped also prunes an
+accessibility entry at the framework level, and a stopped package has no process
+left to re-add it.
+
+So the `applicationId` is **`com.android.wk2climate`**, chosen to land inside
+that regex. It is namespace squatting, deliberately, and
+[the write-up](docs/captures/2026-09-09-syu-ms-force-stop.md) explains exactly
+why nothing else works — a foreground service and a `deviceidle` exemption both
+fail, because `forceStopPackage` ignores process importance entirely.
 
 ---
 
