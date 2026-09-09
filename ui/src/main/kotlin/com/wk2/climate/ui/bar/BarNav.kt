@@ -1,15 +1,12 @@
 package com.wk2.climate.ui.bar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,16 +17,18 @@ import androidx.compose.ui.unit.dp
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
+import com.wk2.climate.ui.HomeGlyph
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
 /**
  * The bar's left column: HOME above BACK, 156 x 113.5 each.
  *
- * Both are comfortably over the 96dp floor. These glyphs are the handoff's
- * placeholders — a bordered square and a chevron, with the text labels doing
- * the work. Real icons are a later choice; what must not ship is a bare
- * rectangle with no label.
+ * Both are comfortably over the 96dp floor.
+ *
+ * HOME is `akar-icons:home`, drawn as a stroked path so one drawing serves both
+ * themes and the difference is the tint. BACK is still the handoff's chevron
+ * placeholder, with its text label doing the work.
  */
 @Composable
 fun BarNav(
@@ -50,11 +49,7 @@ fun BarNav(
             bottomDivider = true,
             onClick = onHome,
         ) {
-            Box(
-                Modifier
-                    .size(28.dp)
-                    .border(2.5.dp, palette.ink, RoundedCornerShape(5.dp)),
-            )
+            HomeGlyph(tint = palette.ink, size = 32.dp)
         }
         NavCell(
             palette = palette,
