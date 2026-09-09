@@ -36,10 +36,17 @@ import java.util.Locale
  * **The numeral is a readout, not a button.** Only `−` and `+` are tappable,
  * at 100 x 131 each. That is well over the 96dp floor in both axes, which is
  * the whole point — the OEM bar's equivalents are ~70px tall.
+ *
+ * [live] is false until the vehicle has reported a climate signal. The
+ * numerals are already honest in that case — an absent setpoint is
+ * [Temp.Unavailable] and renders as an em dash — but full-strength ink makes
+ * a dash read as a considered value, so the readout drops to muted ink. The
+ * steppers stay live: pressing one is what forces the vehicle to report.
  */
 @Composable
 fun BarZones(
     palette: Palette,
+    live: Boolean,
     driver: Temp,
     passenger: Temp,
     onDriverDown: () -> Unit,
@@ -56,6 +63,7 @@ fun BarZones(
     ) {
         Zone(
             palette = palette,
+            live = live,
             label = "DRIVER",
             temp = driver,
             onDown = onDriverDown,
@@ -64,6 +72,7 @@ fun BarZones(
         )
         Zone(
             palette = palette,
+            live = live,
             label = "PASSENGER",
             temp = passenger,
             onDown = onPassengerDown,
@@ -79,6 +88,7 @@ fun BarZones(
 @Composable
 private fun Zone(
     palette: Palette,
+    live: Boolean,
     label: String,
     temp: Temp,
     onDown: () -> Unit,
@@ -95,11 +105,13 @@ private fun Zone(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            BasicText(text = tempText(temp, palette), style = Type.zoneValue)
+            BasicText(text = tempText(temp, palette, live), style = Type.zoneValue)
             Spacer(Modifier.height(2.dp))
             BasicText(
                 text = label,
-                style = Type.zoneLabel.copy(color = palette.ink.copy(alpha = 0.45f)),
+                style = Type.zoneLabel.copy(
+                    color = if (live) palette.ink.copy(alpha = 0.45f) else palette.inkFaint,
+                ),
             )
         }
 
@@ -118,11 +130,15 @@ private fun Zone(
  *
  * Fahrenheit renders as a whole number; Celsius carries a half-degree, so it
  * renders with one decimal.
+ *
+ * With no climate data at all the ink is muted rather than full strength, so
+ * the whole climate area reads as not-yet-live instead of as a working display
+ * that happens to have nothing in it.
  */
 @Composable
-private fun tempText(temp: Temp, palette: Palette): AnnotatedString =
+private fun tempText(temp: Temp, palette: Palette, live: Boolean): AnnotatedString =
     buildAnnotatedString {
-        withStyle(SpanStyle(color = palette.ink)) {
+        withStyle(SpanStyle(color = if (live) palette.ink else palette.inkMuted)) {
             when (temp) {
                 is Temp.Degrees -> {
                     append(

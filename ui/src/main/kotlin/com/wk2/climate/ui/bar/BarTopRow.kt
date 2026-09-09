@@ -37,10 +37,17 @@ import com.wk2.climate.ui.target
  * Widths are 210 / 200 / 174 / 184 and are **fixed**. Controls live at constant
  * coordinates so they can be found by feel, and the adaptive slot is the only
  * region in the whole bar whose contents ever change.
+ *
+ * [live] is false until the vehicle has reported a climate signal. Every fill
+ * in this row is a positive claim — an amber AUTO says AUTO is engaged — so
+ * while [live] is false nothing here is filled and the ink is muted. The
+ * controls stay tappable: a press is how the driver forces the vehicle to
+ * report in the first place, and it was the owner's own workaround.
  */
 @Composable
 fun BarTopRow(
     palette: Palette,
+    live: Boolean,
     wheelOn: Boolean,
     autoOn: Boolean,
     slot: SlotContent,
@@ -76,23 +83,30 @@ fun BarTopRow(
                 Modifier
                     .size(19.dp)
                     .then(
-                        if (wheelOn) {
-                            Modifier.background(palette.warm, CircleShape)
-                        } else {
-                            Modifier.border(2.5.dp, palette.warm, CircleShape)
+                        when {
+                            // Never filled while indeterminate, and the ring
+                            // drops to faint ink rather than staying warm: a
+                            // warm ring is the resting look of a control we
+                            // know to be off.
+                            !live -> Modifier.border(2.5.dp, palette.inkFaint, CircleShape)
+                            wheelOn -> Modifier.background(palette.warm, CircleShape)
+                            else -> Modifier.border(2.5.dp, palette.warm, CircleShape)
                         },
                     ),
             )
             Spacer(Modifier.width(9.dp))
             BasicText(
                 text = "WHEEL",
-                style = Type.barControlLabel.copy(color = palette.ink.copy(alpha = 0.85f)),
+                style = Type.barControlLabel.copy(
+                    color = if (live) palette.ink.copy(alpha = 0.85f) else palette.inkMuted,
+                ),
             )
         }
 
         // ---- the adaptive slot, 200dp ----
         AdaptiveSlotCell(
             palette = palette,
+            live = live,
             slot = slot,
             seatHeat = seatHeat,
             seatVent = seatVent,
@@ -106,8 +120,18 @@ fun BarTopRow(
             Modifier
                 .width(Dimens.slotAuto)
                 .fillMaxHeight()
-                .background(if (autoOn) palette.accent else Color.Transparent)
-                .then(if (autoPressed.value) Modifier.pressedTint(autoOn, palette) else Modifier)
+                // `autoOn` is already false while indeterminate — flag() reads
+                // an absent signal as false — but that is the bug, not the
+                // guard. Gating the fill on `live` makes the amber a claim we
+                // only ever paint from data we actually have.
+                .background(if (live && autoOn) palette.accent else Color.Transparent)
+                .then(
+                    if (autoPressed.value) {
+                        Modifier.pressedTint(live && autoOn, palette)
+                    } else {
+                        Modifier
+                    },
+                )
                 .target(autoInteraction, onClick = onAuto),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -115,7 +139,11 @@ fun BarTopRow(
             BasicText(
                 text = "AUTO",
                 style = Type.barAuto.copy(
-                    color = if (autoOn) palette.accentInk else palette.ink,
+                    color = when {
+                        !live -> palette.inkMuted
+                        autoOn -> palette.accentInk
+                        else -> palette.ink
+                    },
                 ),
             )
         }
@@ -157,6 +185,7 @@ fun BarTopRow(
 @Composable
 private fun AdaptiveSlotCell(
     palette: Palette,
+    live: Boolean,
     slot: SlotContent,
     seatHeat: SeatLevel,
     seatVent: SeatLevel,
@@ -169,7 +198,10 @@ private fun AdaptiveSlotCell(
     // machine needs to know about the press.
     LaunchedEffect(pressed.value) { onPressChange(pressed.value) }
 
-    val isDefrost = slot == SlotContent.FRONT_DEFROST
+    // FRONT DEFROST is chosen from the *outside* temperature, which arrives on
+    // MAIN and can be present while CANBUS is silent. Its amber fill would
+    // otherwise be the one tile that lights up with no climate data behind it.
+    val isDefrost = live && slot == SlotContent.FRONT_DEFROST
 
     Box(
         Modifier
@@ -194,26 +226,30 @@ private fun AdaptiveSlotCell(
             SlotContent.FRONT_DEFROST -> Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlyphIcon(Glyph.defrost, tint = palette.accentInk, height = 34.dp)
+                val defrostInk = if (live) palette.accentInk else palette.inkMuted
+                GlyphIcon(Glyph.defrost, tint = defrostInk, height = 34.dp)
                 Spacer(Modifier.width(14.dp))
                 BasicText(
                     text = "FRONT DEFROST",
-                    style = Type.slotLabelSmall.copy(color = palette.accentInk),
+                    style = Type.slotLabelSmall.copy(color = defrostInk),
                 )
             }
 
+            // An indeterminate level, not OFF. SeatSlot already renders
+            // UNAVAILABLE as an em dash, matching Temp.Unavailable in the
+            // zones, so there is one spelling of "we do not know" in the bar.
             SlotContent.SEAT_HEAT -> SeatSlot(
                 palette = palette,
                 title = "SEAT HEAT",
-                level = seatHeat,
-                labelColor = palette.ink.copy(alpha = 0.85f),
+                level = if (live) seatHeat else SeatLevel.UNAVAILABLE,
+                labelColor = if (live) palette.ink.copy(alpha = 0.85f) else palette.inkMuted,
             )
 
             SlotContent.SEAT_COOL -> SeatSlot(
                 palette = palette,
                 title = "SEAT COOL",
-                level = seatVent,
-                labelColor = palette.coolLabel,
+                level = if (live) seatVent else SeatLevel.UNAVAILABLE,
+                labelColor = if (live) palette.coolLabel else palette.inkMuted,
             )
         }
     }
