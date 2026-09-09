@@ -3,6 +3,34 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+/**
+ * Reads a value from git, or null if git is unavailable or the command fails.
+ *
+ * `providers.exec` rather than a raw process, so the result participates in
+ * Gradle's configuration cache instead of being re-run on every configuration.
+ * Anything that goes wrong -- no git on PATH, a source archive with no `.git`,
+ * a shallow clone -- yields null and the caller falls back.
+ */
+fun gitOrNull(vararg args: String): String? = runCatching {
+    providers.exec { commandLine(*args) }
+        .standardOutput.asText.get().trim().ifEmpty { null }
+}.getOrNull()
+
+/**
+ * Commit count as the version code, so successive builds are upgrades.
+ *
+ * It was hardcoded to 1, which meant a second APK was not seen as an upgrade
+ * at all. Commit count is monotonic, needs no tags, and needs nothing
+ * remembered between builds.
+ *
+ * **CI must check out with full history** — a shallow clone counts 1 commit and
+ * would silently produce version 1 forever. See `.github/workflows/build.yml`.
+ */
+val gitVersionCode = gitOrNull("git", "rev-list", "--count", "HEAD")?.toIntOrNull() ?: 1
+
+/** `git describe`: the tag if there is one, else a short SHA, plus `-dirty`. */
+val gitVersionName = gitOrNull("git", "describe", "--tags", "--always", "--dirty") ?: "0.1"
+
 android {
     namespace = "com.wk2.climate.app"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -34,8 +62,8 @@ android {
         applicationId = "com.android.wk2climate"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = gitVersionCode
+        versionName = gitVersionName
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
