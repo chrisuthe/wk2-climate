@@ -17,7 +17,11 @@ object Dimens {
     val minTarget = 96.dp
 
     // ---- screen 2a: the resting bar ----
-    val barHeight = 227.dp            // framework navigation_bar_height; never grows
+    // Design rule 5: the bar rests here and never grows. This is the source of
+    // truth for the window's height — the framework's navigation_bar_height is
+    // checked *against* it (see ClimateBarService.warnIfNavInsetDisagrees), not
+    // the other way round.
+    val barHeight = 227.dp
     val barWidth = 1080.dp
     val barSideColumn = 156.dp
     val barCenterColumn = 768.dp
@@ -41,10 +45,35 @@ object Dimens {
     val fanStepperWidth = 104.dp
     val fanMeterHeight = 96.dp
     val airflowTileHeight = 136.dp
-    val modeTileRow1 = 104.dp
-    val modeTileRow2 = 96.dp
+    /**
+     * Both mode grids. The handoff gives them the same height — README's "Two
+     * grids, gap 14px, tiles height 104", and every tile in 1d's markup
+     * (AUTO/A/C/RECIRC/MAX A/C and FRONT DEF/REAR DEF/SYNC) is `height:104px`.
+     *
+     * This was two constants, and the second held 96, so the lower grid drew
+     * 8dp short. One name for one measurement: two names for the same value is
+     * how the wrong one hid.
+     */
+    val modeTileHeight = 104.dp
     val comfortTileHeight = 96.dp
     val holdOffWidth = 180.dp
+
+    /**
+     * The gap between page-level tiles on screen 1d — the airflow row, both
+     * mode grids (column *and* row gap), the comfort grid and the heated-wheel
+     * tile below it, and the fan stepper/meter row. The handoff writes `gap:14px`
+     * on every one of them.
+     *
+     * Deliberately **not** applied to the 14px gaps *inside* a tile (a seat
+     * tile's pip group to its state word, the wheel's ring to its label) or to
+     * the header's title-to-status gap. Those are separate measurements that
+     * happen to equal 14 today, and collapsing them onto this name would make
+     * a retune of the tile grid silently move a tile's own contents.
+     */
+    val tileGap = 14.dp
+
+    /** The outlined-control border width used across screen 1d's controls. */
+    val controlBorderWidth = 1.5.dp
 
     // ---- radii ----
     val radiusPip = 3.dp
@@ -58,7 +87,4 @@ object Dimens {
     const val HOLD_REPEAT_INTERVAL_MS = 150L
     const val POWER_HOLD_MS = 800L
     const val PANEL_TRANSITION_MS = 220
-
-    /** How long to wait for the vehicle before resolving a pressed state anyway. */
-    const val COMMAND_SETTLE_MS = 600L
 }

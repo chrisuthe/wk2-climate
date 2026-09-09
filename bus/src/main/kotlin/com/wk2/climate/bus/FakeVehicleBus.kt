@@ -13,11 +13,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * surprised by the car:
  *
  *  - seat heat cycles `0 -> 3 -> 1 -> 0`, skipping 2 (measured)
- *  - the AUTO macro forces A/C on, clears body-blow and sets fan to 15
+ *  - AUTO toggles; engaging it forces A/C on, clears body-blow and sets fan
+ *    to 15, and leaving it lands on fan 3 with FACE (measured)
  *  - `FAN_UP` exits AUTO as a side effect, landing on level 3 (measured)
  *  - fan clamps at 7 and reports nothing further (measured)
  *  - `FRONT_DEFROST` and `MAX_AC` force recirculation on
- *  - `MAX_AC` drives both temperatures to the LO sentinel
+ *  - `MAX_AC` drives both temperatures to the LO sentinel, clears AUTO and
+ *    takes the fan to 7 (measured)
  *  - `FRONT_DEFROST` leaves airflow in an unrecognised combination
  *  - seat heat and seat vent are mutually exclusive
  *  - airflow setters are idempotent
@@ -40,8 +42,39 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         _state.value = _state.value.with(signal, value)
     }
 
+    /**
+     * Replace the whole snapshot, as an ignition cycle does.
+     *
+     * `ClimateState.EMPTY` is the only way to reach the cold-start case from a
+     * running harness: bound and connected, with the vehicle having reported
+     * nothing. [inject] cannot get there — it only ever adds.
+     */
+    fun replace(state: ClimateState) {
+        _state.value = state
+    }
+
     fun setConnected(value: Boolean) {
         _connected.value = value
+    }
+
+    private var _refreshes = 0
+
+    /** How many times [refresh] has been asked for. Lets a test assert on the schedule. */
+    val refreshes: Int get() = _refreshes
+
+    /**
+     * Counts the request and reports nothing new.
+     *
+     * Deliberately **not** a replay: this fake's state is already whatever it
+     * was constructed with, so re-emitting it would prove that a refresh
+     * populates a bar that was never empty. The interesting case is
+     * `FakeVehicleBus(ClimateState.EMPTY)`, where refreshing changes nothing —
+     * which is exactly what re-registration does when the MCU is reporting no
+     * climate frames, and the case the retry has to give up on. Use [inject]
+     * to model a vehicle that does answer.
+     */
+    override fun refresh() {
+        _refreshes++
     }
 
     override fun send(command: Command) {
@@ -53,16 +86,28 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
     private fun reduce(s: ClimateState, command: Command): ClimateState = when (command) {
         Command.AC -> s.toggle(Signal.AC)
         Command.RECIRC -> s.toggle(Signal.RECIRC)
+        // Toggles the DUAL flag. `syncOn` inverts it, so the fake's baseline
+        // `SYNC to 1` means zones *independent* -- see Signal.SYNC.
         Command.SYNC -> s.toggle(Signal.SYNC)
         Command.REAR_DEFROST -> s.toggle(Signal.REAR_DEFROST)
         Command.WHEEL_HEAT -> s.toggle(Signal.WHEEL_HEAT)
 
-        // Macro: A/C on, body-blow cleared, fan to the AUTO sentinel.
-        Command.AUTO -> s
-            .with(Signal.AUTO, 1)
-            .with(Signal.AC, 1)
-            .with(Signal.WIND_LEVEL, Fan.SENTINEL_AUTO)
-            .airflow(up = 0, body = 0, foot = 0)
+        // AUTO **toggles** -- measured on the vehicle 2026-09-09, correcting an
+        // earlier reading of the command table. Tapping it while engaged turns
+        // it off, and the off state is fan **3** with **FACE**: byte for byte
+        // the `exitAuto()` transition already measured via FAN_UP. Leaving AUTO
+        // lands in the same place however you leave it.
+        //
+        // On: A/C forced on, body-blow cleared, fan to the AUTO sentinel.
+        Command.AUTO ->
+            if (s.autoOn) {
+                s.exitAuto()
+            } else {
+                s.with(Signal.AUTO, 1)
+                    .with(Signal.AC, 1)
+                    .with(Signal.WIND_LEVEL, Fan.SENTINEL_AUTO)
+                    .airflow(up = 0, body = 0, foot = 0)
+            }
 
         Command.FAN_UP -> fanUp(s)
         Command.FAN_DOWN -> fanDown(s)
@@ -80,11 +125,22 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
             .with(Signal.WIND_LEVEL, 6)
             .airflow(up = 1, body = 1, foot = 0)
 
-        // Macro: temperatures to the LO sentinel, recirc forced on.
+        // Macro, measured on the vehicle 2026-09-09 with MAX A/C engaged:
+        // both setpoints to the LO sentinel, recirculation forced on, A/C on,
+        // **AUTO cleared**, and the fan driven to **7** -- the panel read
+        // `7 / 7` with no AUTO label, so `WIND_LEVEL` genuinely moves rather
+        // than the blower ramping invisibly.
+        //
+        // Clearing AUTO forces a concrete airflow for the same reason FAN_UP
+        // does, and FACE is what was observed. See `exitAuto()`, which is the
+        // same transition at fan 3.
         Command.MAX_AC -> s
             .toggle(Signal.AC_MAX)
             .with(Signal.AC, 1)
             .with(Signal.RECIRC, 1)
+            .with(Signal.AUTO, 0)
+            .with(Signal.WIND_LEVEL, Fan.MAX_STEP)
+            .airflow(up = 0, body = 1, foot = 0)
             .with(Signal.TEMP_LEFT, Temp.SENTINEL_LO)
             .with(Signal.TEMP_RIGHT, Temp.SENTINEL_LO)
 
@@ -136,11 +192,19 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 
     private fun ClimateState.stepTemp(signal: Signal, delta: Int): ClimateState {
         val current = this[signal] ?: return this
-        // Stepping out of the LO sentinel returns to the bottom of the range.
-        if (current == Temp.SENTINEL_LO) {
-            return if (delta > 0) with(signal, TEMP_MIN) else this
+        // Measured on vehicle: sweeping the setpoint steps *into* the LO/HI
+        // sentinels at the boundaries rather than clamping, so a UI built
+        // against this fake will see them too.
+        val next = when {
+            current == Temp.SENTINEL_LO && delta > 0 -> TEMP_MIN
+            current == Temp.SENTINEL_LO -> current
+            current == Temp.SENTINEL_HI && delta < 0 -> TEMP_MAX
+            current == Temp.SENTINEL_HI -> current
+            current == TEMP_MAX && delta > 0 -> Temp.SENTINEL_HI
+            current == TEMP_MIN && delta < 0 -> Temp.SENTINEL_LO
+            else -> (current + delta).coerceIn(TEMP_MIN, TEMP_MAX)
         }
-        return with(signal, (current + delta).coerceIn(TEMP_MIN, TEMP_MAX))
+        return with(signal, next)
     }
 
     private fun ClimateState.cycleSeat(level: Signal, opposite: Signal): ClimateState {
@@ -162,7 +226,7 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
 
     companion object {
         const val TEMP_MIN = 60
-        const val TEMP_MAX = 85
+        const val TEMP_MAX = 84
         const val VOLUME_MAX = 40
 
         /**

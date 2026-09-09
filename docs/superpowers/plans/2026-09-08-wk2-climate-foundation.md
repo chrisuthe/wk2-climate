@@ -2558,6 +2558,10 @@ object Dimens {
     val fanStepperWidth = 104.dp
     val fanMeterHeight = 96.dp
     val airflowTileHeight = 136.dp
+    // SUPERSEDED: these shipped as written and the 96 was wrong -- 1d gives
+    // both mode grids 104. Collapsed to a single `modeTileHeight = 104.dp` in
+    // a5fedbf, once Task 5 of the panel plan became the first consumer. Left
+    // here as the historical record; do not copy these two lines.
     val modeTileRow1 = 104.dp
     val modeTileRow2 = 96.dp
     val comfortTileHeight = 96.dp

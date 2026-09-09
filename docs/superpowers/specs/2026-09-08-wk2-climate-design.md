@@ -187,7 +187,7 @@ enum class Signal(val module: Int, val code: Int) {
     // module 4 — SOUND
     VOLUME(4, 2),
     // module 0 — MAIN
-    TEMP_OUT(0, 40), ILLUMINATION(0, 4),
+    TEMP_OUT(0, 40),   // packed; see section 5.3 for the decode ILLUMINATION(0, 4),
 }
 
 enum class Command(val module: Int, val code: Int, val payload: IntArray) {
@@ -392,29 +392,39 @@ Mutual exclusion with `SEAT_BLOW_*` was **not** exercised: seat vent was already
 0, so it never reported a change. Still modelled per section 4 — the protocol
 enforces it and we render both.
 
-### 5.3 Cabin temperature has no signal; outside temperature is packed
+### 5.3 Cabin temperature has no signal; outside temperature is DECODED
 
-The 1d header specifies `"CABIN 64°F · OUT 41°F"`. There is **no interior-temperature
-code in any of the five extracted tables**. Outside temperature exists but is
-`U_TEMP_OUT = 40` on **module 0 (MAIN)** — not module 7 — and is recorded as
-"live, but the value is packed, not a plain temperature" (wiki p10).
+The 1d header specifies `"CABIN 64°F · OUT 41°F"`. There is **no
+interior-temperature code in any of the five extracted tables**, so CABIN is
+removed — not stubbed, not faked, not shown as a placeholder.
 
-**Resolved:**
+Outside temperature is `U_TEMP_OUT = 40` on **module 0 (MAIN)**, and it **is a
+live sensor after all**. A stationary reading looked static because ambient
+barely moves in a parked car; a driving capture settled it.
 
-- **CABIN is removed** from the 1d header. It is not stubbed, faked, or shown as
-  a placeholder — no signal exists.
-- **`U_TEMP_OUT` is decoded** in a car session (checklist item 4). Header renders
-  `OUT 41°F` only.
-- If the decode fails, the header shows the title alone and the adaptive slot
-  falls back per section 6.
+**DECODED 2026-09-08 (session 2, driving capture):**
 
-**UPDATE 2026-09-08:** `U_TEMP_OUT` did not decode and is now believed **not** to
-be a live reading at all — see section 11 item 4. The head unit's own status bar
-does render outside temperature, so the signal exists somewhere; the current
-candidate is the raw MCU frame stream. Until it is found, the fallback path is
-the shipping path: **no header status line, slot pinned to `SEAT_HEAT`.** Build
-both screens against that, and treat outside temperature as a later enhancement
-rather than a prerequisite.
+```
+degreesF = ((raw and 0xFFFF) - 1000) / 10.0     // 0.1 °F resolution
+valid    = (raw shr 28) and 1 == 1              // bit 28 is a present/valid flag
+```
+
+Evidence — three values observed across a ten-minute drive, against the head
+unit's own status-bar reading as ground truth:
+
+| Raw | Hex | low 16 | Decoded | When |
+|---|---|---|---|---|
+| 268437296 | `0x10000730` | 1840 | **84.0 °F** | moving, air over the sensor |
+| 268437306 | `0x1000073A` | 1850 | **85.0 °F** | slowing |
+| 268437316 | `0x10000744` | 1860 | **86.0 °F** | parked, heat-soaking |
+
+The status bar read **86 °F** while raw was `268437316`, and the formula gives
+exactly 86.0. The offset of 1000 is the usual automotive trick for keeping
+sub-zero values unsigned: 0 °F encodes as 1000, −40 °F as 600.
+
+**Consequence: the adaptive slot works as designed.** Section 6's
+pinned-to-`SEAT_HEAT` fallback is no longer the shipping path — it remains only
+as the behaviour when the valid bit is clear.
 
 ### 5.4 The app needs three modules, not one
 
@@ -430,6 +440,110 @@ The handoff implies a single climate subscription.
 **Resolved** by the three-callback design in section 4. Bonus: `C_VOL` accepts
 `VOL_HIDE_UI = -7` (wiki p10), so our bar can own the volume readout without the
 OEM volume OSD painting over it.
+
+### 5.8 SYNC is the vendor's DUAL flag, inverted
+
+**Measured 2026-09-09, and owner-confirmed after the fix.** Signal code 62 is
+the vendor's **DUAL** flag:
+
+| code 62 | zones | our SYNC tile |
+|---|---|---|
+| `1` | independent | **unlit** |
+| `0` | synced — a driver-side change moves both | **lit** |
+
+`ClimateState.syncOn` therefore returns `raw[SYNC] == 0`.
+
+We had the evidence and read it one inference too far. `Command.SYNC`'s own
+comment said *"the control the OEM bar labels DUAL"*, and the command is
+`airDual` — **dual zone means two independent zones**. The name was transcribed
+and the meaning inverted, so the tile lit in exactly the wrong half of the
+states. Nobody noticed until someone sat in the car and watched the passenger
+setpoint.
+
+`ClimateStateTest`'s vehicle-baseline case caught the change immediately, which
+is that test earning its place.
+
+**Open, minor:** the baseline snapshot records `SYNC to 1` — independent — but a
+single driver `+` tap on 2026-09-08 moved *both* setpoints. Either DUAL changed
+between those captures or one was mis-recorded. The test asserts what the raw
+value implies and flags the tension in place.
+
+#### The pattern across three corrections in one session
+
+AUTO's toggle-vs-set (5.6), MAX A/C's fan effect (5.7) and this all came from
+documentary evidence read one step past what it supported: a command-table
+label, a silent signal, a control's name. Each conclusion was reasonable, each
+survived a spec review and nine task briefs, and each was overturned in seconds
+by someone looking at the vehicle.
+
+**Rule: for anything the vehicle can be asked directly, the spec's job is to
+record the measurement, not to argue toward it.** Where this document reasons
+from a name, a label or an absence, it should say so explicitly and mark itself
+unverified.
+
+### 5.7 MAX A/C — measured
+
+Captured on 2026-09-09 with MAX A/C engaged, from the panel itself:
+
+| Signal | Value | How it renders |
+|---|---|---|
+| `TEMP_LEFT` / `TEMP_RIGHT` | LO sentinel (`-2`) | both zones read `LOW`, knob pinned at the cold end |
+| `RECIRC` | 1 | RECIRC lit |
+| `AC_MAX` | 1 | MAX A/C lit |
+| `AC` | 1 | A/C lit |
+| **`AUTO`** | **0** | AUTO **unlit** |
+| **`WIND_LEVEL`** | **7** | fan reads **`7 / 7`**, solid bars, **no AUTO label** |
+| airflow | body only | FACE lit |
+
+The open question from the earlier session is **answered**: `WIND_LEVEL`
+genuinely moves to 7. The blower boost is *not* invisible to the protocol, so
+`FakeVehicleBus` now models it.
+
+Clearing AUTO forces a concrete airflow, for the same reason `FAN_UP` does — the
+measured `exitAuto()` transition lands on fan 3 with FACE, and MAX A/C is the
+same transition at fan 7. That parallel is why the airflow value is modelled
+from one observation rather than held back: it is the behaviour the protocol
+already exhibits elsewhere.
+
+Also confirmed by the same frame: `Temp.Lo` renders as the word `LOW` with the
+range knob pinned to the cold end rather than hidden, which is the final
+review's F4 fix working on hardware.
+
+### 5.6 AUTO is a toggle — measured, correcting an earlier ruling
+
+**Measured on the vehicle 2026-09-09: tapping AUTO while it is engaged turns it
+off.** AUTO is a toggle, like A/C, RECIRC, MAX A/C, SYNC and the defrosts.
+
+The off state, captured from the panel: AUTO unlit, fan reading **`3 / 7`** with
+solid bars and no AUTO label, **FACE** lit, RECIRC and MAX A/C clear, A/C still
+on. That is byte for byte the `exitAuto()` transition already measured via
+`FAN_UP` — **you land in the same place however you leave AUTO**, which is a
+more satisfying model than two separate exits.
+
+#### What the earlier ruling got wrong, and why
+
+This section previously concluded AUTO was an **idempotent set**, from two
+pieces of documentary evidence:
+
+1. the repo's command table labels index 2 `"AUTO on — macro"` while labelling
+   indices 1, 3, 13, 14 and 16 `"toggle"` — index 2 being the only one given a
+   directional name;
+2. there is **no "AUTO off" index anywhere** in the table.
+
+Both observations are true and the conclusion drawn from them was wrong. There
+is no AUTO-off index because index 2 *is* the off command as well; the table's
+annotation describes what whoever swept the command space happened to observe,
+not the command's semantics. It was also reinforced by a plausible-sounding
+argument from consistency — the four airflow setters *are* idempotent, so an
+idempotent AUTO looked like the house pattern.
+
+**The lesson: the command table's prose is a record of one observer's
+experiment, not an interface contract.** Where it disagrees with the vehicle,
+the vehicle wins — and a consistency argument is not evidence.
+
+Nothing in the UI changed, exactly as the original ruling predicted it would
+not: the panel and bar render AUTO from bus state either way. `FakeVehicleBus`
+now toggles, so a UI built against it sees the real behaviour.
 
 ---
 
@@ -462,9 +576,10 @@ outsideTemp → SlotContent { FRONT_DEFROST | SEAT_HEAT | SEAT_COOL }
   route to a function.
 - Outside temperature is consumed, **not displayed**, in the bar.
 
-**Fallback if `U_TEMP_OUT` cannot be decoded:** the slot pins to `SEAT_HEAT`, which
-is the middle band and always safe. It is never left blank, and the geometry does
-not change.
+**Outside temperature is decoded** — see section 5.3 — so the slot is fully
+functional. The fallback survives for the case where the valid bit is clear or
+the signal has not yet arrived: the slot pins to `SEAT_HEAT`, the middle band,
+which is always safe. It is never left blank and the geometry never changes.
 
 Pure Kotlin with an injected clock, so hysteresis and dwell are unit-tested against
 a synthetic temperature series rather than by sitting in a cold car.
@@ -472,8 +587,11 @@ a synthetic temperature series rather than by sitting in a cold car.
 ### Theme
 
 Day/night follows `U_LAMPLET` (module 0, code 4), **not a clock**. Day is a
-luminance change only — no layout change, so muscle memory holds. Polarity is
-checklist item 8.
+luminance change only — no layout change, so muscle memory holds.
+
+**Polarity confirmed 2026-09-08 (session 2):** headlights on drove
+`U_LAMPLET` `0 → 1`, and off drove it back to `0`. So **1 means night**, and
+`ClimateState.isNight = (raw == 1)` is correct as written. No inversion needed.
 
 ---
 
@@ -510,7 +628,7 @@ and lumbar seats.
 | Tap CLOSE / back gesture | Reverse. |
 | Tap `−` / `+` | One step per tap. Press-and-hold repeats at ~150 ms after a 400 ms delay. |
 | Tap airflow mode | Direct idempotent set. Re-tapping the active mode is a genuine no-op. |
-| Tap AUTO / A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. |
+| Tap AUTO / A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. Leaving AUTO lands on fan 3 with FACE — see section 5.6. |
 | Tap seat heat / cool | Presented cycle `OFF → HIGH → LOW → OFF` via section 5.2. |
 | Tap adaptive slot | Acts on whatever it currently holds. |
 | Press-and-hold HOLD · OFF | ~800 ms with visible fill progress. **Single tap does nothing.** |
@@ -625,11 +743,11 @@ observation and command dispatch.
 | 1 | 2032 overlay positionable over `[0,1693][1080,1920]`? | **PASS** — exact, no negative offset needed. Params in section 3 |
 | 2 | Does our overlay consume touches, or leak to `com.syu.air`? | **PASS** — fully consumed, zero leakage. Section 3 |
 | 3 | Do `GLOBAL_ACTION_HOME` / `BACK` work? | **PASS** — both, confirmed by focus change. Section 3 |
-| 4 | Decode `U_TEMP_OUT` | **PARTIAL** — value captured, needs ground truth. Below |
+| 4 | Decode `U_TEMP_OUT` | **SOLVED in session 2** — see section 5.3 |
 | 5 | Seat heat cycle order | **ANSWERED — spec was wrong.** `0→3→1→0`, state 2 unreachable. Section 5.2 |
-| 6 | `U_AIR_ACMAX` moves on command 15 | **NOT TESTED** — requires the MAX A/C macro. Below |
+| 6 | `U_AIR_ACMAX` moves on command 15 | **ANSWERED 2026-09-09** — yes. See below |
 | 7 | Airflow flags after command 12 | **SUPERSEDED** — a better finding emerged without the macro. Section 4 |
-| 8 | `U_LAMPLET` polarity | **PARTIAL** — reads 0 in daylight. Needs a headlight toggle |
+| 8 | `U_LAMPLET` polarity | **SOLVED in session 2** — 1 = night |
 | 9 | Does `VOL_HIDE_OSD` suppress the OEM OSD? | **LIKELY MOOT** — see below |
 | 10 | Are the `_RIGHT` fan/blow codes live? | **ANSWERED** — inert. Single fan, left is authoritative |
 | 11 | Fan ceiling | **ANSWERED** — max 7, clamps idempotently. Section 5.1 |
@@ -681,13 +799,26 @@ temperatures. Whatever carries ambient may be adjacent.
 pins to `SEAT_HEAT` and the 1d header omits the status line. Every other signal
 both screens need is verified.
 
-### Item 6 — deliberately not tested
+### Item 6 — answered, and no probe was needed
 
-Requires command 15 (MAX A/C), a macro that forces temperatures to the `-2`
-sentinel and toggles against command 12; wiki p6 records that unwinding it
-through `cmd()` takes several rounds. `U_AIR_ACMAX = 53` exists and reads 0, so
-the code is live. Left for a session where restoring state by tap injection on
-the OEM UI is acceptable.
+**Yes: command 15 moves `U_AIR_ACMAX`.**
+
+Confirmed on 2026-09-09 without sending anything unusual. `Command.MAX_AC` *is*
+index 15, the owner tapped MAX A/C during ordinary panel testing, and the panel
+rendered the MAX A/C tile lit — a rendering driven purely by
+`flag(Signal.AC_MAX)`, code 53. So the signal moved.
+
+This item was written when the only instrument was a raw probe, and it was
+deliberately deferred because the macro is awkward to unwind. **The UI is now
+the better instrument**: it reads all 20 climate codes continuously and renders
+them, so a macro's full side-effect set is legible in one screenshot rather than
+requiring a scripted send-and-read. The same frame also settled MAX A/C's fan
+and AUTO effects (section 5.7), which the original probe plan would not have
+captured.
+
+Worth generalising: several of this checklist's remaining items are cheaper to
+answer by using the app and taking a screenshot than by scripting the protocol.
+
 
 ### Item 9 — probably unnecessary
 
@@ -710,6 +841,8 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 | `U_BRIGHT_LEVEL_DAY = 100`, `_NIGHT = 0` | Useful alongside `U_LAMPLET` for the theme signal |
 | `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
 
+### Remaining
+
 ### Remaining for session 2
 
 - Item 4: outside temperature ground truth (**blocks the adaptive slot**).
@@ -717,6 +850,156 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 - Item 9: one screenshot during a bus-driven volume change.
 - Item 6: only if a macro-recovery session is acceptable.
 - Item 12: optional now that items 1–2 passed.
+
+### Session 2: 2026-09-08, driving capture
+
+**The probe's `RECORD` mode does not work.** Its external files directory was
+never created and it logged nothing at all; its own README flagged the path as
+never hardware-tested, and that was accurate. Do not rely on it.
+
+**The replacement is better and needs no custom code:** a detached, rotating,
+device-side `logcat` capture.
+
+```bash
+adb shell "nohup logcat -v time -s HUPROBE:V Gps:V \
+  -f /sdcard/hu-drive.log -r 20480 -n 40 > /dev/null 2>&1 &"
+```
+
+This survives losing Wi-Fi because it is the unit's own process writing to the
+unit's own storage — verified by tearing down adb entirely and confirming the
+same PID kept writing. It captures the frame stream **and** the head unit's own
+GPS `vel=` lines in one timestamped file, which is the ground truth the probe's
+bespoke feature existed to provide. ~12 MB/hour.
+
+Ten-minute capture, 22 543 lines, GPS to 22.4 m/s (~50 mph).
+
+| # | Question | Result |
+|---|---|---|
+| 4 | Decode `U_TEMP_OUT` | **SOLVED** — see section 5.3. The stationary reading looked static only because ambient barely moves in a parked car |
+| 8 | `U_LAMPLET` polarity | **SOLVED** — 1 = night. `isNight` is correct as written |
+| 10 | Are the `_RIGHT` codes live? | Still inert, confirming single-fan |
+
+Newly answered, beyond the checklist:
+
+| Signal | Finding |
+|---|---|
+| `U_CUR_SPEED` (7/1031) | **Live, and the unit is km/h.** Mean `GPS-km/h ÷ code` = 1.020 across 485 paired samples; the mph ratio is 0.63. Code range 0–80 against a GPS range of 0–49.8 mph (= 80.1 km/h). Wiki p10 records it as "never fired", which was only ever true of a stationary vehicle |
+| `U_ENGINE_SPEED` (7/1032) | Live across 595–3102 rpm |
+| `U_STEER_ANGLE` (0/41) | **Still inert** — a flat `[80, 160, 80]` through the entire drive, confirming wiki p10 |
+| `U_RADAR` (0/13) | Fired, value `[0]` |
+
+Frame-stream volume by message id, for anyone decoding further: `2E5A` (3997),
+`2E52` (3710), `2E60` (2168), `2E28` (952), `2E29` (928, steering angle),
+`2E4D` (918), `2E21` (599, the climate carrier).
+
+**Method note.** The stationary session concluded `U_TEMP_OUT` was probably a
+configuration word, because two readings twelve minutes apart were identical
+and no simple decoding matched the display. That inference was wrong, and the
+reason is worth keeping: *a static value carries no information about which
+byte holds the signal.* Wiki p10's rule — "registered but silent means
+unchanged, not unfitted" — applies to the value's *content* as much as to
+whether the callback fires. The fix was not cleverer arithmetic; it was making
+the signal move.
+
+### Session 3: 2026-09-08, decompiling the vendor apps
+
+Pulled `com.syu.canbus` (94 MB), `com.syu.air` (8 MB), `com.syu.ms` (8 MB) and
+`com.syu.ss` (6.7 MB) from the unit and decompiled with jadx 1.5.6.
+
+**`com.syu.air` is the valuable target, not `com.syu.canbus`.** Canbus's 94 MB is
+79.5 MB of `res/` and 22.7 MB of `assets/`, almost entirely `.webp` — per-vehicle
+door and parking graphics. Its 3248 decompiled classes hold no MCU frame or
+protocol code. All **228** `Car_NNNN_*` vehicle profiles live in `com.syu.air`,
+including our `Car_0374_PA_Jeep_All`.
+
+#### The command table, confirmed from source
+
+`Car_0374_PA_Jeep_Wrangler` uses indices **1–18 and 20–24**, with **19 and 25
+absent entirely** — so omitting them was correct, and not merely "no effect when
+swept". Method names give authoritative meanings, and every one matches the
+empirically-swept table:
+
+| N | Source method | Our `Command` |
+|---|---|---|
+| 1 | `airAc` | `AC` |
+| 2 | `airAuto` | `AUTO` |
+| 3 | `airCycle` | `RECIRC` |
+| 4 / 5 | `airTempLeftP` / `M` | `TEMP_L_UP` / `_DOWN` |
+| 6 / 7 | `airVolLeftP` / `M` | `FAN_UP` / `_DOWN` — "Vol" is *air volume* |
+| 8–11 | `airMode` (four branches) | the four `AIRFLOW_*` setters |
+| 12 | `airFront` | `FRONT_DEFROST` |
+| 13 | **`airDual`** | `SYNC` — the label lies in the source too |
+| 14 | `airRear` | `REAR_DEFROST` |
+| 16 | `airPower` | `CLIMATE_POWER` |
+| 17 / 18 | `airLeftSeatHot` / `airRightSeatHot` | `SEAT_HEAT_L` / `_R` |
+| 20 / 21 | `airTempRightP` / `M` | `TEMP_R_UP` / `_DOWN` |
+| 22 / 23 | `airLeftSeatBlow` / `airRightSeatBlow` | `SEAT_VENT_L` / `_R` |
+| 24 | `airSteer` | `WHEEL_HEAT` |
+
+Index **15** (MAX A/C) is absent from the Wrangler profile because its UI does
+not expose it, but it is fitted and functional on this WK2 — consistent with
+wiki p3 listing `U_AIR_ACMAX` as fitted but not on the bar.
+
+`Car_0374_PA_Jeep_All` confirms `C_TEMP_LEFT_UP = 4`, `LEFT_DOWN = 5`,
+`RIGHT_UP = 20`, `RIGHT_DOWN = 21` as explicit constants.
+
+#### The complete temperature model — corrects section 5.5
+
+From `Car_0374_PA_Jeep_All.updateTemp(boolean auto, int area, int arg, int format)`,
+verbatim logic:
+
+```java
+if      (arg == -2) tempStr = "LOW";
+else if (arg == -3) tempStr = "HIGH";
+else if (arg == -1) tempStr = "---";
+else if (format == 0) {                      // format is U_AIR_TEMP_UNIT
+    if (arg >= 30 && arg <= 128) tempStr = (arg * 5) / 10.0f + "℃";
+    else                         tempStr = "---";
+} else if (arg >= 30 && arg <= 128) {
+    tempStr = arg / 1.0f + "℉";
+} else                           tempStr = "---";
+```
+
+Four things follow, two of which are bugs in what is already committed:
+
+1. **`-3` is HIGH.** Confirmed by source and by an on-vehicle sweep
+   (`…83, 84, −3` climbing). `Temp` did not model this at all, so a HIGH setting
+   rendered as a dash. **Add `Temp.Hi`.**
+2. **The valid numeric range is `30..128`, not `60..84`.** This WK2 clamps at
+   60..84, but the *protocol* accepts 30..128 and the OEM renders anything
+   outside it as `---`. `Temp.from` currently returns `Degrees(raw)` for any
+   non-negative value, so `0` or `500` would render as a temperature.
+   **Restrict `Degrees` to `30..128`.**
+3. **`-1` is "unavailable".** Our mapping of `-1` to `Unavailable` was already
+   correct.
+4. **`U_AIR_TEMP_UNIT` (37) changes the meaning of the raw value.** `0` means
+   Celsius, and in that mode the raw value is **half-degrees Celsius**
+   (`arg * 5 / 10`); non-zero means Fahrenheit and the raw value is degrees
+   directly. This unit reads `1`, so °F is correct today — but the code ignores
+   `TEMP_UNIT` entirely, which is a latent bug for anyone who switches the head
+   unit to Celsius. **Decode against `TEMP_UNIT`.**
+
+Presented labels: the OEM renders `"LOW"` / `"HIGH"` for this vehicle (other
+profiles use `"LO"` / `"HI"`). Matching the OEM is the safer choice for driver
+familiarity.
+
+#### Cabin temperature does not exist — settled exhaustively
+
+`FinalCanbus` was searched for `CABIN|INSIDE|INDOOR|IN_CAR|INCAR|ROOM|INNER`:
+**no matches.** The only temperature codes in the entire table are
+`U_AIR_TEMP_LEFT` (27), `_RIGHT` (28), `U_AIR_TEMP_UNIT` (37),
+`U_AIR_REAR_TEMP_LEFT/_RIGHT` (40/41), `U_AIR_TEMP_TYPE` (75) and
+`U_EXIST_TEMP_OUT` (1012), plus `U_TEMP_OUT` (40) on MAIN.
+
+So section 5.5's removal of `CABIN` from 1d's header is not a workaround for a
+signal we could not find — the signal does not exist.
+
+#### The research table is exact
+
+`FinalCanbus` defines **89** `U_AIR_*` constants, and the repo's extracted
+`data/U_AIR_table.txt` matches it entry for entry with zero differences in
+either direction. Only the wiki's prose count of "87" is off by two — worth a
+one-line fix upstream.
 
 ### Safety
 
@@ -740,7 +1023,7 @@ an enabled package with no bar, since it only self-starts on `BOOT_COMPLETED`.
 | ~~2032 cannot be positioned over the nav-bar region~~ | — | **RETIRED 2026-09-08** — measured working. Section 3 |
 | ~~Overlay does not consume touches~~ | — | **RETIRED 2026-09-08** — measured fully consumed, zero leakage. Section 3 |
 | Our service dies while `com.syu.air` is disabled | **No climate control at all** in a vehicle with no physical HVAC controls; module holds last state | The reason design rule 6 exists. Since items 1–2 passed, we never need to disable it — v1 keeps it running and simply covers it |
-| `U_TEMP_OUT` packing undecodable | Adaptive slot loses its premise | **The one remaining blocker.** Pin the slot to `SEAT_HEAT`; geometry unchanged. Frame stream (7/1019) is a later avenue |
+| ~~`U_TEMP_OUT` packing undecodable~~ | — | **RETIRED 2026-09-08** — decoded from a driving capture. Section 5.3 |
 | The accessibility service is disabled by the user or an OS update | Bar disappears | `com.syu.air` still underneath and functional, so climate is never lost. Detect and prompt on next app launch |
 | Service killed by the system | Bar disappears | `com.syu.air` still running underneath, so climate control is never lost (design rule 6). This is the reason for rule 6 |
 | Compose overlay lifecycle quirks | Panel fails to attach or leaks | Single shared `ComposeOverlayHost`; exercised on the AVD before hardware |

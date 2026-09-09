@@ -32,6 +32,7 @@ kotlin {
 dependencies {
     implementation(project(":bus"))
     implementation(project(":design"))
+    implementation(project(":ui"))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.androidx.activity.compose)

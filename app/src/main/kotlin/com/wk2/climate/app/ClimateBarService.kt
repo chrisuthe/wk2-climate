@@ -1,0 +1,863 @@
+package com.wk2.climate.app
+
+import android.accessibilityservice.AccessibilityService
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.os.Build
+import android.os.SystemClock
+import android.util.DisplayMetrics
+import android.util.Log
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import com.wk2.climate.bus.AdaptiveSlot
+import com.wk2.climate.bus.ClimateState
+import com.wk2.climate.bus.ConnectionGate.followConnection
+import com.wk2.climate.bus.RefreshRetry
+import com.wk2.climate.bus.Signal
+import com.wk2.climate.bus.SyuVehicleBus
+import com.wk2.climate.bus.TempUnit
+import com.wk2.climate.design.Dimens
+import com.wk2.climate.ui.bar.ClimateBar
+import com.wk2.climate.ui.panel.ClimatePanel
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+/**
+ * Owns the replacement bar.
+ *
+ * An `AccessibilityService` rather than a foreground service plus a 2038
+ * overlay, because HOME and BACK have **no other route** for a third-party app
+ * — so one of these is required regardless, and this adds nothing else. It also
+ * needs no `SYSTEM_ALERT_WINDOW`, and a 2032 window is a *trusted* overlay that
+ * the system does not hide during permission dialogs.
+ *
+ * `com.syu.air` keeps running underneath. This is an alternative front end, not
+ * a replacement service: if this dies, the factory bar is still there, and a
+ * vehicle with no physical HVAC controls is never left unable to change its
+ * climate.
+ */
+class ClimateBarService : AccessibilityService() {
+
+    private lateinit var bus: SyuVehicleBus
+    private lateinit var barHost: ComposeOverlayHost
+    private val slot = AdaptiveSlot()
+
+    /**
+     * Screen 1d's window, which exists only while the panel is open.
+     *
+     * Nullable rather than `lateinit` because its lifetime is the panel's, not
+     * the service's: one host owns one window, so the host is created in
+     * [openPanel] and discarded in [closePanel]. Null therefore means "no panel
+     * window exists", and that is the single fact [openPanel] and
+     * [onKeyEvent] both test.
+     */
+    private var panelHost: ComposeOverlayHost? = null
+
+    /**
+     * Whether the open panel has been asked to leave, which is the one input to
+     * the reverse transition.
+     *
+     * A `MutableState` rather than a plain flag because [PanelContent]'s
+     * animation coroutine has to observe it: the request arrives from a tap
+     * ([requestPanelClose], off the CLOSE button or filtered BACK) and has to
+     * reach a coroutine that lives inside the panel's composition.
+     *
+     * It is **not** vehicle state and nothing renders from it -- no control
+     * reads it, and the panel's contents still come only from `bus.state`. It
+     * says nothing about the world, only whether this window is on its way out.
+     *
+     * One field for the service rather than one per open: [closePanel] clears
+     * it whenever a window goes, and [openPanel] clears it before showing one,
+     * so a composition never starts life already closing.
+     */
+    private val panelClosing = mutableStateOf(false)
+
+    /**
+     * Whether the bar should draw CLIMATE as "open".
+     *
+     * Compose state rather than a read of `panelHost`, which is a plain field
+     * the bar cannot observe. Cleared by [requestPanelClose] rather than by
+     * [closePanel], so the caret flips the instant the driver asks — waiting
+     * for the 220ms slide to finish would leave it pointing the wrong way for
+     * the whole exit.
+     */
+    private val panelOpen = mutableStateOf(false)
+
+    /**
+     * The service's own scope, created in [onServiceConnected] and cancelled in
+     * [teardown]. Nothing here may outlive the connection: a collector still
+     * running against a disconnected bus could re-add the bar window after the
+     * service was told to stop, and a 2032 overlay nothing owns any more is the
+     * one failure this file exists to prevent.
+     */
+    private var scope: CoroutineScope? = null
+
+    /**
+     * The framework may call this more than once — re-enabling or
+     * reconfiguring the service on an always-on head unit is exactly when it
+     * would — so tear down first and start clean.
+     *
+     * Tearing down rather than early-returning: an early return would keep
+     * whatever host and bus the previous connection left behind, and if that
+     * connection's window token is already gone the bar is dead with no way to
+     * rebuild it. Overwriting the fields without tearing down is worse still —
+     * the old `ComposeView` stays added to the `WindowManager` and the old bus
+     * stays bound, both unreachable, which would strand a 2032 overlay over
+     * the factory bar that nothing short of a reboot could clear. [teardown]
+     * is safe on an uninitialised or already-torn-down state.
+     */
+    override fun onServiceConnected() {
+        teardown()
+        bus = SyuVehicleBus(this).also { it.connect() }
+        barHost = ComposeOverlayHost(this)
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also {
+            scope = it
+            it.launch { followBus() }
+            // The *same* scope, so teardown() cancels this with everything
+            // else. A second scope, or a coroutine launched anywhere it could
+            // outlive this connection, is the bug this file exists to prevent.
+            it.launch { nagForMissingSignals() }
+        }
+    }
+
+    /**
+     * Ties the bar window's existence to [VehicleBus.connected].
+     *
+     * Design rule 6: `com.syu.air` keeps running underneath, and nothing we do
+     * may leave the vehicle with no climate control. Our window consumes
+     * **every** touch in `[0,1693][1080,1920]` with zero leakage — measured on
+     * the vehicle — so if the bus is dead the bar is not merely useless, it is
+     * an opaque lid over the only working climate UI in a vehicle with no
+     * physical HVAC controls. Removing the window hands the factory bar back,
+     * unambiguously and immediately.
+     *
+     * `FLAG_NOT_TOUCHABLE` is deliberately *not* the fallback. A window that
+     * still draws our layout while taps fall through to whatever factory
+     * control happens to sit at that coordinate is worse than either extreme:
+     * the driver aims at our AUTO button and hits something else. A UI that
+     * lies about what a touch does is more dangerous than no UI.
+     *
+     * The bar is shown up front and only hidden if the bus is still down after
+     * [BUS_GRACE_MS], so an ordinarily slow `bindService` does not flash the
+     * factory bar into view. An already-connected bus skips the wait entirely.
+     * After that the window simply follows the flow, so a bus that comes back
+     * brings the bar back with it.
+     *
+     * The gating algorithm itself is [ConnectionGate.followConnection], kept
+     * in `:bus` so it is provable with virtual time; this is just the Android
+     * wiring — which flow, which grace, which window calls.
+     */
+    private suspend fun followBus() {
+        followConnection(bus.connected, BUS_GRACE_MS, ::showBar, ::hidePanelAndBar)
+    }
+
+    /**
+     * What a dead bus costs us: both windows, panel first.
+     *
+     * The same rule that pulls the bar pulls the panel, and more urgently. A
+     * bar we cannot drive is an opaque lid over 227px of the factory bar; an
+     * *open panel* we cannot drive is an opaque lid over the whole app area,
+     * with every control rendering absent-as-off and no command reaching the
+     * vehicle. Removing it hands the screen — and the factory bar beneath our
+     * own — straight back.
+     *
+     * The panel goes first so the screen is never left showing a live panel
+     * over a missing bar.
+     *
+     * Nothing reopens it when the bus returns: [showBar] restores the bar, and
+     * the driver reaches 1d again by tapping CLIMATE. Restoring a panel the
+     * driver did not ask for, over whatever app is now in front, would be a
+     * window appearing on its own.
+     */
+    private fun hidePanelAndBar() {
+        closePanel()
+        hideBar()
+    }
+
+    /**
+     * Forces the vendor service to report the signals it has never pushed.
+     *
+     * Registration subscribes to *changes* only, and nothing replays a current
+     * value — `IRemoteModule.get` was measured on the vehicle to answer with
+     * presence `0` for every code even with the engine running, and was
+     * removed in `18de2be`; it is not the mechanism. What is left is the OEM's
+     * own `Registrar.notify()`, which is nothing but a re-registration.
+     *
+     * Climate needs little of this: the MCU streams climate frames
+     * continuously, so on the vehicle values landed within a second of
+     * registering (`climate data present after 0 re-registration(s)`). The
+     * signals that need it are the ones that are static until someone acts —
+     * `VOLUME` until the knob turns, `ILLUMINATION` until the headlights
+     * switch. The owner reported exactly that: the volume slot showed its em
+     * dash until the volume was changed.
+     *
+     * Waits for the connection first: re-registering before any module is
+     * bound would do nothing. A bus that never connects leaves this suspended
+     * until [teardown] cancels the scope, which is correct — there is nothing
+     * to refresh, and `ConnectionGate` has already pulled the bar.
+     *
+     * The schedule and the stopping rule are
+     * [RefreshRetry.refreshUntilNothingMissing], kept in `:bus` so they are
+     * provable with virtual time rather than only on a vehicle whose ignition
+     * has just been cycled. This is the Android wiring: which flow to wait on,
+     * what a refresh is, and what to log.
+     *
+     * The logging is the point of this as much as the retry is. The retry has
+     * never actually fired on the vehicle, so it has never been shown that
+     * re-registration forces a push at all. One line per attempt naming what
+     * is still missing, plus one settling line, is enough to settle that from
+     * a single session — and one line per attempt is the budget: this unit's
+     * main log ring buffer is 256 KiB and wraps in well under a minute.
+     */
+    private suspend fun nagForMissingSignals() {
+        bus.connected.first { it }
+        RefreshRetry.refreshUntilNothingMissing(
+            missing = { bus.state.value.missingSignals },
+            refresh = { bus.refresh() },
+            onAttempt = { attempt, total, missing ->
+                Log.i(TAG, "re-register attempt $attempt/$total — ${describe(missing)}")
+            },
+            onSettled = { attempts, missing ->
+                // Not a warning: a signal this vehicle does not fit is never
+                // going to arrive, and that is a fact about the vehicle rather
+                // than a fault of ours. If this line still names ILLUMINATION
+                // or VOLUME after the last attempt, re-registration does not
+                // force a push and the mechanism needs rethinking.
+                if (missing.isEmpty()) {
+                    Log.i(
+                        TAG,
+                        "all ${Signal.entries.size} expected signals reported after " +
+                            "$attempts re-registration(s)",
+                    )
+                } else {
+                    Log.i(TAG, "settled after $attempts re-registration(s) — ${describe(missing)}")
+                }
+            },
+        )
+    }
+
+    /** Signal names, never codes, in declaration order, on one line. */
+    private fun describe(missing: Set<Signal>): String =
+        "${missing.size} of ${Signal.entries.size} signals never reported: " +
+            missing.joinToString(", ") { it.name }
+
+    private fun showBar() {
+        // `addView` on a raw overlay window can genuinely fail — a bad token, a
+        // window type the platform rejects, a revoked permission. Left
+        // unhandled the service would sit half-initialised with a live bus and
+        // no window, so tear down and let the factory bar carry on.
+        try {
+            barHost.show(barWindowParams()) { BarContent() }
+        } catch (t: Throwable) {
+            Log.e(TAG, "could not add the bar window — the factory bar remains", t)
+            teardown()
+        }
+    }
+
+    /**
+     * Removes the bar window, leaving the factory bar visible and usable.
+     *
+     * `isShowing` is checked so this stays quiet when it is already hidden —
+     * `ComposeOverlayHost.hide()` is itself guarded against a double hide, but
+     * the warning must not repeat on every re-emission of `connected = false`.
+     */
+    private fun hideBar() {
+        if (!barHost.isShowing) return
+        barHost.hide()
+        Log.w(
+            TAG,
+            "vehicle bus unavailable — removing the bar window so the com.syu.air " +
+                "factory bar is usable again. Our overlay consumes every touch over " +
+                "the factory bar, and this vehicle has no physical HVAC controls, so " +
+                "a bar we cannot drive must not stay on screen. It returns as soon as " +
+                "the bus does.",
+        )
+    }
+
+    @Composable
+    private fun BarContent() {
+        val state by bus.state.collectAsState()
+
+        // The slot is re-evaluated on a timer rather than per state change: its
+        // own hysteresis and dwell decide whether anything moves, and outside
+        // temperature moves far more slowly than the poll interval.
+        //
+        // SystemClock.elapsedRealtime(), never the settable wall clock:
+        // this head unit sets its clock from GPS and the network while the bar
+        // is live, and AdaptiveSlot only ever compares this value against
+        // `lockedUntil` and `lastChangeAt + dwellMillis`. A forward wall-clock
+        // sync would leap past both, swapping the slot immediately after a tap
+        // -- so the driver's second press lands on FRONT DEFROST instead of the
+        // seat heat they aimed at, which is the exact harm the tap lockout
+        // exists to prevent. elapsedRealtime is monotonic, unsettable, and a
+        // drop-in because nothing here persists across a process restart.
+        var slotContent by remember { mutableStateOf(slot.content) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                slotContent = slot.update(outsideF(state), SystemClock.elapsedRealtime())
+                delay(SLOT_POLL_MS)
+            }
+        }
+
+        ClimateBar(
+            state = state,
+            slot = slotContent,
+            onCommand = { bus.send(it) },
+            // Both nav keys close the panel first when it is open.
+            //
+            // `performGlobalAction` dispatches to the *focused* app, and the
+            // panel window is FLAG_NOT_FOCUSABLE, so it is never the target --
+            // and a global action does not route through our own `onKeyEvent`
+            // either. Measured on the vehicle: with the panel open, BACK went
+            // to the app underneath and the panel stayed put.
+            //
+            // HOME gets the same treatment for a different reason: going home
+            // while the panel is up would leave our panel covering the
+            // launcher.
+            onHome = {
+                requestPanelClose()
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            },
+            onBack = {
+                if (panelHost != null) requestPanelClose()
+                else performGlobalAction(GLOBAL_ACTION_BACK)
+            },
+            panelOpen = panelOpen.value,
+            onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
+            onSlotPressChange = { down ->
+                if (down) {
+                    slot.onFingerDown()
+                } else {
+                    slot.onFingerUp()
+                    // Arm the tap lockout on release: the slot must not change
+                    // for a moment after the driver's finger leaves it, or
+                    // their next press lands on a control they did not aim at.
+                    // Release is the moment the tap completes — and taking it
+                    // from here rather than from `onCommand` avoids
+                    // duplicating the UI's SlotContent-to-Command mapping as a
+                    // second source of truth. A press dragged off the slot
+                    // arms it too, which only ever delays a swap.
+                    //
+                    // Same clock as the poll above, and for the same reason.
+                    slot.onTap(SystemClock.elapsedRealtime())
+                }
+            },
+        )
+    }
+
+    /**
+     * Adds screen 1d's window, if it is not already up.
+     *
+     * The null check is the double-open guard: CLIMATE is still tappable while
+     * the panel is open, because the bar stays visible below it, so a second
+     * tap must be a no-op rather than a second window over the first.
+     *
+     * That guard now also covers the 220ms in which the panel is sliding *out*,
+     * because the window and its composition are still alive for the whole of
+     * it. Rather than drop the tap — leaving the driver looking at a page that
+     * is leaving with the button that summons it apparently dead — clearing
+     * [panelClosing] cancels the outgoing slide and brings the same page back to
+     * rest. There is never a second window, and CLIMATE always does something.
+     *
+     * `addView` failing leaves only the panel dead, not the service — unlike
+     * [showBar], which tears down, because a bar that cannot be added means we
+     * are sitting over the factory bar with no working UI. Here the bar is
+     * already up and working, so the honest response is to log and stay as we
+     * were.
+     *
+     * The bus check ahead of that is the one that must come first: **never
+     * create a page that cannot drive the vehicle.** Two orderings reach here
+     * with no working bus, both because a CLIMATE touch can already be in the
+     * input pipeline when the thing that invalidates it runs on the same main
+     * looper. Either [followConnection]'s hide callback has just pulled both
+     * windows -- in which case nothing on the bus path will fire again until a
+     * reconnect, so a panel added now is orphaned -- or [teardown] has run, in
+     * which case `scope` is cancelled and every service-side route to
+     * [closePanel] is already unreachable. `bus` is read through
+     * `::bus.isInitialized` because [teardown] can precede the very first
+     * [onServiceConnected].
+     *
+     * Dropping the tap is the right direction: the same code path that
+     * invalidated the bus also removed our bar, so the `com.syu.air` factory
+     * bar is exposed and taking touches, and it is a working control rather
+     * than a stale one.
+     */
+    private fun openPanel() {
+        if (scope == null || !::bus.isInitialized || !bus.connected.value) {
+            Log.w(
+                TAG,
+                "CLIMATE ignored — no vehicle bus, so screen 1d would render frozen " +
+                    "values and drop every command. Our bar is already gone with the " +
+                    "bus, so the factory bar is the fallback.",
+            )
+            return
+        }
+        if (panelHost != null) {
+            panelClosing.value = false
+            panelOpen.value = true
+            return
+        }
+        val host = ComposeOverlayHost(this)
+        panelHost = host
+        panelClosing.value = false
+        try {
+            host.show(panelWindowParams()) { PanelContent() }
+            panelOpen.value = true
+        } catch (t: Throwable) {
+            Log.e(TAG, "could not add the panel window; the bar remains usable", t)
+            closePanel()
+        }
+    }
+
+    /**
+     * Asks the open panel to leave, playing the reverse transition first.
+     *
+     * The **only** two routes through here are the ones the spec's transition
+     * table names — "Tap CLOSE / back gesture" — and both are the driver's own
+     * doing. The animation is affordable precisely because of that: the driver
+     * asked, is looking at the screen, and 220ms of motion is what tells them
+     * the page went away rather than the app crashing.
+     *
+     * The dead-bus and teardown routes deliberately do **not** come through
+     * here; they call [closePanel] and the window goes on that frame. The spec
+     * row covers interactions, and neither of those is one — a bus that has
+     * stopped answering is not the driver asking for a nice exit, it is the one
+     * moment a trusted overlay over the whole app area must be gone *now*.
+     *
+     * This only marks the intent. The window is removed by the animation
+     * coroutine in [PanelContent] when the slide reaches the bottom, so a tap
+     * arriving inside those 220ms can still countermand it — see [openPanel].
+     */
+    private fun requestPanelClose() {
+        if (panelHost == null) return
+        panelClosing.value = true
+        panelOpen.value = false
+    }
+
+    /**
+     * Removes screen 1d's window and drops the host with it, on this frame.
+     *
+     * Safe to call with no panel open — `panelHost` is then null and this does
+     * nothing — which is what lets [teardown] and [hidePanelAndBar] call it
+     * unconditionally. `destroy()` rather than `hide()`: the host is never
+     * reused, so its lifecycle must reach DESTROYED and its ViewModel store
+     * must be cleared, or every open leaks one.
+     *
+     * This is the single place a panel window is ever removed, and it never
+     * waits for anything. The reverse transition does not replace it — it only
+     * delays the call, and it delays it from inside the panel's own
+     * composition, which the window owns. So every route ends the same way:
+     *
+     *  - CLOSE or BACK: [requestPanelClose] marks the panel closing, the slide
+     *    plays, the coroutine calls this.
+     *  - dead bus ([hidePanelAndBar]) and [teardown]: this, directly, with no
+     *    animation and nothing to wait for. Both may land mid-slide, and both
+     *    then win — removing the view disposes the composition, which cancels
+     *    the animation coroutine before it reaches its own call to this.
+     *  - [openPanel]'s `addView` failure: this, to drop the host it just made.
+     *
+     * The animation therefore cannot strand the window. It has no path to
+     * removing it other than this method; it cannot outlive the composition,
+     * because `LaunchedEffect` makes it a structured child of it; and the
+     * composition cannot outlive the window, because disposal is what removing
+     * the view does. A cancelled slide is either a window that has already gone
+     * or a panel that has deliberately been kept ([openPanel]) — never a page
+     * left half off-screen with nothing left to remove it.
+     *
+     * Clearing [panelClosing] here is what makes a *subsequent* open honest: a
+     * dead bus removing a panel mid-slide must not leave the flag set for the
+     * next window to inherit.
+     */
+    private fun closePanel() {
+        panelHost?.destroy()
+        panelHost = null
+        panelClosing.value = false
+        panelOpen.value = false
+    }
+
+    @Composable
+    private fun PanelContent() {
+        val state by bus.state.collectAsState()
+
+        // Screen 1d's entrance: 220ms ease-out translate-Y, the only animation
+        // on this screen. Nothing fades and no *value* animates -- no numeral,
+        // tile fill or readout is interpolated anywhere in this project, and a
+        // grep for the state-animation and crossfade APIs must stay empty --
+        // only this one vertical offset.
+        //
+        // Translated inside the Compose tree, never by moving the window:
+        // driving `LayoutParams.y` through `updateViewLayout` once a frame is
+        // expensive and janky on this hardware. `graphicsLayer` re-draws a
+        // layer at an offset without re-measuring or recomposing anything, and
+        // its `size` is the page's own height -- so the page starts exactly one
+        // page below its resting place, which is what "slides up over app
+        // content" means whatever height the window turns out to have.
+        //
+        // Keyed on `Unit`, which here means once per composition. The panel's
+        // composition is created by `ComposeOverlayHost.show()` and disposed by
+        // [closePanel], so one open is exactly one run. That matters because
+        // vehicle state streams continuously: `bus.state` recomposes this
+        // function many times a second, and an effect keyed on anything that
+        // moves would restart the slide mid-flight or re-slide the page under
+        // the driver's finger. A reopen is a *new* composition, so the entrance
+        // plays again then, which is correct.
+        //
+        // `Animatable` driven from a `LaunchedEffect` rather than
+        // `rememberCoroutineScope`: the effect's coroutine is a structured
+        // child of this composition, so removing the window cancels it. No
+        // animation can outlive the panel.
+        val slide = remember { Animatable(1f) }
+        LaunchedEffect(Unit) {
+            slide.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseOut),
+            )
+        }
+
+        // Screen 1d's reverse, and the removal of the window at the end of it.
+        //
+        // `EaseIn` because the reverse of the motion is the reverse of the
+        // curve: the entrance runs ease-out, which leaves fast and arrives
+        // slowly, so played backwards it leaves slowly and arrives fast, and
+        // that is what ease-in is. Same `Animatable`, same offset, same
+        // duration, same one property -- nothing here fades and no value is
+        // interpolated.
+        //
+        // Keyed on `Unit` like the entrance, and for the same reason: `bus.state`
+        // recomposes this many times a second. The close *request* reaches it
+        // through `snapshotFlow` instead, so the effect is never restarted and
+        // the panel is never re-slid under the driver's finger.
+        //
+        // `drop(1)` discards `snapshotFlow`'s replay of the current value.
+        // [openPanel] clears the flag before the window is shown, so that first
+        // emission is always `false` and always means "nothing has asked to
+        // leave yet" -- acting on it would start a second `animateTo` against
+        // the entrance's, and one would cancel the other.
+        //
+        // `collectLatest` is the whole re-entry story. A CLIMATE tap inside the
+        // 220ms clears the flag, which cancels the block below *before* it
+        // reaches `closePanel()`, and re-runs it to slide the page back to rest
+        // from wherever it had got to. So the reopen is never dropped, the
+        // window is never removed after the driver asked for it back, and there
+        // is never a second one -- it is the same window throughout.
+        //
+        // No `finally` around the animation, deliberately. Cancellation here has
+        // exactly two causes: the composition being disposed, which only happens
+        // because the window was already removed, and the re-entry above, where
+        // removing the window is precisely the wrong thing to do. A `finally`
+        // would be a no-op in the first case and a bug in the second.
+        LaunchedEffect(Unit) {
+            snapshotFlow { panelClosing.value }.drop(1).collectLatest { closing ->
+                if (closing) {
+                    slide.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseIn),
+                    )
+                    closePanel()
+                } else {
+                    slide.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseOut),
+                    )
+                }
+            }
+        }
+
+        ClimatePanel(
+            state = state,
+            outsideF = outsideF(state),
+            onCommand = { bus.send(it) },
+            onClose = { requestPanelClose() },
+            // On `ClimatePanel`'s own modifier parameter, not a wrapper: it
+            // adds no layout node, so the footer-pinning `BoxWithConstraints`
+            // still measures against the window's own bounded constraints.
+            modifier = Modifier.graphicsLayer { translationY = slide.value * size.height },
+        )
+    }
+
+    /**
+     * The panel covers app content but never the bar.
+     *
+     * The height is `displayMetrics.heightPixels`, which for a service is the
+     * **application** area — 1693px on this head unit, the display's 1920 less
+     * the 227px navigation-bar inset the bar occupies (`dumpsys window
+     * displays` reports `cur=1080x1920 app=1080x1693`). That is exactly the
+     * region screen 1d is laid out for, so it is used directly and *not*
+     * reduced again: the bar's [displayHeightPx] exists precisely because
+     * `heightPixels` is already inset-reduced, and subtracting the bar height
+     * from it a second time would land the panel at 1466px, short of the bar
+     * by its own height.
+     *
+     * Hardware that reserves no navigation-bar inset reports the whole display
+     * here instead, and the panel then covers the bar — the `wk2_panel` AVD
+     * does exactly that (`app=1080x1920`), which is why the emulator cannot
+     * demonstrate the bar remaining visible. The log line below prints all
+     * three numbers so which case a unit is in is one line away.
+     *
+     * No `FLAG_LAYOUT_NO_LIMITS`, which is the other half of the same point.
+     * The bar needs it to reach into the nav-bar region at all; the panel wants
+     * the default inset-reduced frame it would otherwise escape.
+     *
+     * `TYPE_ACCESSIBILITY_OVERLAY` again, so the panel is a trusted overlay the
+     * system does not hide during permission dialogs, and `FLAG_NOT_FOCUSABLE`
+     * so opening it does not take focus from whatever app is running
+     * underneath. Touches *inside* the window still reach us; only focus is
+     * declined.
+     */
+    private fun panelWindowParams(): WindowManager.LayoutParams {
+        val height = resources.displayMetrics.heightPixels
+        Log.i(
+            TAG,
+            "panel window: y=0 app height=${height}px " +
+                "(display=${displayHeightPx()}px bar=${designBarHeightPx()}px)",
+        )
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            height,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+        }
+    }
+
+    /**
+     * Outside temperature in whole degrees F, or null when we do not have it.
+     *
+     * `U_TEMP_OUT` packs tenths of a degree offset by 1000 into the low 16
+     * bits, with bit 28 as a validity flag. Verified against the head unit's
+     * own status bar on the vehicle: raw `0x10000744` -> 1860 tenths -> 86 F.
+     *
+     * Only trusted when the vehicle is reporting Fahrenheit. [AdaptiveSlot]'s
+     * thresholds are Fahrenheit, and whether `U_TEMP_OUT` is unit-scaled the
+     * way `TEMP_LEFT`/`TEMP_RIGHT` are is **unverified** — the vehicle
+     * observation above was taken with the unit set to Fahrenheit, so it does
+     * not distinguish the two. If it is scaled, a 30 C day would decode as
+     * "30" and swing the slot to FRONT DEFROST in the heat. So this fails safe
+     * rather than guessing.
+     *
+     * An invalid, out-of-range or non-Fahrenheit reading returns null, and
+     * [AdaptiveSlot] pins to SEAT HEAT in that case — so the slot is never
+     * blank and the bar's geometry never changes.
+     */
+    private fun outsideF(state: ClimateState): Int? {
+        if (state.tempUnit != TempUnit.FAHRENHEIT) return null
+        val raw = state[Signal.TEMP_OUT] ?: return null
+        if ((raw shr 28) and 1 != 1) return null
+        val f = ((raw and 0xFFFF) - 1000) / 10
+        return if (f in OUTSIDE_F_MIN..OUTSIDE_F_MAX) f else null
+    }
+
+    /**
+     * The verified parameters for covering the factory bar.
+     *
+     * Measured on the vehicle: this lands exactly on `[0,1693][1080,1920]` as
+     * the topmost window. `FLAG_LAYOUT_NO_LIMITS` is load-bearing — without it
+     * gravity resolves against the inset-reduced frame and the window cannot
+     * enter the nav-bar region at all. Positioning from the TOP with an
+     * absolute y sidesteps the negative-offset problem entirely.
+     *
+     * The height is the *design's* bar height, not the framework's
+     * `navigation_bar_height`. The two coincide on the target ROM, but the
+     * dimen is a reserved-inset value and need not equal the bar the system
+     * draws — an emulator was observed reporting 56px against a 169px nav-bar
+     * window. Sizing the window from the framework would silently clip screen
+     * 2a to its top row on any hardware that disagrees, so we draw the bar at
+     * the size it is designed for and [warnIfNavInsetDisagrees] makes a
+     * mismatch a log line instead.
+     */
+    private fun barWindowParams(): WindowManager.LayoutParams {
+        val height = designBarHeightPx()
+        warnIfNavInsetDisagrees(height)
+        val top = displayHeightPx() - height
+        Log.i(TAG, "bar window: y=$top height=$height display=${displayHeightPx()}px")
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            height,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = top
+        }
+    }
+
+    /**
+     * The one source of truth for the bar's height: the design constant screen
+     * 2a is laid out against. Design rule 5 — the bar never grows — makes this
+     * a fixed size, so the window must never be smaller than it.
+     */
+    private fun designBarHeightPx(): Int =
+        (Dimens.barHeight.value * resources.displayMetrics.density).roundToInt()
+
+    /**
+     * Reads the framework's `navigation_bar_height` purely to compare.
+     *
+     * If it does not match the design height then this is not the hardware the
+     * bar was measured on, and the layout's assumptions — the 227px the whole
+     * of 2a is built to, which the handoff notes cannot be exceeded without
+     * root — no longer hold. That is worth a warning, and it is much better
+     * than the alternative symptom of rendering a fragment of the UI.
+     */
+    /**
+     * The **real** display height in pixels, system decor included.
+     *
+     * Not `resources.displayMetrics.heightPixels`: for a service that value is
+     * the *application* area, which on this head unit already has the 227px
+     * navigation bar subtracted (`dumpsys window displays` reports
+     * `cur=1080x1920 app=1080x1693`). Using it put the bar at
+     * `1693 - 227 = 1466`, drawing it directly *above* the factory bar instead
+     * of over it — both bars visible at once, and every touch landing 227px
+     * from where it looked.
+     *
+     * A 2032 window with `FLAG_LAYOUT_NO_LIMITS` is positioned against the
+     * whole display, so the whole display is what it must be measured against.
+     */
+    private fun displayHeightPx(): Int {
+        val wm = getSystemService(WindowManager::class.java)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            wm.currentWindowMetrics.bounds.height()
+        } else {
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(metrics)
+            metrics.heightPixels
+        }
+    }
+
+    private fun warnIfNavInsetDisagrees(designHeightPx: Int) {
+        val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        if (id <= 0) return
+        val inset = resources.getDimensionPixelSize(id)
+        if (inset != designHeightPx) {
+            Log.w(
+                TAG,
+                "navigation_bar_height is ${inset}px but the bar is designed at " +
+                    "${designHeightPx}px — drawing at the design size. This is not the " +
+                    "hardware the bar was measured on; check what covers the factory bar.",
+            )
+        }
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        teardown()
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        teardown()
+        super.onDestroy()
+    }
+
+    private fun teardown() {
+        // Cancelled before either window goes, so the collector cannot re-add
+        // one.
+        scope?.cancel()
+        scope = null
+        // The panel must not outlive the service either: its window is a
+        // trusted overlay over the whole app area, and nothing else can remove
+        // it once this instance is gone.
+        closePanel()
+        if (::barHost.isInitialized) barHost.destroy()
+        if (::bus.isInitialized) bus.disconnect()
+    }
+
+    /**
+     * Closes the panel on BACK, without ever taking focus.
+     *
+     * Our window is `FLAG_NOT_FOCUSABLE`, so the *window* cannot receive a key
+     * event at all — the system back gesture goes to the focused app. This
+     * route does not depend on focus: `onKeyEvent` is accessibility key
+     * *filtering*, which sees events before they are dispatched to any window,
+     * and it is enabled by `flagRequestFilterKeyEvents` in
+     * `accessibility_config.xml` rather than by anything about our window.
+     * Taking focus instead would disturb whatever app is running underneath,
+     * which is the thing the panel is deliberately drawn over.
+     *
+     * DOWN is consumed as well as UP, so the app underneath never sees a
+     * half-gesture — a consumed DOWN with a delivered UP is how a stuck back
+     * key happens. Nothing is consumed unless a panel is actually open, so BACK
+     * behaves normally at every other moment.
+     *
+     * The bar's nav column keeps working throughout: HOME is
+     * `GLOBAL_ACTION_HOME` and is untouched, and if BACK's global action turns
+     * out to pass through the filter chain then tapping the bar's BACK with the
+     * panel open closes the panel — which is what BACK means on this screen
+     * anyway. Whether it does is unverified; either way the tap does something
+     * sensible.
+     *
+     * **Unverified.** The capability is granted at runtime — `dumpsys
+     * accessibility` reports `capabilities=8`, which is
+     * `CAPABILITY_CAN_REQUEST_FILTER_KEY_EVENTS` — but this method cannot be
+     * exercised on an emulator: `adb shell input keyevent` is injected past the
+     * accessibility input filter, so no injected BACK, VOLUME_UP or VOLUME_DOWN
+     * reached here, and synthesising a real hardware key with `sendevent` needs
+     * root the AVD does not give. Whether the vendor gesture-nav service
+     * `com.syu.fytgesture` produces a filterable `KEYCODE_BACK` at all, or
+     * consumes the gesture first, is a vehicle question. If it does not, the
+     * CLOSE button in screen 1d's header is unaffected and remains the exit —
+     * back is an enhancement, never the only way out.
+     */
+    override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event?.keyCode == KeyEvent.KEYCODE_BACK && panelHost != null) {
+            if (event.action == KeyEvent.ACTION_UP) requestPanelClose()
+            return true
+        }
+        return super.onKeyEvent(event)
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onInterrupt() = Unit
+
+    private companion object {
+        private const val TAG = "ClimateBarService"
+
+        /**
+         * How long a slow `bindService` is given before the bar is pulled.
+         *
+         * Long enough that a cold vendor-service start does not expose the
+         * factory bar; short enough that a driver is not left tapping a dead
+         * bar. The vehicle's own bind completes well inside this.
+         */
+        const val BUS_GRACE_MS = 4_000L
+
+        /** The slot's own dwell is 30s, so polling faster than this buys nothing. */
+        const val SLOT_POLL_MS = 5_000L
+
+        /** Sanity window for a decoded outside temperature. */
+        const val OUTSIDE_F_MIN = -60
+        const val OUTSIDE_F_MAX = 160
+    }
+}

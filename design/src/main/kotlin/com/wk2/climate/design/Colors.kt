@@ -63,8 +63,28 @@ data class Palette(
 
         val DAY = Palette(
             surface            = Color(0xFFECEAE6),
-            surfaceRaised      = Color(0xFFFFFFFF),
-            surfaceInset       = Color(0x0D000000),   // rgba(0,0,0,.05)
+            // rgba(0,0,0,.05) -- the *opposite polarity* of night's
+            // rgba(255,255,255,.05), not the same value.
+            //
+            // The handoff's token is an **overlay**, not a colour: a 5% white
+            // wash recesses a panel on a dark ground and glares on a light
+            // one. This was once opaque `#ffffff`, which inverted the intended
+            // depth -- the fan meter and the four seat tiles rendered as the
+            // brightest cards on the page instead of as recessed insets. Read
+            // the handoff's day column (README "Inset strip" row) as flipping
+            // the overlay's polarity, and never as reusing night's literal.
+            //
+            // `surface-card #ffffff` in README's day token list names a token
+            // this UI has no equivalent of -- nothing on 1d or 2a is a card.
+            surfaceRaised      = Color(0x0D000000),   // rgba(0,0,0,.05)
+            // rgba(0,0,0,.035) -- the darkening equivalent of night's
+            // rgba(255,255,255,.035), by the same polarity rule as the row
+            // above. The README gives no day value for this token, but it does
+            // give night's, and the rule determines the rest: this is a
+            // *lighter* overlay than surfaceRaised in both palettes, and
+            // collapsing it onto surfaceRaised's literal made it a duplicate
+            // of its neighbour rather than the mirror of its own night value.
+            surfaceInset       = Color(0x09000000),   // rgba(0,0,0,.035)
             ink                = Color(0xFF16181A),
             inkDim             = Color(0xCC16181A),
             inkMuted           = Color(0x80000000),   // rgba(0,0,0,.5)
@@ -83,6 +103,43 @@ data class Palette(
             trackEnd           = Color(0xFFBC4527),
         )
 
-        fun forNight(isNight: Boolean): Palette = if (isNight) NIGHT else DAY
+        /**
+         * The palette for a reported illumination — and for an unreported one.
+         *
+         * **An unknown illumination selects [NIGHT].** `null` means the
+         * vehicle has never told us: `ILLUMINATION` only changes when the
+         * headlights switch, so a cold start at night with the lights already
+         * on is exactly the case that is never pushed, and the old
+         * `Boolean`-only signature collapsed that into [DAY].
+         *
+         * The consequences are asymmetric, which is what decides it. Too dark
+         * a bar is a nuisance the driver resolves by looking at it. A
+         * full-brightness white bar at night in a moving vehicle is a
+         * genuine hazard. So the default takes the safer side.
+         *
+         * This is a *rendering policy applied to an absent reading* — nothing
+         * anywhere synthesises an illumination value, and `ClimateState`
+         * still reports `null`. Do not "fix" this back to `?: false`.
+         */
+        fun forNight(isNight: Boolean?): Palette = if (isNight == false) DAY else NIGHT
     }
 }
+
+/**
+ * A tinted tile's pressed-state fill alpha, layered onto whatever tint colour
+ * (e.g. [Palette.cool], [Palette.warm]) that tile was given.
+ *
+ * Specifically the pressed alpha for a tile whose **resting** tint is `0.18f`
+ * -- the temperature steppers. It is not a universal value, and a tile with a
+ * different resting alpha must not simply reuse this number.
+ *
+ * The principle the panel follows is that **pressing roughly doubles the
+ * resting tint**, so the perceived jump is the same everywhere even though the
+ * absolute values are not: the steppers go 0.18 -> 0.34, and the heated wheel
+ * goes 0.12 -> 0.24. Forcing 0.34 on the wheel would be consistent in the
+ * number and inconsistent in the thing a driver actually sees.
+ *
+ * Not a handoff token like the 0.18f resting fill or the 0.5f border alpha --
+ * those stay as literals at their call sites.
+ */
+const val PRESSED_TINT_ALPHA = 0.34f

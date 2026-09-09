@@ -26,9 +26,57 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
 
     val isEmpty: Boolean get() = raw.isEmpty()
 
+    /**
+     * True once the vehicle has reported **any** climate signal.
+     *
+     * The single gate that lets the UI say "I don't know" instead of "off".
+     * [flag] is `raw[signal] == 1`, so an absent signal and a signal reporting
+     * zero both read as `false`; on an ignition cycle the head unit restarts,
+     * this process comes up with an empty map, registration succeeds for all
+     * 20 climate codes, and the vendor service — which notifies on *change*
+     * only — says nothing until the driver moves something. Every boolean
+     * control then paints a confident OFF for state we do not have, which is
+     * what made the bar read as "the HVAC is off" rather than "no data yet".
+     *
+     * Only [Signal.MODULE_CANBUS] counts. Volume arrives on SOUND and
+     * illumination on MAIN, and both can be present and updating while climate
+     * is still silent — gating on "something arrived" would restore the lie.
+     *
+     * Making every flag nullable instead would ripple through the whole UI for
+     * no benefit: absence is not per-signal here, it is the whole module being
+     * quiet, so one gate carries the same information.
+     */
+    val hasClimateData: Boolean
+        get() = raw.keys.any { it.module == Signal.MODULE_CANBUS }
+
+    /**
+     * Every [Signal] we registered for and have still never been told a value
+     * for, in declaration order.
+     *
+     * The stopping rule for the re-registration retry. `hasClimateData` is the
+     * wrong rule for it: the MCU streams climate frames continuously, so on
+     * the vehicle climate landed within a second of registering — measured,
+     * `climate data present after 0 re-registration(s)` — and the retry
+     * finished on its first check without ever giving the signals that *do*
+     * need nagging a chance. Those are the ones that only change when someone
+     * acts: `VOLUME` until the knob turns, `ILLUMINATION` until the headlights
+     * switch, `TEMP_OUT` until the reading moves.
+     *
+     * Registered-for and expected are the same thing here — [Signal.entries]
+     * is exactly the list handed to `register` — so there is no second list to
+     * keep in step.
+     *
+     * Empty is the goal state, not the normal one: some of these may simply
+     * not exist on this vehicle, so a non-empty set after the last attempt is
+     * information, not a fault. It is logged for that reason.
+     */
+    val missingSignals: Set<Signal>
+        get() = Signal.entries.filterNotTo(LinkedHashSet()) { raw.containsKey(it) }
+
     // ---- derived: zone temperatures ----
-    val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT])
-    val tempRight: Temp get() = Temp.from(raw[Signal.TEMP_RIGHT])
+    val tempUnit: TempUnit get() = TempUnit.from(raw[Signal.TEMP_UNIT])
+    val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT], tempUnit)
+    val tempRight: Temp get() = Temp.from(raw[Signal.TEMP_RIGHT], tempUnit)
 
     // ---- derived: blower ----
     val fan: Fan get() = Fan.from(raw[Signal.WIND_LEVEL])
@@ -56,16 +104,41 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
     val frontDefrostOn: Boolean get() = flag(Signal.FRONT_DEFROST)
     val rearDefrostOn: Boolean get() = flag(Signal.REAR_DEFROST)
 
-    /** The control the OEM labels DUAL. It drives SYNC, not `U_AIR_DUAL`. */
-    val syncOn: Boolean get() = flag(Signal.SYNC)
+    /**
+     * True when the two zones follow one setpoint.
+     *
+     * **The signal is DUAL polarity, so this is its inverse.** Measured on the
+     * vehicle 2026-09-09: with code 62 reading 1 the zones are *independent*,
+     * and with it reading 0 a driver-side change moves both. The OEM's own
+     * naming is the tell — the control and its command are `airDual`, and dual
+     * zone means two independent zones, so `1` asserts *dual*, not *sync*.
+     *
+     * Reading it as SYNC lit the tile in exactly the wrong half of the states.
+     * Absence still renders nothing: `hasClimateData` gates the tile, so an
+     * unreported signal cannot claim either polarity.
+     */
+    val syncOn: Boolean get() = raw[Signal.SYNC] == 0
 
     val powerOn: Boolean get() = flag(Signal.POWER)
 
     // ---- derived: other modules ----
     val volume: Int? get() = raw[Signal.VOLUME]
 
-    /** Day/night follows the vehicle's illumination signal, never a clock. */
-    val isNight: Boolean get() = flag(Signal.ILLUMINATION)
+    /**
+     * Day/night follows the vehicle's illumination signal, never a clock —
+     * and `null` when the vehicle has never reported it.
+     *
+     * The one nullable flag, on purpose. [flag] collapses absent into `false`,
+     * which for illumination means an unreported signal reads as *day*:
+     * `ILLUMINATION` only changes when the headlights switch, so a cold start
+     * at night with the lights already on is precisely the case that never
+     * gets pushed. What the palette does with `null` is a rendering policy and
+     * belongs where the palette is chosen — `Palette.forNight` in `:design`.
+     *
+     * Every other flag stays non-null: absence there is the whole CANBUS
+     * module being quiet, which [hasClimateData] already carries in one place.
+     */
+    val isNight: Boolean? get() = raw[Signal.ILLUMINATION]?.let { it == 1 }
 
     private fun flag(signal: Signal): Boolean = raw[signal] == 1
 
