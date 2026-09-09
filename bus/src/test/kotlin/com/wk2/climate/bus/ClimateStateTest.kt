@@ -31,6 +31,39 @@ class ClimateStateTest {
     }
 
     @Test
+    fun `an empty state has no climate data`() {
+        assertFalse(ClimateState.EMPTY.hasClimateData)
+    }
+
+    @Test
+    fun `volume and illumination alone are not climate data`() {
+        // The cold-start case exactly: SOUND and MAIN answer, CANBUS is silent.
+        // Counting these would put the bar straight back to painting a
+        // confident OFF on every climate control.
+        val s = ClimateState.EMPTY
+            .with(Signal.VOLUME, 10)
+            .with(Signal.ILLUMINATION, 1)
+            .with(Signal.TEMP_OUT, 0x10000744)
+        assertFalse(s.isEmpty)
+        assertFalse(s.hasClimateData)
+    }
+
+    @Test
+    fun `any single climate signal is enough`() {
+        for (signal in Signal.inModule(Signal.MODULE_CANBUS)) {
+            // Value 0 as well as 1: a signal reporting zero is data, and it is
+            // precisely the case `flag()` cannot tell from absence.
+            assertTrue("$signal = 0 must count", ClimateState.EMPTY.with(signal, 0).hasClimateData)
+            assertTrue("$signal = 1 must count", ClimateState.EMPTY.with(signal, 1).hasClimateData)
+        }
+    }
+
+    @Test
+    fun `the measured vehicle baseline has climate data`() {
+        assertTrue(FakeVehicleBus.VEHICLE_BASELINE.hasClimateData)
+    }
+
+    @Test
     fun `with stores a raw value and derives from it`() {
         val s = ClimateState.EMPTY.with(Signal.TEMP_LEFT, 68)
         assertEquals(68, s[Signal.TEMP_LEFT])

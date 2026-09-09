@@ -26,6 +26,29 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
 
     val isEmpty: Boolean get() = raw.isEmpty()
 
+    /**
+     * True once the vehicle has reported **any** climate signal.
+     *
+     * The single gate that lets the UI say "I don't know" instead of "off".
+     * [flag] is `raw[signal] == 1`, so an absent signal and a signal reporting
+     * zero both read as `false`; on an ignition cycle the head unit restarts,
+     * this process comes up with an empty map, registration succeeds for all
+     * 20 climate codes, and the vendor service — which notifies on *change*
+     * only — says nothing until the driver moves something. Every boolean
+     * control then paints a confident OFF for state we do not have, which is
+     * what made the bar read as "the HVAC is off" rather than "no data yet".
+     *
+     * Only [Signal.MODULE_CANBUS] counts. Volume arrives on SOUND and
+     * illumination on MAIN, and both can be present and updating while climate
+     * is still silent — gating on "something arrived" would restore the lie.
+     *
+     * Making every flag nullable instead would ripple through the whole UI for
+     * no benefit: absence is not per-signal here, it is the whole module being
+     * quiet, so one gate carries the same information.
+     */
+    val hasClimateData: Boolean
+        get() = raw.keys.any { it.module == Signal.MODULE_CANBUS }
+
     // ---- derived: zone temperatures ----
     val tempUnit: TempUnit get() = TempUnit.from(raw[Signal.TEMP_UNIT])
     val tempLeft: Temp get() = Temp.from(raw[Signal.TEMP_LEFT], tempUnit)
