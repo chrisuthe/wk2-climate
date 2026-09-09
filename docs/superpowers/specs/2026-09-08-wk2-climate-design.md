@@ -441,6 +441,28 @@ The handoff implies a single climate subscription.
 `VOL_HIDE_UI = -7` (wiki p10), so our bar can own the volume readout without the
 OEM volume OSD painting over it.
 
+### 5.7 MAX A/C's fan effect is observed but not instrumented
+
+Owner-verified on 2026-09-09: tapping MAX A/C does "what is expected — LOW,
+recirc, max fan". The LO setpoints and forced recirculation are already modelled
+in `FakeVehicleBus`. **The fan is not**, and deliberately stays unmodelled until
+measured, because the observation is physical (audible blower) and it is not yet
+known whether the vehicle *reports* it:
+
+- if `WIND_LEVEL` goes to 7, the fan meter should fill solid and drop its AUTO
+  label, and `FakeVehicleBus` should set it;
+- if `WIND_LEVEL` stays at the AUTO sentinel (15) while the blower physically
+  maxes, then the boost is invisible to the protocol, the UI is already correct,
+  and the fake must **not** set it — inventing a value there would make the fake
+  lie in the one direction it exists to prevent.
+
+A screenshot of the fan row taken **while MAX A/C is engaged** settles it in one
+frame. The capture taken during session 6 arrived after the owner had toggled it
+back off (AUTO and A/C lit, MAX A/C and RECIRC clear), so it does not answer the
+question.
+
+Added as car-session checklist item 14.
+
 ### 5.6 AUTO is an idempotent setter, not a toggle
 
 The handoff's interaction table lists AUTO alongside A/C, RECIRC, MAX A/C,
@@ -756,6 +778,14 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 | `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
 
 ### Remaining
+
+14. **Does MAX A/C move `U_AIR_WIND_LEVEL`, or only the physical blower?**
+    Engage MAX A/C and screenshot the panel's fan row *while it is on*. If the
+    meter fills solid with no AUTO label, the fan reports 7 and
+    `FakeVehicleBus.MAX_AC` needs it; if the AUTO label is still showing, the
+    boost is not reported and the fake is already correct. See section 5.7.
+    One screenshot, no commands sent.
+
 
 13. **Does command index 2 toggle AUTO, or only set it?** Send index 2 while
     `U_AIR_AUTO` already reads 1 and see whether it goes to 0. The command table
