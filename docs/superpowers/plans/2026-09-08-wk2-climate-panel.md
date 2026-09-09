@@ -145,6 +145,7 @@ package com.wk2.climate.ui.panel
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -175,14 +176,27 @@ fun PanelSection(
     header: String?,
     modifier: Modifier = Modifier,
     topBorder: Boolean = true,
+    /**
+     * The handoff's section padding, `20px 34px 24px`.
+     *
+     * Overridable because the temperature-zone section must pass **zero**: each
+     * zone carries its own `30/34/34` padding, and that per-zone padding *is*
+     * the page gutter. Applying both would put the gutter at 68dp and squeeze
+     * the 110dp steppers and the 96px numeral into ~944dp of a 1080dp page.
+     */
+    contentPadding: PaddingValues = PaddingValues(
+        start = Dimens.pageGutter,
+        end = Dimens.pageGutter,
+        top = 20.dp,
+        bottom = 24.dp,
+    ),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier
             .fillMaxWidth()
             .then(if (topBorder) Modifier.topDivider(palette.divider) else Modifier)
-            // The handoff's section padding: 20px 34px 24px.
-            .padding(start = Dimens.pageGutter, end = Dimens.pageGutter, top = 20.dp, bottom = 24.dp),
+            .padding(contentPadding),
     ) {
         if (header != null) {
             BasicText(
@@ -1593,25 +1607,43 @@ private fun HoldOffButton(palette: Palette, onPowerOff: () -> Unit) {
             .clip(shape)
             .border(1.5.dp, palette.ink.copy(alpha = 0.18f), shape)
             .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    val start = System.currentTimeMillis()
-                    var fired = false
-                    val ticker = launch {
-                        while (isActive && !fired) {
-                            val held = System.currentTimeMillis() - start
-                            progress = HoldToConfirm.progressAt(held, Dimens.POWER_HOLD_MS)
-                            if (HoldToConfirm.isConfirmed(held, Dimens.POWER_HOLD_MS)) {
-                                fired = true
-                                onPowerOff()
+                // Structured exactly like Modifier.holdRepeatTarget in
+                // ui/.../Interaction.kt -- read that first. The ticker is a
+                // child of THIS coroutineScope, and cleanup lives in a
+                // `finally`, so a cancellation arriving at the
+                // waitForUpOrCancellation suspension point can neither skip the
+                // cleanup nor orphan the ticker.
+                //
+                // That matters more here than anywhere else in the app: an
+                // orphaned ticker would keep polling and eventually call
+                // onPowerOff(), which dispatches Command.CLIMATE_POWER -- the
+                // one command that leaves this vehicle with no way to change
+                // climate until it is sent again.
+                coroutineScope {
+                    val gestureScope = this
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val start = System.currentTimeMillis()
+                        val ticker = gestureScope.launch {
+                            var fired = false
+                            while (isActive && !fired) {
+                                val held = System.currentTimeMillis() - start
+                                progress = HoldToConfirm.progressAt(held, Dimens.POWER_HOLD_MS)
+                                if (HoldToConfirm.isConfirmed(held, Dimens.POWER_HOLD_MS)) {
+                                    fired = true
+                                    onPowerOff()
+                                }
+                                delay(16)
                             }
-                            delay(16)
+                        }
+                        try {
+                            waitForUpOrCancellation()
+                        } finally {
+                            ticker.cancel()
+                            // Reset on release, whether or not it fired.
+                            progress = 0f
                         }
                     }
-                    waitForUpOrCancellation()
-                    ticker.cancel()
-                    // Reset on release, whether or not it fired.
-                    progress = 0f
                 }
             },
         contentAlignment = Alignment.Center,
@@ -1639,10 +1671,14 @@ private fun HoldOffButton(palette: Palette, onPowerOff: () -> Unit) {
 }
 ```
 
-> The gesture needs a `CoroutineScope`. `awaitEachGesture` runs inside
-> `pointerInput`'s scope, which is a coroutine scope — `launch` resolves
-> against it. If the compiler disagrees, hoist a `rememberCoroutineScope()`
-> above the modifier and launch on that, as `holdRepeatTarget` does.
+Required imports for `PanelFooter.kt`, in addition to those already listed:
+
+```kotlin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+```
 
 - [ ] **Step 6: Verify build and tests**
 
@@ -1687,6 +1723,7 @@ package com.wk2.climate.ui.panel
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -1729,7 +1766,14 @@ fun ClimatePanel(
     ) {
         PanelHeader(palette = palette, outsideF = outsideF, onClose = onClose)
 
-        PanelSection(palette = palette, header = null, topBorder = true) {
+        // Zero padding: each zone supplies the page gutter itself. See
+        // PanelSection's contentPadding doc.
+        PanelSection(
+            palette = palette,
+            header = null,
+            topBorder = true,
+            contentPadding = PaddingValues(0.dp),
+        ) {
             PanelZones(
                 palette = palette,
                 driver = state.tempLeft,
