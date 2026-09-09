@@ -1,5 +1,6 @@
 package com.wk2.climate.ui
 
+import com.wk2.climate.design.Dimens
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -61,8 +62,10 @@ class HoldRepeatTest {
 
     @Test
     fun `the timings are the ones the design specifies`() = runEmpty {
-        assertEquals(400L, HoldRepeat.INITIAL_DELAY_MS)
-        assertEquals(150L, HoldRepeat.INTERVAL_MS)
+        // Against the design tokens, not against literals: `:design` owns the
+        // numbers and this guards the two declarations from drifting apart.
+        assertEquals(Dimens.HOLD_REPEAT_DELAY_MS, HoldRepeat.INITIAL_DELAY_MS)
+        assertEquals(Dimens.HOLD_REPEAT_INTERVAL_MS, HoldRepeat.INTERVAL_MS)
     }
 
     /** A plain body, so the constants test needs no coroutine scope. */

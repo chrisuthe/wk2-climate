@@ -31,6 +31,17 @@ class SignalCommandTableTest {
     }
 
     @Test
+    fun `MODULE_CANBUS is the module every climate signal uses`() {
+        // Every module-7 signal is a climate signal, and every climate signal
+        // is on module 7 — the two sets must coincide with the named constant
+        // SyuVehicleBus gates `connected` on, not a bare 7 at the call site.
+        val climateSignals = Signal.entries.filter { it.module == Signal.MODULE_CANBUS }
+        assertEquals(Signal.entries.filter { it.module == 7 }, climateSignals)
+        assertTrue("expected climate signals on MODULE_CANBUS", climateSignals.isNotEmpty())
+        assertTrue(Signal.AUTO in climateSignals)
+    }
+
+    @Test
     fun `we never subscribe to the high rate flood codes`() {
         // U_SPECTRUM is module 4 code 0; U_CANBUS_FRAME_TO_UI is module 7 code 1019.
         assertNull(Signal.of(4, 0))

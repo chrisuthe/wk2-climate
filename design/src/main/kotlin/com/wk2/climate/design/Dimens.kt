@@ -17,7 +17,11 @@ object Dimens {
     val minTarget = 96.dp
 
     // ---- screen 2a: the resting bar ----
-    val barHeight = 227.dp            // framework navigation_bar_height; never grows
+    // Design rule 5: the bar rests here and never grows. This is the source of
+    // truth for the window's height — the framework's navigation_bar_height is
+    // checked *against* it (see ClimateBarService.warnIfNavInsetDisagrees), not
+    // the other way round.
+    val barHeight = 227.dp
     val barWidth = 1080.dp
     val barSideColumn = 156.dp
     val barCenterColumn = 768.dp

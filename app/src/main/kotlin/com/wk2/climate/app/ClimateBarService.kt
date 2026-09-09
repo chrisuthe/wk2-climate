@@ -16,13 +16,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
+import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.ui.bar.ClimateBar
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Owns the replacement bar.
@@ -45,6 +51,15 @@ class ClimateBarService : AccessibilityService() {
     private val slot = AdaptiveSlot()
 
     /**
+     * The service's own scope, created in [onServiceConnected] and cancelled in
+     * [teardown]. Nothing here may outlive the connection: a collector still
+     * running against a disconnected bus could re-add the bar window after the
+     * service was told to stop, and a 2032 overlay nothing owns any more is the
+     * one failure this file exists to prevent.
+     */
+    private var scope: CoroutineScope? = null
+
+    /**
      * The framework may call this more than once — re-enabling or
      * reconfiguring the service on an always-on head unit is exactly when it
      * would — so tear down first and start clean.
@@ -62,7 +77,41 @@ class ClimateBarService : AccessibilityService() {
         teardown()
         bus = SyuVehicleBus(this).also { it.connect() }
         barHost = ComposeOverlayHost(this)
-        showBar()
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also {
+            scope = it
+            it.launch { followBus() }
+        }
+    }
+
+    /**
+     * Ties the bar window's existence to [VehicleBus.connected].
+     *
+     * Design rule 6: `com.syu.air` keeps running underneath, and nothing we do
+     * may leave the vehicle with no climate control. Our window consumes
+     * **every** touch in `[0,1693][1080,1920]` with zero leakage — measured on
+     * the vehicle — so if the bus is dead the bar is not merely useless, it is
+     * an opaque lid over the only working climate UI in a vehicle with no
+     * physical HVAC controls. Removing the window hands the factory bar back,
+     * unambiguously and immediately.
+     *
+     * `FLAG_NOT_TOUCHABLE` is deliberately *not* the fallback. A window that
+     * still draws our layout while taps fall through to whatever factory
+     * control happens to sit at that coordinate is worse than either extreme:
+     * the driver aims at our AUTO button and hits something else. A UI that
+     * lies about what a touch does is more dangerous than no UI.
+     *
+     * The bar is shown up front and only hidden if the bus is still down after
+     * [BUS_GRACE_MS], so an ordinarily slow `bindService` does not flash the
+     * factory bar into view. An already-connected bus skips the wait entirely.
+     * After that the window simply follows the flow, so a bus that comes back
+     * brings the bar back with it.
+     *
+     * The gating algorithm itself is [ConnectionGate.followConnection], kept
+     * in `:bus` so it is provable with virtual time; this is just the Android
+     * wiring — which flow, which grace, which window calls.
+     */
+    private suspend fun followBus() {
+        followConnection(bus.connected, BUS_GRACE_MS, ::showBar, ::hideBar)
     }
 
     private fun showBar() {
@@ -76,6 +125,26 @@ class ClimateBarService : AccessibilityService() {
             Log.e(TAG, "could not add the bar window — the factory bar remains", t)
             teardown()
         }
+    }
+
+    /**
+     * Removes the bar window, leaving the factory bar visible and usable.
+     *
+     * `isShowing` is checked so this stays quiet when it is already hidden —
+     * `ComposeOverlayHost.hide()` is itself guarded against a double hide, but
+     * the warning must not repeat on every re-emission of `connected = false`.
+     */
+    private fun hideBar() {
+        if (!barHost.isShowing) return
+        barHost.hide()
+        Log.w(
+            TAG,
+            "vehicle bus unavailable — removing the bar window so the com.syu.air " +
+                "factory bar is usable again. Our overlay consumes every touch over " +
+                "the factory bar, and this vehicle has no physical HVAC controls, so " +
+                "a bar we cannot drive must not stay on screen. It returns as soon as " +
+                "the bus does.",
+        )
     }
 
     @Composable
@@ -225,6 +294,9 @@ class ClimateBarService : AccessibilityService() {
     }
 
     private fun teardown() {
+        // Cancelled before the window goes, so the collector cannot re-add it.
+        scope?.cancel()
+        scope = null
         if (::barHost.isInitialized) barHost.destroy()
         if (::bus.isInitialized) bus.disconnect()
     }
@@ -234,6 +306,15 @@ class ClimateBarService : AccessibilityService() {
 
     private companion object {
         private const val TAG = "ClimateBarService"
+
+        /**
+         * How long a slow `bindService` is given before the bar is pulled.
+         *
+         * Long enough that a cold vendor-service start does not expose the
+         * factory bar; short enough that a driver is not left tapping a dead
+         * bar. The vehicle's own bind completes well inside this.
+         */
+        const val BUS_GRACE_MS = 4_000L
 
         /** The slot's own dwell is 30s, so polling faster than this buys nothing. */
         const val SLOT_POLL_MS = 5_000L

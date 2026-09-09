@@ -27,6 +27,7 @@ import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.holdRepeatTarget
 import com.wk2.climate.ui.rememberPressState
+import java.util.Locale
 
 /**
  * The centre column's 131dp bottom row: two temperature zones split by a 1dp
@@ -127,7 +128,11 @@ private fun tempText(temp: Temp, palette: Palette): AnnotatedString =
                     append(
                         when (temp.unit) {
                             TempUnit.FAHRENHEIT -> temp.value.toInt().toString()
-                            TempUnit.CELSIUS -> String.format("%.1f", temp.value)
+                            // Locale.US explicitly: the default locale would render a comma
+                            // decimal separator in much of Europe, and this is the
+                            // untested path.
+                            TempUnit.CELSIUS ->
+                                String.format(Locale.US, "%.1f", temp.value)
                         },
                     )
                     withStyle(
