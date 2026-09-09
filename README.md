@@ -24,9 +24,17 @@ and its caret has flipped to point down, because the same control dismisses it:
 
 ![Screen 1d running on the head unit](docs/screenshots/vehicle-panel.png)
 
-Both are photographed off a running vehicle, not a mockup or an emulator. Every
-value shown is what the car reported: `SYNC` lit with both zones at 71 is the
-vehicle's own dual-zone state, and the fan meter is dimmed because AUTO owns it.
+And the one screen that is a normal activity, reached from the launcher icon. It
+exists only to report whether the service is enabled and to deep-link to the
+toggle, because an app cannot grant itself accessibility:
+
+![The setup screen](docs/screenshots/setup-screen.png)
+
+All three are captured off a running vehicle, not a mockup or an emulator. Every
+value shown is what the car reported: 66&#176;F outside with both zones at 67,
+`SYNC` **un**lit because unlit means synced on this vehicle (the signal is
+`DUAL`, so its polarity is inverted), `AUTO` owning the fan, and seat cooling on
+`HIGH` both sides.
 
 ---
 
