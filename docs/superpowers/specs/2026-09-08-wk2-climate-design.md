@@ -441,6 +441,46 @@ The handoff implies a single climate subscription.
 `VOL_HIDE_UI = -7` (wiki p10), so our bar can own the volume readout without the
 OEM volume OSD painting over it.
 
+### 5.8 SYNC is the vendor's DUAL flag, inverted
+
+**Measured 2026-09-09, and owner-confirmed after the fix.** Signal code 62 is
+the vendor's **DUAL** flag:
+
+| code 62 | zones | our SYNC tile |
+|---|---|---|
+| `1` | independent | **unlit** |
+| `0` | synced — a driver-side change moves both | **lit** |
+
+`ClimateState.syncOn` therefore returns `raw[SYNC] == 0`.
+
+We had the evidence and read it one inference too far. `Command.SYNC`'s own
+comment said *"the control the OEM bar labels DUAL"*, and the command is
+`airDual` — **dual zone means two independent zones**. The name was transcribed
+and the meaning inverted, so the tile lit in exactly the wrong half of the
+states. Nobody noticed until someone sat in the car and watched the passenger
+setpoint.
+
+`ClimateStateTest`'s vehicle-baseline case caught the change immediately, which
+is that test earning its place.
+
+**Open, minor:** the baseline snapshot records `SYNC to 1` — independent — but a
+single driver `+` tap on 2026-09-08 moved *both* setpoints. Either DUAL changed
+between those captures or one was mis-recorded. The test asserts what the raw
+value implies and flags the tension in place.
+
+#### The pattern across three corrections in one session
+
+AUTO's toggle-vs-set (5.6), MAX A/C's fan effect (5.7) and this all came from
+documentary evidence read one step past what it supported: a command-table
+label, a silent signal, a control's name. Each conclusion was reasonable, each
+survived a spec review and nine task briefs, and each was overturned in seconds
+by someone looking at the vehicle.
+
+**Rule: for anything the vehicle can be asked directly, the spec's job is to
+record the measurement, not to argue toward it.** Where this document reasons
+from a name, a label or an absence, it should say so explicitly and mark itself
+unverified.
+
 ### 5.7 MAX A/C — measured
 
 Captured on 2026-09-09 with MAX A/C engaged, from the panel itself:
