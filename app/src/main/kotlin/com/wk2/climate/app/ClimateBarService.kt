@@ -97,6 +97,17 @@ class ClimateBarService : AccessibilityService() {
     private val panelClosing = mutableStateOf(false)
 
     /**
+     * Whether the bar should draw CLIMATE as "open".
+     *
+     * Compose state rather than a read of `panelHost`, which is a plain field
+     * the bar cannot observe. Cleared by [requestPanelClose] rather than by
+     * [closePanel], so the caret flips the instant the driver asks — waiting
+     * for the 220ms slide to finish would leave it pointing the wrong way for
+     * the whole exit.
+     */
+    private val panelOpen = mutableStateOf(false)
+
+    /**
      * The service's own scope, created in [onServiceConnected] and cancelled in
      * [teardown]. Nothing here may outlive the connection: a collector still
      * running against a disconnected bus could re-add the bar window after the
@@ -335,7 +346,8 @@ class ClimateBarService : AccessibilityService() {
                 if (panelHost != null) requestPanelClose()
                 else performGlobalAction(GLOBAL_ACTION_BACK)
             },
-            onOpenClimate = { openPanel() },
+            panelOpen = panelOpen.value,
+            onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
             onSlotPressChange = { down ->
                 if (down) {
                     slot.onFingerDown()
@@ -406,6 +418,7 @@ class ClimateBarService : AccessibilityService() {
         }
         if (panelHost != null) {
             panelClosing.value = false
+            panelOpen.value = true
             return
         }
         val host = ComposeOverlayHost(this)
@@ -413,6 +426,7 @@ class ClimateBarService : AccessibilityService() {
         panelClosing.value = false
         try {
             host.show(panelWindowParams()) { PanelContent() }
+            panelOpen.value = true
         } catch (t: Throwable) {
             Log.e(TAG, "could not add the panel window; the bar remains usable", t)
             closePanel()
@@ -441,6 +455,7 @@ class ClimateBarService : AccessibilityService() {
     private fun requestPanelClose() {
         if (panelHost == null) return
         panelClosing.value = true
+        panelOpen.value = false
     }
 
     /**
@@ -481,6 +496,7 @@ class ClimateBarService : AccessibilityService() {
         panelHost?.destroy()
         panelHost = null
         panelClosing.value = false
+        panelOpen.value = false
     }
 
     @Composable

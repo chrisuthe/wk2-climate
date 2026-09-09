@@ -36,7 +36,8 @@ fun ClimateBar(
     onCommand: (Command) -> Unit,
     onHome: () -> Unit,
     onBack: () -> Unit,
-    onOpenClimate: () -> Unit,
+    panelOpen: Boolean,
+    onToggleClimate: () -> Unit,
     onSlotPressChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -65,6 +66,7 @@ fun ClimateBar(
                 wheelOn = state.wheelHeatOn,
                 autoOn = state.autoOn,
                 slot = slot,
+                panelOpen = panelOpen,
                 seatHeat = state.seatHeatL,
                 seatVent = state.seatVentL,
                 onWheel = { onCommand(Command.WHEEL_HEAT) },
@@ -78,7 +80,7 @@ fun ClimateBar(
                     )
                 },
                 onAuto = { onCommand(Command.AUTO) },
-                onClimate = onOpenClimate,
+                onClimate = onToggleClimate,
                 onSlotPressChange = onSlotPressChange,
             )
             BarZones(

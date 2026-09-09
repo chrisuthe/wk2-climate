@@ -1,7 +1,6 @@
 package com.wk2.climate.ui.panel
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,13 +21,21 @@ import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
 /**
- * Screen 1d's header: the "Climate" title, an OUT-only status line, and CLOSE.
+ * Screen 1d's header: the outside temperature, and CLOSE.
  *
- * There is no cabin-temperature signal on this vehicle, so the status line
- * never carries a CABIN reading. [outsideF] being `null` means there is no
- * displayable outside reading right now -- so the whole status line is
- * hidden rather than shown with a placeholder, which would be worse than
- * showing nothing.
+ * The "Climate" title and the "OUT" label are both gone at the owner's
+ * request. Neither carried information: the page is reached by tapping CLIMATE
+ * and fills the screen, so titling it restates what the driver just did, and
+ * "OUT" labels the only temperature the header shows. What is left is the
+ * reading itself, at the weight the title used to have.
+ *
+ * There is no cabin-temperature signal on this vehicle, so this is never
+ * ambiguous about *which* temperature it is.
+ *
+ * [outsideF] being `null` means there is no displayable reading. It renders as
+ * an em dash rather than an empty header -- the same treatment the setpoints
+ * and seat readouts use, and with the title gone an absent reading would
+ * otherwise leave the header looking broken rather than uninformed.
  */
 @Composable
 fun PanelHeader(
@@ -45,28 +52,19 @@ fun PanelHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row {
-            BasicText(
-                text = "Climate",
-                style = Type.panelTitle.copy(color = palette.ink),
-                modifier = Modifier.alignByBaseline(),
-            )
-            if (outsideF != null) {
-                Spacer(Modifier.width(14.dp))
-                BasicText(
-                    text = "OUT ${outsideF}\u00B0F",
-                    style = Type.panelStatus.copy(color = palette.inkFaint),
-                    modifier = Modifier.alignByBaseline(),
-                )
-            }
-        }
+        BasicText(
+            text = if (outsideF != null) "$outsideF\u00B0F" else "\u2014",
+            style = Type.panelOutside.copy(color = palette.ink),
+        )
 
+        // No border, at the owner's request. The pressed wash is the only
+        // affordance left, so it is what tells the driver the tap registered --
+        // the 130 x 96 target is unchanged.
         val (interaction, pressed) = rememberPressState()
         Row(
             Modifier
                 .width(Dimens.closeButtonWidth)
                 .height(Dimens.minTarget)
-                .border(Dimens.controlBorderWidth, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusPill))
                 .then(
                     if (pressed.value) {
                         Modifier.background(palette.surfaceRaised, RoundedCornerShape(Dimens.radiusPill))

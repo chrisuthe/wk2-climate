@@ -52,6 +52,7 @@ fun BarTopRow(
     wheelOn: Boolean,
     autoOn: Boolean,
     slot: SlotContent,
+    panelOpen: Boolean,
     seatHeat: SeatLevel,
     seatVent: SeatLevel,
     onWheel: () -> Unit,
@@ -169,7 +170,9 @@ fun BarTopRow(
             )
             Spacer(Modifier.width(10.dp))
             BasicText(
-                text = "\u25B2",
+                // Points the way the tap will move the panel: up to open,
+                // down to dismiss. The same control does both.
+                text = if (panelOpen) "\u25BC" else "\u25B2",
                 style = Type.barCaret.copy(color = palette.ink.copy(alpha = 0.55f)),
             )
         }

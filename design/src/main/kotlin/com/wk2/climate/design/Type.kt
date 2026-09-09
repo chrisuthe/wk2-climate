@@ -169,6 +169,15 @@ object Type {
     val fanStepperMinus = ui(46.sp, FontWeight.Light)
     val fanStepperPlus = ui(42.sp, FontWeight.Light)
 
+    /**
+     * 1d's header reading -- the outside temperature, which is the whole
+     * header now that the title and the OUT label are gone.
+     *
+     * Larger than [panelTitle], which it replaced: with nothing beside it the
+     * old 30sp read small for the only thing on the row.
+     */
+    val panelOutside = ui(38.sp, FontWeight.ExtraBold, (-0.4).sp)
+
     /** AUTO / A/C tiles. Manrope 800 19px, ls .05em. */
     val modeLabelLarge = ui(19.sp, FontWeight.ExtraBold, 0.95.sp)
 
