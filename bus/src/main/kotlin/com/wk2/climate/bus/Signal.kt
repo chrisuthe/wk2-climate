@@ -57,6 +57,13 @@ enum class Signal(val module: Int, val code: Int) {
     ;
 
     companion object {
+        /**
+         * Module 7 — CANBUS. Every climate command and every climate signal
+         * goes through it; nothing else does. [SyuVehicleBus.connected] is
+         * gated on this module alone, not on whether *something* bound.
+         */
+        const val MODULE_CANBUS = 7
+
         private val byModuleCode: Map<Long, Signal> =
             entries.associateBy { key(it.module, it.code) }
 

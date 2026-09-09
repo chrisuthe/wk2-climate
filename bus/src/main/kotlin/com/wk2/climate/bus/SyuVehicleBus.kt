@@ -83,7 +83,15 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
                 modules[module] = binder
             }
             registerAll()
-            _connected.value = modules.isNotEmpty()
+            // connected means the climate module is bound, not that something
+            // is bound: SOUND or MAIN alone is a degraded slot, but CANBUS
+            // alone missing is every climate command silently dropped while
+            // the bar still looks live.
+            val climateBound = modules.containsKey(Signal.MODULE_CANBUS)
+            if (!climateBound) {
+                Log.e(TAG, "CANBUS (module ${Signal.MODULE_CANBUS}) unavailable — climate is unreachable, hiding the bar")
+            }
+            _connected.value = climateBound
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
