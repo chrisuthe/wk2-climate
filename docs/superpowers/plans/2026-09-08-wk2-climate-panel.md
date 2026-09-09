@@ -12,6 +12,16 @@
 
 ## Global Constraints
 
+- **Pressed feedback uses `Modifier.pressedTint(filled, palette, shape)`** from
+  `ui/.../Interaction.kt`. A **filled** control brightens (white at 0.2 alpha);
+  an **outlined** one gets a `surfaceRaised` wash. Layer it over the resting
+  fill, never instead of it, and pass the control's shape or the wash paints
+  square corners on a rounded tile. **Never reduce a filled control's alpha on
+  press** — it reads as the setting switching off at the moment it is touched.
+  `PRESSED_TINT_ALPHA` is only for controls that tint an accent *at rest*.
+- **The 1.5dp outlined-control border is `Dimens.controlBorderWidth`.** Never a
+  literal.
+
 Everything from Plans 1 and 2 still applies. Restated because they bind every task here:
 
 - **Do NOT apply `org.jetbrains.kotlin.android`** — AGP 9.0 rejects it. No `srcDir` calls.
@@ -317,7 +327,7 @@ fun PanelHeader(
             Modifier
                 .width(Dimens.closeButtonWidth)
                 .height(Dimens.minTarget)
-                .border(1.5.dp, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusPill))
+                .border(Dimens.controlBorderWidth, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusPill))
                 .then(
                     if (pressed.value) {
                         Modifier.background(palette.surfaceRaised, RoundedCornerShape(Dimens.radiusPill))
@@ -462,7 +472,7 @@ private fun ZoneStepper(
                 tint.copy(alpha = if (pressed.value) 0.34f else 0.18f),
                 RoundedCornerShape(Dimens.radiusStepper),
             )
-            .border(1.5.dp, tint.copy(alpha = 0.5f), RoundedCornerShape(Dimens.radiusStepper))
+            .border(Dimens.controlBorderWidth, tint.copy(alpha = 0.5f), RoundedCornerShape(Dimens.radiusStepper))
             .holdRepeatTarget(interaction, onFire = onFire),
         contentAlignment = Alignment.Center,
     ) {
@@ -715,7 +725,7 @@ private fun FanStepper(
                     Modifier
                 },
             )
-            .border(1.5.dp, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusTile))
+            .border(Dimens.controlBorderWidth, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusTile))
             .holdRepeatTarget(interaction, onFire = onFire),
         contentAlignment = Alignment.Center,
     ) {
@@ -873,16 +883,13 @@ private fun AirflowTile(
     Box(
         modifier
             .height(Dimens.airflowTileHeight)
-            .background(
-                when {
-                    active && pressed.value -> palette.accent.copy(alpha = 0.8f)
-                    active -> palette.accent
-                    pressed.value -> palette.surfaceRaised
-                    else -> Color.Transparent
-                },
-                shape,
-            )
-            .then(if (active) Modifier else Modifier.border(1.5.dp, palette.borderControl, shape))
+            .background(if (active) palette.accent else Color.Transparent, shape)
+            // Layered over the resting fill, never replacing it. A filled tile
+            // BRIGHTENS on press; reducing its alpha reads as the setting
+            // switching off at the instant it is touched. See
+            // Modifier.pressedTint in ui/.../Interaction.kt.
+            .then(if (pressed.value) Modifier.pressedTint(active, palette, shape) else Modifier)
+            .then(if (active) Modifier else Modifier.border(Dimens.controlBorderWidth, palette.borderControl, shape))
             .target(interaction, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1152,16 +1159,13 @@ private fun ModeTile(
     Box(
         modifier
             .height(height)
-            .background(
-                when {
-                    active && pressed.value -> activeFill.copy(alpha = 0.8f)
-                    active -> activeFill
-                    pressed.value -> palette.surfaceRaised
-                    else -> Color.Transparent
-                },
-                shape,
-            )
-            .then(if (active) Modifier else Modifier.border(1.5.dp, palette.borderControl, shape))
+            .background(if (active) activeFill else Color.Transparent, shape)
+            // Layered over the resting fill, never replacing it. A filled tile
+            // BRIGHTENS on press; reducing its alpha reads as the setting
+            // switching off at the instant it is touched. See
+            // Modifier.pressedTint in ui/.../Interaction.kt.
+            .then(if (pressed.value) Modifier.pressedTint(active, palette, shape) else Modifier)
+            .then(if (active) Modifier else Modifier.border(Dimens.controlBorderWidth, palette.borderControl, shape))
             .target(interaction, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1307,7 +1311,7 @@ private fun ComfortTile(
                 shape,
             )
             .border(
-                1.5.dp,
+                Dimens.controlBorderWidth,
                 if (on) litColor.copy(alpha = 0.5f) else palette.ink.copy(alpha = 0.14f),
                 shape,
             )
@@ -1358,7 +1362,7 @@ private fun HeatedWheel(palette: Palette, on: Boolean, onClick: () -> Unit) {
                 palette.warm.copy(alpha = if (pressed.value) 0.24f else if (on) 0.12f else 0.04f),
                 shape,
             )
-            .border(1.5.dp, palette.warm.copy(alpha = if (on) 0.5f else 0.2f), shape)
+            .border(Dimens.controlBorderWidth, palette.warm.copy(alpha = if (on) 0.5f else 0.2f), shape)
             .target(interaction, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -1606,7 +1610,7 @@ private fun HoldOffButton(palette: Palette, onPowerOff: () -> Unit) {
             .width(Dimens.holdOffWidth)
             .height(Dimens.minTarget)
             .clip(shape)
-            .border(1.5.dp, palette.ink.copy(alpha = 0.18f), shape)
+            .border(Dimens.controlBorderWidth, palette.ink.copy(alpha = 0.18f), shape)
             .pointerInput(Unit) {
                 // Structured exactly like Modifier.holdRepeatTarget in
                 // ui/.../Interaction.kt -- read that first. The ticker is a
