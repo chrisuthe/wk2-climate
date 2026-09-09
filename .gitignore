@@ -6,7 +6,10 @@ local.properties
 *.aab
 *.ap_
 *.dex
-captures/
+# Android Studio's profiler output, at the project root only — an
+# unanchored `captures/` also swallows docs/captures/, where the written
+# vehicle-session evidence lives.
+/captures/
 .externalNativeBuild/
 .cxx/
 
