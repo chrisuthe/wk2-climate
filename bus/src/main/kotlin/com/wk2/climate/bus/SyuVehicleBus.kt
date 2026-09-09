@@ -83,6 +83,9 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
                 modules[module] = binder
             }
             registerAll()
+            // Seed before announcing the connection, so the first frame the UI
+            // draws already has values rather than dashes. See seedAll().
+            seedAll()
             // connected means the climate module is bound, not that something
             // is bound: SOUND or MAIN alone is a degraded slot, but CANBUS
             // alone missing is every climate command silently dropped while
@@ -146,6 +149,73 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
             data.writeInt(REGISTER_FLAG)
             module.transact(TXN_REGISTER, data, reply, 0)
             reply.readException()
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
+    /**
+     * Reads the current value of every registered signal and feeds it through
+     * the same path a pushed update takes.
+     *
+     * Registering is not enough. The vendor service notifies on **change**, so
+     * a client that only registers sees nothing until something moves.
+     * Observed on the vehicle after an ignition cycle: the head unit restarts,
+     * this process comes up with an empty state map, registration succeeds for
+     * all 20 climate codes — and the bar still shows dashes and a seemingly
+     * powered-off system until the driver presses a setpoint, whose change
+     * finally produces the first callback.
+     *
+     * The probing rule "registered but silent means unchanged, not unfitted" is
+     * about *reading* the bus. It is a trap when building a UI, because
+     * unchanged is precisely the state a UI has to be able to draw. So ask,
+     * rather than wait to be told.
+     *
+     * Runs synchronously before `connected` is announced, so no frame is ever
+     * composed from an empty map.
+     */
+    private fun seedAll() {
+        for ((module, binder) in modules) {
+            val signals = Signal.inModule(module)
+            var ok = 0
+            for (signal in signals) {
+                val read = runCatching { readValue(binder, signal.code) }
+                read.exceptionOrNull()?.let { Log.w(TAG, "get failed for $signal", it) }
+                val ints = read.getOrNull() ?: continue
+                onUpdate(module, signal.code, ints)
+                ok++
+            }
+            Log.i(TAG, "module $module: seeded $ok/${signals.size} values")
+        }
+    }
+
+    /**
+     * `IRemoteModule.get(code, int[], float[], String[])`, transaction 2.
+     *
+     * The reply is `writeNoException()`, then a presence `int` — 0 when the
+     * service holds no `ModuleObject` for that code — then that object's three
+     * arrays. Returns null for absent, so a code the vehicle does not report is
+     * distinguishable from one reporting a value.
+     */
+    private fun readValue(module: IBinder, code: Int): IntArray? {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(MODULE_DESC)
+            data.writeInt(code)
+            // An EMPTY array, not null. The OEM's own helper takes `int...
+            // params` and calls `get(code, params, null, null)` with no
+            // arguments, which is `new int[0]` — length 0, not the -1 that
+            // writeIntArray(null) puts on the wire. A server reading
+            // params.length gets a very different parcel from each.
+            data.writeIntArray(EMPTY_PARAMS)
+            data.writeFloatArray(null)
+            data.writeStringArray(null)
+            module.transact(TXN_GET, data, reply, 0)
+            reply.readException()
+            if (reply.readInt() == 0) return null
+            return reply.createIntArray()
         } finally {
             reply.recycle()
             data.recycle()
@@ -255,11 +325,14 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
 
         private const val TXN_GET_MODULE = 1
         private const val TXN_CMD = 1
+        private const val TXN_GET = 2
         private const val TXN_REGISTER = 3
         private const val TXN_UNREGISTER = 4
         private const val TXN_UPDATE = 1
 
         /** The flag value the OEM's own client passes. */
         private const val REGISTER_FLAG = 1
+
+        private val EMPTY_PARAMS = IntArray(0)
     }
 }
