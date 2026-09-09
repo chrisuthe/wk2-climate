@@ -705,7 +705,7 @@ observation and command dispatch.
 | 3 | Do `GLOBAL_ACTION_HOME` / `BACK` work? | **PASS** — both, confirmed by focus change. Section 3 |
 | 4 | Decode `U_TEMP_OUT` | **SOLVED in session 2** — see section 5.3 |
 | 5 | Seat heat cycle order | **ANSWERED — spec was wrong.** `0→3→1→0`, state 2 unreachable. Section 5.2 |
-| 6 | `U_AIR_ACMAX` moves on command 15 | **NOT TESTED** — requires the MAX A/C macro. Below |
+| 6 | `U_AIR_ACMAX` moves on command 15 | **ANSWERED 2026-09-09** — yes. See below |
 | 7 | Airflow flags after command 12 | **SUPERSEDED** — a better finding emerged without the macro. Section 4 |
 | 8 | `U_LAMPLET` polarity | **SOLVED in session 2** — 1 = night |
 | 9 | Does `VOL_HIDE_OSD` suppress the OEM OSD? | **LIKELY MOOT** — see below |
@@ -759,13 +759,26 @@ temperatures. Whatever carries ambient may be adjacent.
 pins to `SEAT_HEAT` and the 1d header omits the status line. Every other signal
 both screens need is verified.
 
-### Item 6 — deliberately not tested
+### Item 6 — answered, and no probe was needed
 
-Requires command 15 (MAX A/C), a macro that forces temperatures to the `-2`
-sentinel and toggles against command 12; wiki p6 records that unwinding it
-through `cmd()` takes several rounds. `U_AIR_ACMAX = 53` exists and reads 0, so
-the code is live. Left for a session where restoring state by tap injection on
-the OEM UI is acceptable.
+**Yes: command 15 moves `U_AIR_ACMAX`.**
+
+Confirmed on 2026-09-09 without sending anything unusual. `Command.MAX_AC` *is*
+index 15, the owner tapped MAX A/C during ordinary panel testing, and the panel
+rendered the MAX A/C tile lit — a rendering driven purely by
+`flag(Signal.AC_MAX)`, code 53. So the signal moved.
+
+This item was written when the only instrument was a raw probe, and it was
+deliberately deferred because the macro is awkward to unwind. **The UI is now
+the better instrument**: it reads all 20 climate codes continuously and renders
+them, so a macro's full side-effect set is legible in one screenshot rather than
+requiring a scripted send-and-read. The same frame also settled MAX A/C's fan
+and AUTO effects (section 5.7), which the original probe plan would not have
+captured.
+
+Worth generalising: several of this checklist's remaining items are cheaper to
+answer by using the app and taking a screenshot than by scripting the protocol.
+
 
 ### Item 9 — probably unnecessary
 
