@@ -65,24 +65,12 @@ class ClimateStateTest {
 
     @Test
     fun `the measured vehicle baseline derives correctly`() {
-        // Exactly the snapshot captured from the vehicle on 2026-09-08.
-        val s = ClimateState.EMPTY
-            .with(Signal.POWER, 1)
-            .with(Signal.AC, 1)
-            .with(Signal.AUTO, 1)
-            .with(Signal.SYNC, 1)
-            .with(Signal.RECIRC, 0)
-            .with(Signal.WIND_LEVEL, 15)
-            .with(Signal.TEMP_LEFT, 68)
-            .with(Signal.TEMP_RIGHT, 68)
-            .with(Signal.BLOW_UP, 0)
-            .with(Signal.BLOW_BODY, 0)
-            .with(Signal.BLOW_FOOT, 0)
-            .with(Signal.SEAT_HEAT_L, 0)
-            .with(Signal.SEAT_HEAT_R, 0)
-            .with(Signal.WHEEL_HEAT, 0)
-            .with(Signal.VOLUME, 10)
-            .with(Signal.ILLUMINATION, 0)
+        // The snapshot itself, not a hand-rolled near-copy of it: the fake bus
+        // already owns the captured baseline, and a second transcription here
+        // would only ever drift from it. (The first version of this test was
+        // missing TEMP_UNIT and passed solely because TempUnit.from(null)
+        // defaults to Fahrenheit.)
+        val s = FakeVehicleBus.VEHICLE_BASELINE
 
         assertTrue(s.powerOn)
         assertTrue(s.acOn)

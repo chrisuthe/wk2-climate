@@ -1,5 +1,6 @@
 package com.wk2.climate.ui
 
+import com.wk2.climate.design.Dimens
 import kotlinx.coroutines.delay
 
 /**
@@ -14,8 +15,10 @@ import kotlinx.coroutines.delay
  * verified with virtual time instead of by holding a finger on a screen.
  */
 object HoldRepeat {
-    const val INITIAL_DELAY_MS = 400L
-    const val INTERVAL_MS = 150L
+    // Aliases, not copies: the schedule is a design token, so `:design` owns
+    // the numbers and this is only a local name for them.
+    const val INITIAL_DELAY_MS = Dimens.HOLD_REPEAT_DELAY_MS
+    const val INTERVAL_MS = Dimens.HOLD_REPEAT_INTERVAL_MS
 
     suspend fun run(onFire: () -> Unit) {
         onFire()

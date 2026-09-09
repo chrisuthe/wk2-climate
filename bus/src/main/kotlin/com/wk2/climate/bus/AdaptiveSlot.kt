@@ -20,9 +20,12 @@ enum class SlotContent { FRONT_DEFROST, SEAT_HEAT, SEAT_COOL }
  * Pure Kotlin with an injected clock, so all of it is unit-tested against a
  * synthetic temperature series rather than by sitting in a cold car.
  *
- * A null outside temperature pins to [SlotContent.SEAT_HEAT]. That is the
- * current shipping path: `U_TEMP_OUT` has not been decoded, and the slot must
- * never be blank nor change the bar's geometry.
+ * A null outside temperature pins to [SlotContent.SEAT_HEAT], the middle band,
+ * which is always safe. `U_TEMP_OUT` **is** decoded (spec section 5.3), so this
+ * is no longer the shipping path — it is the fallback for the cases that remain:
+ * the validity bit clear, the signal not yet arrived, or the vehicle reporting
+ * a unit we do not trust the decode against. The slot must never be blank nor
+ * change the bar's geometry.
  */
 class AdaptiveSlot(
     private val deadbandF: Int = 3,

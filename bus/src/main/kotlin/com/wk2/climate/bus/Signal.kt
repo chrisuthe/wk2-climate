@@ -40,10 +40,15 @@ enum class Signal(val module: Int, val code: Int) {
 
     // ---- module 0: MAIN ----
     /**
-     * Outside temperature. **Measured 2026-09-08: reads a static packed word
-     * (0x10000744) that does not correspond to the temperature the head unit's
-     * own status bar displays.** Treated as unavailable until decoded; see the
-     * spec, section 11 item 4. Subscribed anyway so a future decode has data.
+     * Outside temperature, **decoded** — a packed word carrying tenths of a
+     * degree offset by 1000 in the low 16 bits, with bit 28 as a validity
+     * flag. Verified on the vehicle against the head unit's own status bar:
+     * `0x10000744` -> 1860 -> 86 F. See the spec, section 5.3.
+     *
+     * The stationary session read it as a static configuration word only
+     * because ambient barely moves in a parked car; a driving capture settled
+     * it. The decode lives in `ClimateBarService.outsideF`, which fails safe
+     * to null when the validity bit is clear.
      */
     TEMP_OUT(0, 40),
 
