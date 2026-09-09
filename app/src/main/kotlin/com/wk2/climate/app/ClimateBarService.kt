@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
+import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
@@ -27,9 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Owns the replacement bar.
@@ -106,15 +105,13 @@ class ClimateBarService : AccessibilityService() {
      * factory bar into view. An already-connected bus skips the wait entirely.
      * After that the window simply follows the flow, so a bus that comes back
      * brings the bar back with it.
+     *
+     * The gating algorithm itself is [ConnectionGate.followConnection], kept
+     * in `:bus` so it is provable with virtual time; this is just the Android
+     * wiring — which flow, which grace, which window calls.
      */
     private suspend fun followBus() {
-        showBar()
-        if (!bus.connected.value) {
-            withTimeoutOrNull(BUS_GRACE_MS) { bus.connected.first { it } }
-        }
-        bus.connected.collect { connected ->
-            if (connected) showBar() else hideBar()
-        }
+        followConnection(bus.connected, BUS_GRACE_MS, ::showBar, ::hideBar)
     }
 
     private fun showBar() {
