@@ -13,6 +13,23 @@ reviewed and verified on hardware. 129 tests.
 
 ---
 
+## In the vehicle
+
+The bar, replacing the factory one in place at `[0,1693][1080,1920]`:
+
+![The replacement bar running on the head unit](docs/screenshots/vehicle-bar.png)
+
+The panel, opened by `CLIMATE` — note the bar is still visible along the bottom,
+and its caret has flipped to point down, because the same control dismisses it:
+
+![Screen 1d running on the head unit](docs/screenshots/vehicle-panel.png)
+
+Both are photographed off a running vehicle, not a mockup or an emulator. Every
+value shown is what the car reported: `SYNC` lit with both zones at 71 is the
+vehicle's own dual-zone state, and the fan meter is dimmed because AUTO owns it.
+
+---
+
 ## What is built
 
 | | |
