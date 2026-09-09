@@ -109,7 +109,15 @@ class ClimateStateTest {
         assertTrue(s.powerOn)
         assertTrue(s.acOn)
         assertTrue(s.autoOn)
-        assertTrue(s.syncOn)
+        // The baseline's raw `SYNC to 1` is the vendor's DUAL flag, so under
+        // the measured polarity this snapshot has the zones **independent**.
+        //
+        // Flagged tension: on 2026-09-08 a single driver `+` tap moved *both*
+        // setpoints, which is synced behaviour. Either DUAL changed between
+        // that capture and this snapshot, or one of the two was mis-recorded.
+        // Asserting the derivation the raw value actually implies rather than
+        // the one the story implies; worth one re-capture to settle.
+        assertFalse(s.syncOn)
         assertFalse(s.recircOn)
         assertEquals(Fan.Auto, s.fan)
         assertEquals(Temp.Degrees(68f, TempUnit.FAHRENHEIT), s.tempLeft)

@@ -86,6 +86,8 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
     private fun reduce(s: ClimateState, command: Command): ClimateState = when (command) {
         Command.AC -> s.toggle(Signal.AC)
         Command.RECIRC -> s.toggle(Signal.RECIRC)
+        // Toggles the DUAL flag. `syncOn` inverts it, so the fake's baseline
+        // `SYNC to 1` means zones *independent* -- see Signal.SYNC.
         Command.SYNC -> s.toggle(Signal.SYNC)
         Command.REAR_DEFROST -> s.toggle(Signal.REAR_DEFROST)
         Command.WHEEL_HEAT -> s.toggle(Signal.WHEEL_HEAT)

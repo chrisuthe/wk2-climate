@@ -104,8 +104,20 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
     val frontDefrostOn: Boolean get() = flag(Signal.FRONT_DEFROST)
     val rearDefrostOn: Boolean get() = flag(Signal.REAR_DEFROST)
 
-    /** The control the OEM labels DUAL. It drives SYNC, not `U_AIR_DUAL`. */
-    val syncOn: Boolean get() = flag(Signal.SYNC)
+    /**
+     * True when the two zones follow one setpoint.
+     *
+     * **The signal is DUAL polarity, so this is its inverse.** Measured on the
+     * vehicle 2026-09-09: with code 62 reading 1 the zones are *independent*,
+     * and with it reading 0 a driver-side change moves both. The OEM's own
+     * naming is the tell — the control and its command are `airDual`, and dual
+     * zone means two independent zones, so `1` asserts *dual*, not *sync*.
+     *
+     * Reading it as SYNC lit the tile in exactly the wrong half of the states.
+     * Absence still renders nothing: `hasClimateData` gates the tile, so an
+     * unreported signal cannot claim either polarity.
+     */
+    val syncOn: Boolean get() = raw[Signal.SYNC] == 0
 
     val powerOn: Boolean get() = flag(Signal.POWER)
 

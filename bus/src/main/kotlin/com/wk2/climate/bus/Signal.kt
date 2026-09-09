@@ -31,6 +31,11 @@ enum class Signal(val module: Int, val code: Int) {
     SEAT_VENT_R(7, 32),
     TEMP_UNIT(7, 37),
     AC_MAX(7, 53),
+    /**
+     * The vendor's DUAL flag: **1 = zones independent, 0 = zones synced**
+     * (measured). `ClimateState.syncOn` inverts it, because the UI presents
+     * SYNC rather than DUAL.
+     */
     SYNC(7, 62),
     FRONT_DEFROST(7, 65),
     WHEEL_HEAT(7, 66),
