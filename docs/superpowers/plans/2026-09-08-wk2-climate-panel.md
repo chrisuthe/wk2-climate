@@ -70,7 +70,7 @@ app/src/main/kotlin/com/wk2/climate/app/
 
 **Interfaces:**
 - Consumes: `Palette`, `Type`.
-- Produces: added `Type` styles `sectionHeader`, `panelTitle`, `panelStatus`, `closeLabel`, `zoneValueLarge`, `zoneDegreeLarge`, `zoneStepperGlyph`, `fanValue`, `fanValueDenominator`, `fanStepperGlyph`, `modeLabelLarge`, `modeLabelSmall`, `comfortTitle`, `comfortState`, `wheelLabel`, `footerCopy`, `holdOffLabel`, `syncSub`. Plus `@Composable fun PanelSection(palette: Palette, header: String?, content: @Composable ColumnScope.() -> Unit)`.
+- Produces: added `Type` styles `sectionHeader`, `panelTitle`, `panelStatus`, `closeLabel`, `zoneValueLarge`, `zoneDegreeLarge`, `zoneStepperGlyph`, `fanValue`, `fanValueDenominator`, `fanStepperMinus`, `fanStepperPlus`, `modeLabelLarge`, `modeLabelSmall`, `comfortTitle`, `comfortState`, `wheelLabel`, `footerCopy`, `holdOffLabel`, `syncSub`. Plus `@Composable fun PanelSection(palette: Palette, header: String?, content: @Composable ColumnScope.() -> Unit)`.
 
 - [ ] **Step 1: Add 1d's styles to `Type.kt`**
 
@@ -108,7 +108,8 @@ the handoff is converted to `sp` at the stated size (`.16em` at 12px = 1.92sp).
     val fanValueDenominator = ui(14.sp, FontWeight.Medium)
 
     /** Fan − / +. Manrope 300 46px. */
-    val fanStepperGlyph = ui(46.sp, FontWeight.Light)
+    val fanStepperMinus = ui(46.sp, FontWeight.Light)
+    val fanStepperPlus = ui(42.sp, FontWeight.Light)
 
     /** AUTO / A/C tiles. Manrope 800 19px, ls .05em. */
     val modeLabelLarge = ui(19.sp, FontWeight.ExtraBold, 0.95.sp)
@@ -663,9 +664,9 @@ fun PanelFan(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            FanStepper(palette, "\u2212", Type.fanStepperGlyph, onDown)
+            FanStepper(palette, "\u2212", Type.fanStepperMinus, onDown)
             FanMeter(palette, fan, Modifier.weight(1f))
-            FanStepper(palette, "+", Type.fanStepperGlyph, onUp)
+            FanStepper(palette, "+", Type.fanStepperPlus, onUp)
         }
     }
 }

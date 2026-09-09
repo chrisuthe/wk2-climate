@@ -156,7 +156,15 @@ object Type {
     val fanValueDenominator = ui(14.sp, FontWeight.Medium)
 
     /** Fan − / +. Manrope 300 46px. */
-    val fanStepperGlyph = ui(46.sp, FontWeight.Light)
+    /**
+     * Screen 1d's fan steppers, which are **not** the same size: the handoff
+     * gives `−` 46px and `+` 42px. That asymmetry is optical correction, not
+     * an inconsistency — a minus is a single thin bar and reads lighter than a
+     * plus of equal height, so it is set larger to match its weight. Screen
+     * 2a's bar steppers are both 42px and use their own styles.
+     */
+    val fanStepperMinus = ui(46.sp, FontWeight.Light)
+    val fanStepperPlus = ui(42.sp, FontWeight.Light)
 
     /** AUTO / A/C tiles. Manrope 800 19px, ls .05em. */
     val modeLabelLarge = ui(19.sp, FontWeight.ExtraBold, 0.95.sp)
