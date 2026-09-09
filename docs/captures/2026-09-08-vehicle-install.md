@@ -198,3 +198,58 @@ for testing seeding, which is what broke persistence across the ignition cycle.
 `stopped=false` after the reinstall, so the state is clean again. Whether the
 entry now survives an ignition cycle is **still unverified** — it needs one
 cycle with no force-stop anywhere in the preceding session.
+
+---
+
+## Session 3: re-registration DOES replay. The retry is the right mechanism.
+
+The open question was whether re-registering forces the vendor to push, or
+whether it is inert and only live changes ever arrive. It had never been
+answered because the retry never needed to fire — climate always arrived on its
+own.
+
+**Experiment (engine running, no force-stop):** toggled our entry out of and
+back into `enabled_accessibility_services`. That tears the service down —
+`teardown()`, `bus.disconnect()` — and brings it back with a **new
+`SyuVehicleBus` and an empty state map**. Volume was deliberately not touched.
+
+```
+21:06:53.461 module 7: registered 20/20 codes
+21:06:53.462 module 4: registered 1/1 codes
+21:06:53.463 module 0: registered 2/2 codes
+21:06:53.465 module 7: seeded 0/20 values
+21:06:53.469 climate data present after 0 re-registration(s)
+```
+
+**Result: the bar came back with `VOL 10` already populated**, from an empty map,
+with no user action. Screenshot: `docs/screenshots/bar-reregister-replay.png`
+(top before the toggle, bottom after).
+
+### What this establishes
+
+1. **`register` replays whatever the service currently holds.** Not just future
+   changes. And it does so *synchronously inside the register transaction* — the
+   completion line lands **1ms** after the last register call, which is only
+   possible if the vendor called back into our callback binder before the
+   transact returned. We use a non-oneway transact, which is what allows that.
+
+2. **`get` is useless while `register` replays — same service, same codes,
+   same moment.** `seeded 0/20` sits four lines above a state that arrived in
+   full. That is a strong confirmation that removing `get` in `18de2be` was
+   right, and that the replay path is registration alone.
+
+3. **So why was volume blank at startup?** Because at ignition-on the *vendor*
+   did not know it yet either — its own cache was empty, so a replay had nothing
+   to replay. The value arrives at the vendor slightly later, and by then we
+   have already registered and will only be told if it *changes*.
+
+### Consequence
+
+The bounded re-registration retry is **not inert** — it is exactly the right
+mechanism, and it was only failing to help because its stopping condition was
+"any climate signal", which climate satisfies within a millisecond. Generalising
+that condition to "nothing expected is still missing" makes it pick up volume
+and illumination as the vendor learns them.
+
+Also observed: `WHEEL` rendered with a filled ring in both frames, so wheel heat
+was on and reported correctly across the reconnect.
