@@ -253,3 +253,63 @@ and illumination as the vendor learns them.
 
 Also observed: `WHEEL` rendered with a filled ring in both frames, so wheel heat
 was on and reported correctly across the reconnect.
+
+---
+
+## Session 4: the generalised retry, verified on hardware
+
+Installed `3027a08` and reconnected with an accessibility toggle (no
+force-stop). Engine running.
+
+```
+21:13:30.265 module 7: registered 20/20 codes
+21:13:30.267 module 4: registered 1/1 codes
+21:13:30.268 module 0: registered 2/2 codes
+21:13:31.284 re-register attempt 1/4 — 3 of 23 signals never reported: POWER, TEMP_OUT, ILLUMINATION
+21:13:32.293 all 23 expected signals reported after 1 re-registration(s)
+```
+
+**It works.** The initial registration replayed 20 of 23 signals; a single
+re-registration one second later collected the remaining three. Total time from
+service start to complete state: **about two seconds**, with no user input.
+
+### The log caught the original complaint's exact mechanism
+
+The three signals the first registration missed were `POWER`, `TEMP_OUT` and
+`ILLUMINATION`. **`POWER` is a climate signal on module 7** — and
+`ClimateState.powerOn` is `flag(Signal.POWER)`, i.e. `raw[signal] == 1`, so an
+absent `POWER` renders as a confident *off*.
+
+That is precisely the owner's original report — "appeared HVAC was off" — now
+visible in a log line rather than inferred. It also shows the previous
+completion condition ("any climate signal present") was worse than it looked:
+the other 19 climate signals had arrived, so the retry would have declared
+itself finished **while `POWER` was still missing**, leaving the bar claiming the
+system was powered down.
+
+`ILLUMINATION` was likewise missing at first, which is the day/night hazard from
+the same session — the bar would have chosen its palette from an absent reading.
+Both are now filled within a second, and if they are ever *not* filled, the
+night default keeps the bar dark rather than white.
+
+`VOLUME` did not appear in the missing set this time, because the vendor's cache
+already held it after the earlier manual change — consistent with session 3's
+finding that registration replays the vendor's cache, and that the gap at
+ignition-on is the *vendor's* cache being cold rather than ours.
+
+### Health after the change
+
+Window count 1, `com.syu.air` alive, `stopped=false`, and all three
+accessibility services intact.
+
+### Still unproven
+
+The true cold start. Every session so far has reconnected while the vehicle was
+already running and the vendor's cache at least partly warm. What remains
+untested is an ignition-on from cold, where the vendor may take longer than the
+8s schedule to learn `VOLUME` and `ILLUMINATION`. If a settling line ever names
+signals after attempt 4, the schedule needs extending — that is the one number
+to watch.
+
+Also still unproven: that the accessibility entry survives an ignition cycle now
+that nothing has force-stopped the package.
