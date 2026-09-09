@@ -441,27 +441,33 @@ The handoff implies a single climate subscription.
 `VOL_HIDE_UI = -7` (wiki p10), so our bar can own the volume readout without the
 OEM volume OSD painting over it.
 
-### 5.7 MAX A/C's fan effect is observed but not instrumented
+### 5.7 MAX A/C — measured
 
-Owner-verified on 2026-09-09: tapping MAX A/C does "what is expected — LOW,
-recirc, max fan". The LO setpoints and forced recirculation are already modelled
-in `FakeVehicleBus`. **The fan is not**, and deliberately stays unmodelled until
-measured, because the observation is physical (audible blower) and it is not yet
-known whether the vehicle *reports* it:
+Captured on 2026-09-09 with MAX A/C engaged, from the panel itself:
 
-- if `WIND_LEVEL` goes to 7, the fan meter should fill solid and drop its AUTO
-  label, and `FakeVehicleBus` should set it;
-- if `WIND_LEVEL` stays at the AUTO sentinel (15) while the blower physically
-  maxes, then the boost is invisible to the protocol, the UI is already correct,
-  and the fake must **not** set it — inventing a value there would make the fake
-  lie in the one direction it exists to prevent.
+| Signal | Value | How it renders |
+|---|---|---|
+| `TEMP_LEFT` / `TEMP_RIGHT` | LO sentinel (`-2`) | both zones read `LOW`, knob pinned at the cold end |
+| `RECIRC` | 1 | RECIRC lit |
+| `AC_MAX` | 1 | MAX A/C lit |
+| `AC` | 1 | A/C lit |
+| **`AUTO`** | **0** | AUTO **unlit** |
+| **`WIND_LEVEL`** | **7** | fan reads **`7 / 7`**, solid bars, **no AUTO label** |
+| airflow | body only | FACE lit |
 
-A screenshot of the fan row taken **while MAX A/C is engaged** settles it in one
-frame. The capture taken during session 6 arrived after the owner had toggled it
-back off (AUTO and A/C lit, MAX A/C and RECIRC clear), so it does not answer the
-question.
+The open question from the earlier session is **answered**: `WIND_LEVEL`
+genuinely moves to 7. The blower boost is *not* invisible to the protocol, so
+`FakeVehicleBus` now models it.
 
-Added as car-session checklist item 14.
+Clearing AUTO forces a concrete airflow, for the same reason `FAN_UP` does — the
+measured `exitAuto()` transition lands on fan 3 with FACE, and MAX A/C is the
+same transition at fan 7. That parallel is why the airflow value is modelled
+from one observation rather than held back: it is the behaviour the protocol
+already exhibits elsewhere.
+
+Also confirmed by the same frame: `Temp.Lo` renders as the word `LOW` with the
+range knob pinned to the cold end rather than hidden, which is the final
+review's F4 fix working on hardware.
 
 ### 5.6 AUTO is an idempotent setter, not a toggle
 
@@ -778,14 +784,6 @@ command defined; do not rely on needing it. Worth one visual confirmation, since
 | `U_SPECTRUM_ENABLE = 0` | The ~10 Hz spectrum flood is currently off, but section 4 still excludes it — it is user-toggleable |
 
 ### Remaining
-
-14. **Does MAX A/C move `U_AIR_WIND_LEVEL`, or only the physical blower?**
-    Engage MAX A/C and screenshot the panel's fan row *while it is on*. If the
-    meter fills solid with no AUTO label, the fan reports 7 and
-    `FakeVehicleBus.MAX_AC` needs it; if the AUTO label is still showing, the
-    boost is not reported and the fake is already correct. See section 5.7.
-    One screenshot, no commands sent.
-
 
 13. **Does command index 2 toggle AUTO, or only set it?** Send index 2 while
     `U_AIR_AUTO` already reads 1 and see whether it goes to 0. The command table

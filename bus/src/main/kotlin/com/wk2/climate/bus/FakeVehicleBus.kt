@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
  *  - `FAN_UP` exits AUTO as a side effect, landing on level 3 (measured)
  *  - fan clamps at 7 and reports nothing further (measured)
  *  - `FRONT_DEFROST` and `MAX_AC` force recirculation on
- *  - `MAX_AC` drives both temperatures to the LO sentinel
+ *  - `MAX_AC` drives both temperatures to the LO sentinel, clears AUTO and
+ *    takes the fan to 7 (measured)
  *  - `FRONT_DEFROST` leaves airflow in an unrecognised combination
  *  - seat heat and seat vent are mutually exclusive
  *  - airflow setters are idempotent
@@ -111,11 +112,22 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
             .with(Signal.WIND_LEVEL, 6)
             .airflow(up = 1, body = 1, foot = 0)
 
-        // Macro: temperatures to the LO sentinel, recirc forced on.
+        // Macro, measured on the vehicle 2026-09-09 with MAX A/C engaged:
+        // both setpoints to the LO sentinel, recirculation forced on, A/C on,
+        // **AUTO cleared**, and the fan driven to **7** -- the panel read
+        // `7 / 7` with no AUTO label, so `WIND_LEVEL` genuinely moves rather
+        // than the blower ramping invisibly.
+        //
+        // Clearing AUTO forces a concrete airflow for the same reason FAN_UP
+        // does, and FACE is what was observed. See `exitAuto()`, which is the
+        // same transition at fan 3.
         Command.MAX_AC -> s
             .toggle(Signal.AC_MAX)
             .with(Signal.AC, 1)
             .with(Signal.RECIRC, 1)
+            .with(Signal.AUTO, 0)
+            .with(Signal.WIND_LEVEL, Fan.MAX_STEP)
+            .airflow(up = 0, body = 1, foot = 0)
             .with(Signal.TEMP_LEFT, Temp.SENTINEL_LO)
             .with(Signal.TEMP_RIGHT, Temp.SENTINEL_LO)
 
