@@ -53,9 +53,14 @@ fun PanelFooter(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BasicText(
-            text = "This vehicle has no physical climate controls. Turning the " +
-                "system off leaves no way to change temperature, fan or defrost " +
-                "until it is turned back on, so this control needs a press and hold.",
+            // The handoff's own wording, minus its inline `N=16` token: the
+            // mockup was written for engineers and names the vendor write
+            // index, which means nothing to a driver at speed. Everything
+            // else is the designer's sentence, which is tighter than the
+            // plan's paraphrase.
+            text = "Climate power sits behind a press-and-hold. There are no " +
+                "physical HVAC controls in this vehicle, so a stray tap leaves " +
+                "the cabin with no way back.",
             style = Type.footerCopy.copy(color = palette.inkFaint),
             modifier = Modifier.widthIn(max = 640.dp),
         )
