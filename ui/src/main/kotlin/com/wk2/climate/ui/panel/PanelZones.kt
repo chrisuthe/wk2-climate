@@ -36,6 +36,7 @@ import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.holdRepeatTarget
 import com.wk2.climate.ui.rememberPressState
+import java.util.Locale
 
 @Composable
 fun PanelZones(
@@ -135,7 +136,11 @@ private fun zoneText(temp: Temp, palette: Palette): AnnotatedString =
                     append(
                         when (temp.unit) {
                             TempUnit.FAHRENHEIT -> temp.value.toInt().toString()
-                            TempUnit.CELSIUS -> String.format("%.1f", temp.value)
+                            // Locale.US explicitly, matching BarZones: the default
+                            // locale renders a comma decimal separator in much of
+                            // Europe, and Celsius is the untested path here.
+                            TempUnit.CELSIUS ->
+                                String.format(Locale.US, "%.1f", temp.value)
                         },
                     )
                     withStyle(
