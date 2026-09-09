@@ -206,8 +206,6 @@ object Type {
     /** HEATED STEERING WHEEL. Manrope 800 18px, ls .05em. */
     val wheelLabel = ui(18.sp, FontWeight.ExtraBold, 0.9.sp)
 
-    /** Footer explanatory copy. Manrope 400 13px, line-height 1.45. */
-    val footerCopy = ui(13.sp, FontWeight.Normal).copy(lineHeight = 18.85.sp)
 
     /** HOLD · OFF. Manrope 700 15px, ls .06em. */
     val holdOffLabel = ui(15.sp, FontWeight.Bold, 0.9.sp)

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -51,21 +50,11 @@ fun PanelFooter(
             .fillMaxWidth()
             .topDivider(palette.divider)
             .padding(horizontal = Dimens.pageGutter, vertical = 22.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        // End, not SpaceBetween: with the explanatory copy gone the button is
+        // the row's only child, and SpaceBetween would park it at the left.
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText(
-            // The handoff's own wording, minus its inline `N=16` token: the
-            // mockup was written for engineers and names the vendor write
-            // index, which means nothing to a driver at speed. Everything
-            // else is the designer's sentence, which is tighter than the
-            // plan's paraphrase.
-            text = "Climate power sits behind a press-and-hold. There are no " +
-                "physical HVAC controls in this vehicle, so a stray tap leaves " +
-                "the cabin with no way back.",
-            style = Type.footerCopy.copy(color = palette.inkFaint),
-            modifier = Modifier.widthIn(max = 640.dp),
-        )
         HoldOffButton(palette, onPowerOff)
     }
 }
