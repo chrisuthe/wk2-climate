@@ -109,8 +109,17 @@ data class Palette(
  * A tinted tile's pressed-state fill alpha, layered onto whatever tint colour
  * (e.g. [Palette.cool], [Palette.warm]) that tile was given.
  *
+ * Specifically the pressed alpha for a tile whose **resting** tint is `0.18f`
+ * -- the temperature steppers. It is not a universal value, and a tile with a
+ * different resting alpha must not simply reuse this number.
+ *
+ * The principle the panel follows is that **pressing roughly doubles the
+ * resting tint**, so the perceived jump is the same everywhere even though the
+ * absolute values are not: the steppers go 0.18 -> 0.34, and the heated wheel
+ * goes 0.12 -> 0.24. Forcing 0.34 on the wheel would be consistent in the
+ * number and inconsistent in the thing a driver actually sees.
+ *
  * Not a handoff token like the 0.18f resting fill or the 0.5f border alpha --
- * those stay as literals at their call sites. This is this task's own value,
- * and every tinted tile Tasks 4-6 add must match it, so it gets a name.
+ * those stay as literals at their call sites.
  */
 const val PRESSED_TINT_ALPHA = 0.34f
