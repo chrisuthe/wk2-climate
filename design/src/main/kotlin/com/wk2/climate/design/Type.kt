@@ -123,8 +123,17 @@ object Type {
     /** "VOL". IBM Plex Mono 600 10px, ls .12em. */
     val volumeLabel = mono(10.sp, FontWeight.SemiBold, 1.2.sp)
 
-    /** The volume number. Manrope 700 17px. */
-    val volumeValue = ui(17.sp, FontWeight.Bold)
+    /**
+     * The volume number.
+     *
+     * Much larger than the handoff's 17px, which sized it to fit inside the
+     * 35dp readout strip. The strip cannot grow -- it is exactly what is left
+     * of the 227dp column after two 96dp touch floors -- so instead the
+     * readout is **drawn over** the column rather than laid out inside the
+     * strip, and the arrows move to the outer edges of their cells to make
+     * room. Touch targets are untouched; see `BarVolume`.
+     */
+    val volumeValue = ui(40.sp, FontWeight.Bold, (-0.5).sp)
 
     // ---- screen 1d ----
 

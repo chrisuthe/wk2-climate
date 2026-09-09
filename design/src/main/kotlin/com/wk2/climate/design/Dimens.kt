@@ -35,6 +35,16 @@ object Dimens {
     val barStepper = 100.dp
     val volumeReadout = 35.dp         // deliberately below minTarget: not tappable
 
+    /**
+     * The readout's **drawn** band, which is taller than [volumeReadout].
+     *
+     * The laid-out strip is fixed at 35dp: the 227dp column has to give 96dp
+     * to each arrow, and 35 is the remainder. So the visible band is painted
+     * by an overlay that is not part of that column, letting the number be
+     * legible at a glance without any control dropping below the floor.
+     */
+    val volumeReadoutBand = 78.dp
+
     // ---- screen 1d: the climate page ----
     val pageWidth = 1080.dp
     val pageHeight = 1693.dp          // exactly the inset-reduced app area
