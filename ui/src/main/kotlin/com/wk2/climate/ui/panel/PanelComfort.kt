@@ -25,6 +25,7 @@ import com.wk2.climate.bus.SeatLevel
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
+import com.wk2.climate.ui.SeatHeatLeftGlyph
 import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
@@ -59,6 +60,7 @@ fun PanelComfort(
             ComfortTile(
                 palette, "SEAT HEAT \u00B7 L", state.seatHeatL, palette.warm,
                 { onCommand(Command.SEAT_HEAT_L) }, Modifier.weight(1f),
+                glyph = { tint -> SeatHeatLeftGlyph(tint = tint, size = 30.dp) },
             )
             ComfortTile(
                 palette, "SEAT HEAT \u00B7 R", state.seatHeatR, palette.warm,
@@ -100,6 +102,7 @@ private fun ComfortTile(
     litColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    glyph: (@Composable (Color) -> Unit)? = null,
 ) {
     val (interaction, pressed) = rememberPressState()
     val shape = RoundedCornerShape(Dimens.radiusTile)
@@ -124,14 +127,32 @@ private fun ComfortTile(
             )
             .target(interaction, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        // A glyph says which seat and what it does, so the tile does not need
+        // the words as well -- and with the title gone the single remaining row
+        // centres rather than being pushed to the top by SpaceBetween.
+        verticalArrangement = if (glyph == null) Arrangement.SpaceBetween else Arrangement.Center,
     ) {
-        BasicText(
-            text = title,
-            style = Type.comfortTitle.copy(color = if (known) palette.ink else palette.inkMuted),
-        )
+        if (glyph == null) {
+            BasicText(
+                text = title,
+                style = Type.comfortTitle.copy(color = if (known) palette.ink else palette.inkMuted),
+            )
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (glyph != null) {
+                // Same three-state tint as every other drawn glyph: lit when
+                // the seat is on, neutral ink when we know it is off, faint
+                // when the level is UNAVAILABLE.
+                glyph(
+                    when {
+                        !known -> palette.inkFaint
+                        on -> litColor
+                        else -> palette.ink
+                    },
+                )
+                Spacer(Modifier.width(14.dp))
+            }
             repeat(2) { index ->
                 Box(
                     Modifier
