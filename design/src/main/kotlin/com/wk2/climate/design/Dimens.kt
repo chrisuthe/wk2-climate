@@ -50,6 +50,9 @@ object Dimens {
     val comfortTileHeight = 96.dp
     val holdOffWidth = 180.dp
 
+    /** The outlined-control border width used across screen 1d's controls. */
+    val controlBorderWidth = 1.5.dp
+
     // ---- radii ----
     val radiusPip = 3.dp
     val radiusSmall = 5.dp

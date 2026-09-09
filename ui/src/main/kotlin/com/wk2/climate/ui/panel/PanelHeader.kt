@@ -25,10 +25,10 @@ import com.wk2.climate.ui.target
  * Screen 1d's header: the "Climate" title, an OUT-only status line, and CLOSE.
  *
  * There is no cabin-temperature signal on this vehicle, so the status line
- * never carries a CABIN reading. [outsideF] being `null` means the vehicle
- * reported an invalid or unavailable outside reading, not that the value is
- * still forthcoming -- so the whole status line is hidden rather than shown
- * with a placeholder, which would be worse than showing nothing.
+ * never carries a CABIN reading. [outsideF] being `null` means there is no
+ * displayable outside reading right now -- so the whole status line is
+ * hidden rather than shown with a placeholder, which would be worse than
+ * showing nothing.
  */
 @Composable
 fun PanelHeader(
@@ -45,13 +45,18 @@ fun PanelHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            BasicText(text = "Climate", style = Type.panelTitle.copy(color = palette.ink))
+        Row {
+            BasicText(
+                text = "Climate",
+                style = Type.panelTitle.copy(color = palette.ink),
+                modifier = Modifier.alignByBaseline(),
+            )
             if (outsideF != null) {
                 Spacer(Modifier.width(14.dp))
                 BasicText(
                     text = "OUT ${outsideF}\u00B0F",
                     style = Type.panelStatus.copy(color = palette.inkFaint),
+                    modifier = Modifier.alignByBaseline(),
                 )
             }
         }
@@ -61,7 +66,7 @@ fun PanelHeader(
             Modifier
                 .width(Dimens.closeButtonWidth)
                 .height(Dimens.minTarget)
-                .border(1.5.dp, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusPill))
+                .border(Dimens.controlBorderWidth, palette.borderControlLarge, RoundedCornerShape(Dimens.radiusPill))
                 .then(
                     if (pressed.value) {
                         Modifier.background(palette.surfaceRaised, RoundedCornerShape(Dimens.radiusPill))
@@ -75,7 +80,7 @@ fun PanelHeader(
         ) {
             BasicText(
                 text = "\u25BC",
-                style = Type.barCaret.copy(color = palette.ink.copy(alpha = 0.6f)),
+                style = Type.panelCaret.copy(color = palette.ink.copy(alpha = 0.6f)),
             )
             Spacer(Modifier.width(9.dp))
             BasicText(text = "CLOSE", style = Type.closeLabel.copy(color = palette.ink))

@@ -7,12 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -32,8 +31,10 @@ import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.Temp
 import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
+import com.wk2.climate.design.PRESSED_TINT_ALPHA
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
+import com.wk2.climate.ui.bar.sideDivider
 import com.wk2.climate.ui.holdRepeatTarget
 import com.wk2.climate.ui.rememberPressState
 import java.util.Locale
@@ -51,13 +52,14 @@ fun PanelZones(
 ) {
     Row(modifier.fillMaxWidth()) {
         Zone(palette, "DRIVER", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
-        Box(
-            Modifier
-                .width(1.dp)
-                .fillMaxHeight()
-                .background(palette.divider),
+        Zone(
+            palette,
+            "PASSENGER",
+            passenger,
+            onPassengerDown,
+            onPassengerUp,
+            Modifier.weight(1f).sideDivider(palette.divider, start = true),
         )
-        Zone(palette, "PASSENGER", passenger, onPassengerDown, onPassengerUp, Modifier.weight(1f))
     }
 }
 
@@ -86,8 +88,19 @@ private fun Zone(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Row measures unweighted children first, in order, each against
+            // whatever width is still unclaimed -- so an unweighted numeral
+            // measured between the two steppers could claim enough width to
+            // leave the second stepper's `size(110.dp)` coerced smaller.
+            // Giving the numeral a weight (fill = false, so it still sizes to
+            // its own content) defers its measurement until after both
+            // steppers have claimed their fixed 110dp.
             ZoneStepper(palette, "\u2212", palette.cool, palette.coolBright, onDown)
-            BasicText(text = zoneText(temp, palette), style = Type.zoneValueLarge)
+            BasicText(
+                text = zoneText(temp, palette),
+                style = Type.zoneValueLarge,
+                modifier = Modifier.weight(1f, fill = false),
+            )
             ZoneStepper(palette, "+", palette.warm, palette.warmBright, onUp)
         }
 
@@ -109,10 +122,10 @@ private fun ZoneStepper(
         Modifier
             .size(Dimens.zoneStepper)
             .background(
-                tint.copy(alpha = if (pressed.value) 0.34f else 0.18f),
+                tint.copy(alpha = if (pressed.value) PRESSED_TINT_ALPHA else 0.18f),
                 RoundedCornerShape(Dimens.radiusStepper),
             )
-            .border(1.5.dp, tint.copy(alpha = 0.5f), RoundedCornerShape(Dimens.radiusStepper))
+            .border(Dimens.controlBorderWidth, tint.copy(alpha = 0.5f), RoundedCornerShape(Dimens.radiusStepper))
             .holdRepeatTarget(interaction, onFire = onFire),
         contentAlignment = Alignment.Center,
     ) {
@@ -185,9 +198,16 @@ private fun RangeTrack(palette: Palette, temp: Temp) {
         if (fraction != null) {
             Layout(
                 content = {
+                    // requiredSize, not size: the enclosing Box is a fixed
+                    // 18dp tall, and a `size(24.dp)` request would be
+                    // coerced back down to that 18dp ceiling by the tight
+                    // incoming constraints this Layout hands the knob below.
+                    // requiredSize ignores that ceiling, so the knob renders
+                    // at its true 24dp outer size (3dp ring, 18dp core) and
+                    // overflows the 18dp band evenly above and below.
                     Box(
                         Modifier
-                            .size(18.dp)
+                            .requiredSize(24.dp)
                             .background(palette.ink, CircleShape)
                             .border(3.dp, palette.surface, CircleShape),
                     )

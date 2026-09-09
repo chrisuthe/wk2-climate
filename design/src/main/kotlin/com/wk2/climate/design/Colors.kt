@@ -86,3 +86,13 @@ data class Palette(
         fun forNight(isNight: Boolean): Palette = if (isNight) NIGHT else DAY
     }
 }
+
+/**
+ * A tinted tile's pressed-state fill alpha, layered onto whatever tint colour
+ * (e.g. [Palette.cool], [Palette.warm]) that tile was given.
+ *
+ * Not a handoff token like the 0.18f resting fill or the 0.5f border alpha --
+ * those stay as literals at their call sites. This is this task's own value,
+ * and every tinted tile Tasks 4-6 add must match it, so it gets a name.
+ */
+const val PRESSED_TINT_ALPHA = 0.34f

@@ -137,6 +137,9 @@ object Type {
     /** "OUT 41°F". IBM Plex Mono 500 15px. */
     val panelStatus = mono(15.sp, FontWeight.Medium, 0.sp)
 
+    /** Screen 1d's CLOSE ▼. Manrope 400 15px -- not [barCaret], which is screen 2a's 13px. */
+    val panelCaret = ui(15.sp, FontWeight.Normal)
+
     /** CLOSE. Manrope 700 16px. */
     val closeLabel = ui(16.sp, FontWeight.Bold)
 
