@@ -127,4 +127,63 @@ object Type {
 
     /** The volume number. Manrope 700 17px. */
     val volumeValue = ui(17.sp, FontWeight.Bold)
+
+    // ---- screen 1d ----
+
+    /** Every section header. IBM Plex Mono 600 12px, ls .16em. */
+    val sectionHeader = mono(12.sp, FontWeight.SemiBold, 1.92.sp)
+
+    /** "Climate". Manrope 800 30px, ls -0.01em. */
+    val panelTitle = ui(30.sp, FontWeight.ExtraBold, (-0.3).sp)
+
+    /** "OUT 41°F". IBM Plex Mono 500 15px. */
+    val panelStatus = mono(15.sp, FontWeight.Medium, 0.sp)
+
+    /** CLOSE. Manrope 700 16px. */
+    val closeLabel = ui(16.sp, FontWeight.Bold)
+
+    /** The big zone numeral. Manrope 800 96px, ls -0.05em. */
+    val zoneValueLarge = ui(96.sp, FontWeight.ExtraBold, (-4.8).sp)
+
+    /** Its degree mark, 38px. */
+    val zoneDegreeLarge = ui(38.sp, FontWeight.ExtraBold)
+
+    /** The 110dp steppers' − / +. Manrope 300 52px. */
+    val zoneStepperGlyph = ui(52.sp, FontWeight.Light)
+
+    /** Fan value. Manrope 700 20px. */
+    val fanValue = ui(20.sp, FontWeight.Bold)
+
+    /** The "/ 7" after it. Manrope 500 14px. */
+    val fanValueDenominator = ui(14.sp, FontWeight.Medium)
+
+    /** Fan − / +. Manrope 300 46px. */
+    val fanStepperGlyph = ui(46.sp, FontWeight.Light)
+
+    /** AUTO / A/C tiles. Manrope 800 19px, ls .05em. */
+    val modeLabelLarge = ui(19.sp, FontWeight.ExtraBold, 0.95.sp)
+
+    /** RECIRC / MAX A/C / SYNC. Manrope 800 17px, ls .05em. */
+    val modeLabelSmall = ui(17.sp, FontWeight.ExtraBold, 0.85.sp)
+
+    /** FRONT DEF / REAR DEF. Manrope 800 15px, ls .04em. */
+    val modeLabelTiny = ui(15.sp, FontWeight.ExtraBold, 0.6.sp)
+
+    /** SYNC's "DUAL" sub-label. IBM Plex Mono 500 12px. */
+    val syncSub = mono(12.sp, FontWeight.Medium, 0.sp)
+
+    /** Comfort tile titles. Manrope 700 15px, ls .04em. */
+    val comfortTitle = ui(15.sp, FontWeight.Bold, 0.6.sp)
+
+    /** OFF / LOW / HIGH. IBM Plex Mono 800 13px, ls .12em. */
+    val comfortState = mono(13.sp, FontWeight.Bold, 1.56.sp)
+
+    /** HEATED STEERING WHEEL. Manrope 800 18px, ls .05em. */
+    val wheelLabel = ui(18.sp, FontWeight.ExtraBold, 0.9.sp)
+
+    /** Footer explanatory copy. Manrope 400 13px, line-height 1.45. */
+    val footerCopy = ui(13.sp, FontWeight.Normal).copy(lineHeight = 18.85.sp)
+
+    /** HOLD · OFF. Manrope 700 15px, ls .06em. */
+    val holdOffLabel = ui(15.sp, FontWeight.Bold, 0.9.sp)
 }
