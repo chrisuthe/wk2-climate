@@ -33,7 +33,7 @@ present, window 1, `stopped=false`, whitelist applied, uptime 11.84 days.
 ## 1. Install — and do NOT force-stop
 
 ```
-adb -s <serial> install -r -g app-debug.apk
+adb -s <serial> install -r -g app-debug.apk   # applicationId is com.android.wk2climate
 ```
 
 Then toggle the accessibility entry to get a fresh service instance:
@@ -41,7 +41,7 @@ Then toggle the accessibility entry to get a fresh service instance:
 ```
 # append-only: the list already holds com.syu.fytgesture and com.autolauncher.motorcar
 adb -s <serial> shell "settings put secure enabled_accessibility_services '<the two originals>'"
-adb -s <serial> shell "settings put secure enabled_accessibility_services '<the two originals>:com.wk2.climate/com.wk2.climate.app.ClimateBarService'"
+adb -s <serial> shell "settings put secure enabled_accessibility_services '<the two originals>:com.android.wk2climate/com.wk2.climate.app.ClimateBarService'"
 adb -s <serial> shell "settings get secure enabled_accessibility_services"   # READ IT BACK
 ```
 

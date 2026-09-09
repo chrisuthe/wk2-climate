@@ -110,3 +110,34 @@ fresh install, the accessibility entry re-added, and every reference to
 Doing nothing is also viable: re-toggle the accessibility entry after a sleep.
 
 Not decided here — this is the owner's call.
+
+## Done: renamed to `com.android.wk2climate`
+
+Owner's call, taken on the reasoning that `com.android.*` is the cleaner of the
+two hacks — no vendor code branches on it the way `f1/c.java:182` branches on
+`startsWith("com.syu")`, so the only behaviour it changes is the kill decision.
+
+Only the **`applicationId`** moved. The Kotlin packages stay
+`com.wk2.climate.*`, because the sweep matches on *process name* and that
+defaults to the applicationId. So the accessibility component is now the
+slightly odd-looking but correct:
+
+```
+com.android.wk2climate/com.wk2.climate.app.ClimateBarService
+```
+
+Switched on the vehicle: new component enabled, old entry removed, old package
+uninstalled, `deviceidle` exemption moved across (harmless either way — it was
+never the mechanism). Bar came up at `frame=[0,1693][1080,1920]` and
+`com.syu.air` was untouched throughout.
+
+**Verification status, honestly:** the regex match is *proven* — the pattern was
+rebuilt from the extracted asset and this exact string tested against it. What
+is **not** yet proven is the end-to-end outcome, because the sweep only runs on
+sleep and sleep cannot be forced from adb. **The real test is the next
+ignition-off:** if the bar is still there on restart with no accessibility
+toggle, this worked.
+
+If it does *not* survive, the next thing to check is `s0.j(str, u.I())` — the
+second exclusion in `a.i.B()`, which was never traced because the first one
+already explained the behaviour.
