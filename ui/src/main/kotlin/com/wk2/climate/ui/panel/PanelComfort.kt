@@ -71,6 +71,7 @@ fun PanelComfort(
                 glyph = { tint -> SeatHeatRightGlyph(tint, SEAT_GLYPH) },
                 onClick = { onCommand(Command.SEAT_HEAT_R) },
                 modifier = Modifier.weight(1f),
+                mirrored = true,
             )
         }
         Spacer(Modifier.height(Dimens.tileGap))
@@ -86,6 +87,7 @@ fun PanelComfort(
                 glyph = { tint -> SeatCoolRightGlyph(tint, SEAT_GLYPH) },
                 onClick = { onCommand(Command.SEAT_VENT_R) },
                 modifier = Modifier.weight(1f),
+                mirrored = true,
             )
         }
 
@@ -112,6 +114,7 @@ private fun ComfortTile(
     glyph: @Composable (Color) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    mirrored: Boolean = false,
 ) {
     val (interaction, pressed) = rememberPressState()
     val shape = RoundedCornerShape(Dimens.radiusTile)
@@ -140,49 +143,29 @@ private fun ComfortTile(
         // tile carries no words: there is nothing to push apart.
         verticalArrangement = Arrangement.Center,
     ) {
+        // The glyph sits **outboard**: left on the driver's tiles, right on the
+        // passenger's, so each row mirrors about the centre gap and matches
+        // where the seats actually are. Which seat a tile controls is then
+        // legible from the layout, before the glyph itself is read.
+        val tint = when {
+            !known -> palette.inkFaint
+            on -> litColor
+            else -> palette.ink
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Same three-state tint as every other drawn glyph: lit when the
-            // seat is on, neutral ink when we know it is off, faint when the
-            // level is UNAVAILABLE.
-            glyph(
-                when {
-                    !known -> palette.inkFaint
-                    on -> litColor
-                    else -> palette.ink
-                },
-            )
-            Spacer(Modifier.width(16.dp))
-            repeat(2) { index ->
-                Box(
-                    Modifier
-                        .weight(1f)
-                        // Slimmer than the handoff's 14dp: the glyph is now
-                        // the tile's subject and the pips are the qualifier,
-                        // so they read better as a lighter weight beside it.
-                        .height(10.dp)
-                        .background(
-                            if (index < level.litPips) litColor else palette.ink.copy(alpha = 0.13f),
-                            RoundedCornerShape(5.dp),
-                        ),
-                )
-                // 8dp between the two pips, per the handoff mockup's
-                // `display:flex;gap:8px` pip group (System Navigation.dc.html
-                // lines 438/442/446/450). Not the fan meter's `gap: 6px`
-                // (README:180) -- that is a different control.
-                if (index == 0) Spacer(Modifier.width(8.dp))
+            if (mirrored) {
+                SeatState(palette, level, litColor)
+                Spacer(Modifier.width(14.dp))
+                SeatPips(palette, level, litColor, Modifier.weight(1f))
+                Spacer(Modifier.width(16.dp))
+                glyph(tint)
+            } else {
+                glyph(tint)
+                Spacer(Modifier.width(16.dp))
+                SeatPips(palette, level, litColor, Modifier.weight(1f))
+                Spacer(Modifier.width(14.dp))
+                SeatState(palette, level, litColor)
             }
-            Spacer(Modifier.width(14.dp))
-            BasicText(
-                text = when (level) {
-                    SeatLevel.OFF -> "OFF"
-                    SeatLevel.LOW -> "LOW"
-                    SeatLevel.HIGH -> "HIGH"
-                    SeatLevel.UNAVAILABLE -> "\u2014"
-                },
-                style = Type.comfortState.copy(
-                    color = if (on) litColor else palette.inkFaint,
-                ),
-            )
         }
     }
 }
@@ -256,8 +239,61 @@ private fun HeatedWheel(palette: Palette, live: Boolean, on: Boolean, onClick: (
  * The seat glyphs' size.
  *
  * One value for all four tiles: they are a set, and the left/right pair on each
- * row must be identical or the asymmetry reads as a bug. Larger than the 30dp
- * first tried -- at 30 it was legible but did not carry a 96dp tile, which is
- * why the pips gave up 4dp of height to it.
+ * row must be identical or the asymmetry reads as a bug.
+ *
+ * Grown twice from the 30dp first tried, which was legible but did not carry a
+ * 96dp tile. At 48 the glyph is the tile, and the pips gave up 4dp of height to
+ * make room -- 10dp rather than the handoff's 14.
  */
-private val SEAT_GLYPH = 40.dp
+private val SEAT_GLYPH = 48.dp
+
+/**
+ * The two-pip level indicator.
+ *
+ * Slimmer than the handoff's 14dp: the glyph is the tile's subject now and the
+ * pips are the qualifier, so they read better as a lighter weight beside it.
+ * Extracted so the driver and passenger orderings share one definition rather
+ * than mirroring a copy.
+ */
+@Composable
+private fun SeatPips(
+    palette: Palette,
+    level: SeatLevel,
+    litColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        repeat(2) { index ->
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(10.dp)
+                    .background(
+                        if (index < level.litPips) litColor else palette.ink.copy(alpha = 0.13f),
+                        RoundedCornerShape(5.dp),
+                    ),
+            )
+            // 8dp between the two pips, per the handoff mockup's
+            // `display:flex;gap:8px` pip group (System Navigation.dc.html lines
+            // 438/442/446/450). Not the fan meter's `gap: 6px` (README:180) --
+            // that is a different control.
+            if (index == 0) Spacer(Modifier.width(8.dp))
+        }
+    }
+}
+
+/** The word beside the pips. A dash for UNAVAILABLE, never `OFF`. */
+@Composable
+private fun SeatState(palette: Palette, level: SeatLevel, litColor: Color) {
+    BasicText(
+        text = when (level) {
+            SeatLevel.OFF -> "OFF"
+            SeatLevel.LOW -> "LOW"
+            SeatLevel.HIGH -> "HIGH"
+            SeatLevel.UNAVAILABLE -> "\u2014"
+        },
+        style = Type.comfortState.copy(
+            color = if (level.isOn) litColor else palette.inkFaint,
+        ),
+    )
+}
