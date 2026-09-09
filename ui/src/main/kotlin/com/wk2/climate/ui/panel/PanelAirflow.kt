@@ -17,10 +17,10 @@ import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.AirflowMode
 import com.wk2.climate.bus.Command
 import com.wk2.climate.design.Dimens
-import com.wk2.climate.design.PRESSED_TINT_ALPHA
 import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.Glyph
 import com.wk2.climate.ui.GlyphIcon
+import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
@@ -72,15 +72,12 @@ private fun AirflowTile(
     Box(
         modifier
             .height(Dimens.airflowTileHeight)
-            .background(
-                when {
-                    active && pressed.value -> palette.accent.copy(alpha = PRESSED_TINT_ALPHA)
-                    active -> palette.accent
-                    pressed.value -> palette.surfaceRaised
-                    else -> Color.Transparent
-                },
-                shape,
-            )
+            .background(if (active) palette.accent else Color.Transparent, shape)
+            // Layered over the resting fill, never replacing it: a filled tile
+            // brightens on press. Fading it would read as the mode switching
+            // off at the instant it is touched, on a tile whose fill *is* the
+            // statement that the mode is selected and whose re-tap is a no-op.
+            .then(if (pressed.value) Modifier.pressedTint(active, palette, shape) else Modifier)
             .then(if (active) Modifier else Modifier.border(Dimens.controlBorderWidth, palette.borderControl, shape))
             .target(interaction, onClick = onClick),
         contentAlignment = Alignment.Center,

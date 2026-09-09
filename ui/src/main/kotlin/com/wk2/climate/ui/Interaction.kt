@@ -1,5 +1,6 @@
 package com.wk2.climate.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -11,7 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
+import com.wk2.climate.design.Palette
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -104,3 +109,25 @@ fun Modifier.holdRepeatTarget(
         }
     }
 }
+
+/**
+ * The pressed treatment: **brightness on a filled target, a light wash on an
+ * outlined one.** Applied on touch-down, layered over whatever the control
+ * already painted, so call it after the resting `background`.
+ *
+ * A filled control brightens rather than fading. Reducing a filled tile's
+ * alpha on press reads as the control switching *off* at the moment it is
+ * touched — actively misleading on an airflow or AUTO tile, whose fill is the
+ * statement that the mode is selected, and whose re-tap is a deliberate no-op.
+ *
+ * [shape] must match the control's own shape or the wash paints square corners
+ * over a rounded tile. The bar's tiles are rectangular and take the default;
+ * the panel's are `Dimens.radiusTile`.
+ */
+fun Modifier.pressedTint(filled: Boolean, palette: Palette, shape: Shape = RectangleShape): Modifier =
+    if (filled) {
+        // brightness(1.25) equivalent - overlay white at low alpha.
+        background(Color.White.copy(alpha = 0.2f), shape)
+    } else {
+        background(palette.surfaceRaised, shape)
+    }

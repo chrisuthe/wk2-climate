@@ -27,6 +27,7 @@ import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.Glyph
 import com.wk2.climate.ui.GlyphIcon
+import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
@@ -283,14 +284,3 @@ private fun SeatSlot(
     }
 }
 
-/**
- * The pressed treatment: brightness on a filled target, a light wash on an
- * outlined one. Applied on touch-down.
- */
-private fun Modifier.pressedTint(filled: Boolean, palette: Palette): Modifier =
-    if (filled) {
-        // brightness(1.25) equivalent — overlay white at low alpha.
-        background(Color.White.copy(alpha = 0.2f))
-    } else {
-        background(palette.surfaceRaised)
-    }
