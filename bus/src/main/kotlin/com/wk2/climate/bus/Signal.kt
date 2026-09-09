@@ -11,7 +11,19 @@ package com.wk2.climate.bus
  * A code is unique only *within* a module: code 2 is `U_STANDBY` on MAIN and
  * `U_VOL` on SOUND, which is why every entry carries its module.
  */
-enum class Signal(val module: Int, val code: Int) {
+enum class Signal(
+    val module: Int,
+    val code: Int,
+    /**
+     * True for a signal we register out of interest rather than need.
+     *
+     * It is excluded from [ClimateState.missingSignals], which is the stopping
+     * rule for the re-registration retry. A diagnostic that this vehicle never
+     * reports would otherwise keep that retry running to its cap on every
+     * start, for a value nothing renders.
+     */
+    val diagnostic: Boolean = false,
+) {
 
     // ---- module 7: CANBUS (climate) ----
     POWER(7, 10),
@@ -39,6 +51,25 @@ enum class Signal(val module: Int, val code: Int) {
     SYNC(7, 62),
     FRONT_DEFROST(7, 65),
     WHEEL_HEAT(7, 66),
+
+    /**
+     * The canbus id: which vehicle the unit is configured for.
+     *
+     * Read-only, and nothing depends on it yet. It is registered so we can find
+     * out whether it actually arrives, and when - the question that decides
+     * whether per-vehicle auto-configuration is possible at all. See
+     * `docs/captures/2026-09-09-air-profile-extraction.md`.
+     *
+     * `com.syu.air` reads exactly this code and passes the value straight to
+     * `AirFactory.create`, which switches it onto one of 222 vehicle profile
+     * classes. It never queries the code either; it waits for the callback,
+     * which is consistent with registration being the only read path.
+     *
+     * Absence is a real possibility and is handled: this contributes to
+     * [ClimateState.missingSignals] but gates nothing, so a vehicle that never
+     * reports it behaves exactly as before. [CanbusId] decodes it.
+     */
+    CANBUS_ID(7, 1000, diagnostic = true),
 
     // ---- module 4: SOUND ----
     VOLUME(4, 2),

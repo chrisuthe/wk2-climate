@@ -274,9 +274,23 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
         }
     }
 
+    /**
+     * Last logged [Signal.CANBUS_ID], so the line appears once rather than on
+     * every frame. Held here rather than read back from [ClimateState], whose
+     * `raw` map is private on purpose.
+     */
+    private var loggedCanbusId: Int? = null
+
     private fun onUpdate(module: Int, code: Int, ints: IntArray?) {
         val signal = Signal.of(module, code) ?: return
         val value = ints?.firstOrNull() ?: return
+        // Logged on arrival and on change only - it should be constant for a
+        // given unit, and the point of registering it is to find out whether it
+        // arrives unprompted at all.
+        if (signal == Signal.CANBUS_ID && loggedCanbusId != value) {
+            loggedCanbusId = value
+            Log.i(TAG, "canbus id ${CanbusId.describe(value)}")
+        }
         _state.value = _state.value.with(signal, value)
     }
 

@@ -71,7 +71,9 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
      * information, not a fault. It is logged for that reason.
      */
     val missingSignals: Set<Signal>
-        get() = Signal.entries.filterNotTo(LinkedHashSet()) { raw.containsKey(it) }
+        get() = Signal.entries.filterNotTo(LinkedHashSet()) {
+            it.diagnostic || raw.containsKey(it)
+        }
 
     // ---- derived: zone temperatures ----
     val tempUnit: TempUnit get() = TempUnit.from(raw[Signal.TEMP_UNIT])

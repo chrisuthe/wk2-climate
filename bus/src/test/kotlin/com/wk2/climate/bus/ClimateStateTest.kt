@@ -141,7 +141,11 @@ class ClimateStateTest {
 
     @Test
     fun `an empty state reports every expected signal as missing`() {
-        assertEquals(Signal.entries.toSet(), ClimateState.EMPTY.missingSignals)
+        // Every signal we render. Diagnostics are excluded by design: they are
+        // registered out of interest, and nagging for one the vehicle may not
+        // have would run the re-registration retry to its cap every start.
+        val expected = Signal.entries.filterNot { it.diagnostic }.toSet()
+        assertEquals(expected, ClimateState.EMPTY.missingSignals)
     }
 
     @Test
@@ -167,7 +171,7 @@ class ClimateStateTest {
     @Test
     fun `the missing set is in declaration order, so a log line is stable`() {
         val missing = ClimateState.EMPTY.missingSignals.toList()
-        assertEquals(Signal.entries.toList(), missing)
+        assertEquals(Signal.entries.filterNot { it.diagnostic }, missing)
     }
 
     @Test
