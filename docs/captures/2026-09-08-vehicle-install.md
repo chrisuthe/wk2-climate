@@ -131,3 +131,70 @@ Committed in `1ae97cf` as necessary-but-probably-insufficient.
   explicit indeterminate rendering until the first climate frame lands. Absence
   must never paint as a confident state.
 - Re-test `get` with the engine running before deciding whether to keep it.
+
+---
+
+## Session 2, engine running: both open questions settled
+
+`20:59:06`, ignition on, MCU actively reporting:
+
+```
+module 7: registered 20/20 codes
+module 4: registered 1/1 codes
+module 0: registered 2/2 codes
+module 7: seeded 0/20 values
+module 4: seeded 0/1 values
+module 0: seeded 0/2 values
+climate data present after 0 re-registration(s)
+```
+
+### `IRemoteModule.get` is not the mechanism — removed
+
+`seeded 0/20` **with the engine running and data flowing**. Presence `0`, no
+exception, for every code. The service answers the call and holds nothing, so
+this is not a permissions or format problem — `get` simply does not serve these
+codes. The parcel format was verified against the vendor's own proxy first,
+including the empty `int[]` params, so the implementation was not the fault.
+
+Removed in `18de2be`: 60 lines and 23 synchronous binder round-trips on the main
+thread during connect, for a call that never returned a value. Recorded here so
+it is not implemented a second time.
+
+### Registration alone is sufficient when the vehicle is talking
+
+`climate data present after 0 re-registration(s)` — values landed within a
+second of registering, before the retry schedule made a single attempt. So the
+service *does* push on registration; what it will not do is answer a `get`.
+
+The bounded re-registration retry stays as an unexercised safety net for the
+genuine cold-start case (head unit up before the MCU reports anything). It cost
+nothing here and fired zero times. Its value remains unproven.
+
+### The real cause of "didn't show on startup"
+
+Not blank data — the bar was **not running at all**. Our entry had been dropped
+from `enabled_accessibility_services`, which came back at `20:58:00` holding only
+the two original services.
+
+The trigger is visible earlier in the log:
+
+```
+20:31:15 ActivityManager: forceStop Package:com.wk2.climate from pid:2354 uid:1000
+20:31:15 ActivityManager: Force stopping com.wk2.climate appid=10179 user=0
+```
+
+A force-stopped package enters the **stopped** state, and a stopped package's
+accessibility service is not started and is pruned from the enabled list at
+boot. This ROM also runs a `PowerController.BgClean` that logs
+`new APK:com.wk2.climate is installed!` on each install, so it is a candidate
+for the force-stop as well.
+
+**Consequence for install procedure: never `am force-stop` this package.** To
+restart the service, toggle it out of and back into
+`enabled_accessibility_services` instead — that leaves the package's stopped
+flag alone. The install flow used here did force-stop it, to get a cold process
+for testing seeding, which is what broke persistence across the ignition cycle.
+
+`stopped=false` after the reinstall, so the state is clean again. Whether the
+entry now survives an ignition cycle is **still unverified** — it needs one
+cycle with no force-stop anywhere in the preceding session.
