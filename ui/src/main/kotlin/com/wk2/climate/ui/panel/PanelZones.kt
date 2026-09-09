@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -120,7 +121,7 @@ private fun Zone(
         }
 
         Spacer(Modifier.height(24.dp))
-        RangeTrack(palette, temp)
+        RangeTrack(palette, live, temp)
     }
 }
 
@@ -196,9 +197,16 @@ private fun zoneText(temp: Temp, palette: Palette, live: Boolean): AnnotatedStri
  *
  * A sentinel or unknown temperature hides the knob rather than parking it at
  * one end, which would imply a setpoint the vehicle never reported.
+ *
+ * With no climate data the track itself drops to a flat divider-weight
+ * neutral. Hiding the knob is not enough on its own: a fully saturated
+ * blue-to-red readout with no knob reads as a working range whose knob is
+ * merely off-screen, which is the same false confidence the muted numerals
+ * exist to remove. The track is the loudest claim in the section, so it is the
+ * one that most needs to stop making it.
  */
 @Composable
-private fun RangeTrack(palette: Palette, temp: Temp) {
+private fun RangeTrack(palette: Palette, live: Boolean, temp: Temp) {
     val fraction = (temp as? Temp.Degrees)
         ?.takeIf { it.unit == TempUnit.FAHRENHEIT }
         ?.let {
@@ -212,7 +220,13 @@ private fun RangeTrack(palette: Palette, temp: Temp) {
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Brush.horizontalGradient(listOf(palette.trackStart, palette.trackEnd))),
+                .background(
+                    if (live) {
+                        Brush.horizontalGradient(listOf(palette.trackStart, palette.trackEnd))
+                    } else {
+                        SolidColor(palette.divider)
+                    },
+                ),
         )
         if (fraction != null) {
             Layout(

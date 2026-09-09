@@ -58,6 +58,20 @@ object Dimens {
     val comfortTileHeight = 96.dp
     val holdOffWidth = 180.dp
 
+    /**
+     * The gap between page-level tiles on screen 1d — the airflow row, both
+     * mode grids (column *and* row gap), the comfort grid and the heated-wheel
+     * tile below it, and the fan stepper/meter row. The handoff writes `gap:14px`
+     * on every one of them.
+     *
+     * Deliberately **not** applied to the 14px gaps *inside* a tile (a seat
+     * tile's pip group to its state word, the wheel's ring to its label) or to
+     * the header's title-to-status gap. Those are separate measurements that
+     * happen to equal 14 today, and collapsing them onto this name would make
+     * a retune of the tile grid silently move a tile's own contents.
+     */
+    val tileGap = 14.dp
+
     /** The outlined-control border width used across screen 1d's controls. */
     val controlBorderWidth = 1.5.dp
 

@@ -41,17 +41,28 @@ fun PanelFan(
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText(text = "FAN", style = Type.sectionHeader.copy(color = palette.inkMuted))
-            BasicText(text = fanReadout(fan, palette), style = Type.fanValue)
+            // `align-items: baseline`, as the handoff draws it: the 12sp
+            // micro-label and the 20sp readout sit on one line, which centring
+            // misses by a couple of dp. Same treatment as PanelHeader's
+            // title/status pair.
+            BasicText(
+                text = "FAN",
+                style = Type.sectionHeader.copy(color = palette.inkMuted),
+                modifier = Modifier.alignByBaseline(),
+            )
+            BasicText(
+                text = fanReadout(fan, palette),
+                style = Type.fanValue,
+                modifier = Modifier.alignByBaseline(),
+            )
         }
 
         Spacer(Modifier.height(16.dp))
 
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
         ) {
             FanStepper(palette, "\u2212", Type.fanStepperMinus, onDown)
             FanMeter(palette, fan, Modifier.weight(1f))

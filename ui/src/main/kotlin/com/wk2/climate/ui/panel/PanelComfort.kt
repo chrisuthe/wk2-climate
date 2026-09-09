@@ -55,7 +55,7 @@ fun PanelComfort(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
             ComfortTile(
                 palette, "SEAT HEAT \u00B7 L", state.seatHeatL, palette.warm,
                 { onCommand(Command.SEAT_HEAT_L) }, Modifier.weight(1f),
@@ -65,8 +65,8 @@ fun PanelComfort(
                 { onCommand(Command.SEAT_HEAT_R) }, Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Spacer(Modifier.height(Dimens.tileGap))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
             ComfortTile(
                 palette, "SEAT COOL \u00B7 L", state.seatVentL, palette.cool,
                 { onCommand(Command.SEAT_VENT_L) }, Modifier.weight(1f),
@@ -77,7 +77,7 @@ fun PanelComfort(
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(Dimens.tileGap))
         HeatedWheel(palette, live = live, on = state.wheelHeatOn) { onCommand(Command.WHEEL_HEAT) }
     }
 }

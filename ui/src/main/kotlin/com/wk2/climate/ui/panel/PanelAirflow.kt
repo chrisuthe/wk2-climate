@@ -50,7 +50,7 @@ fun PanelAirflow(
 ) {
     Row(
         modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
     ) {
         AirflowMode.selectable.forEach { candidate ->
             AirflowTile(

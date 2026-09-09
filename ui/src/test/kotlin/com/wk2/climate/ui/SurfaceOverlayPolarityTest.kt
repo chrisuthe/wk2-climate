@@ -31,34 +31,43 @@ class SurfaceOverlayPolarityTest {
     }
 
     @Test
-    fun `the raised surface recesses against its own ground`() {
-        assertTrue(
-            "NIGHT's raised surface must land lighter than NIGHT's own ground",
-            Palette.NIGHT.surfaceRaised.over(Palette.NIGHT.surface).luminance() >
-                Palette.NIGHT.surface.luminance(),
-        )
-        assertTrue(
-            "DAY's raised surface must land darker than DAY's own ground — a " +
-                "white overlay glares on a light ground instead of recessing",
-            Palette.DAY.surfaceRaised.over(Palette.DAY.surface).luminance() <
-                Palette.DAY.surface.luminance(),
-        )
+    fun `the raised overlay moves its own ground toward its own ink`() {
+        assertMovesGroundTowardInk("NIGHT.surfaceRaised", Palette.NIGHT) { it.surfaceRaised }
+        assertMovesGroundTowardInk("DAY.surfaceRaised", Palette.DAY) { it.surfaceRaised }
     }
 
     @Test
-    fun `the inset surface moves the ground the same way the raised one does`() {
-        listOf(Palette.NIGHT, Palette.DAY).forEach { palette ->
-            val ground = palette.surface.luminance()
-            val raised = palette.surfaceRaised.over(palette.surface).luminance()
-            val inset = palette.surfaceInset.over(palette.surface).luminance()
-            assertEquals(
-                "raised and inset must recess in the same direction",
-                Math.signum(raised - ground),
-                Math.signum(inset - ground),
-                0f,
-            )
-        }
+    fun `the inset overlay moves its own ground toward its own ink`() {
+        assertMovesGroundTowardInk("NIGHT.surfaceInset", Palette.NIGHT) { it.surfaceInset }
+        assertMovesGroundTowardInk("DAY.surfaceInset", Palette.DAY) { it.surfaceInset }
     }
+}
+
+/**
+ * The invariant both overlays share, stated so it is meaningful for either
+ * palette: an overlay must composite to a luminance on the *ink's* side of its
+ * own ground.
+ *
+ * That is what "recessed" means on both grounds without naming a direction —
+ * night's ink is light and its overlay lightens, day's ink is dark and its
+ * overlay darkens. It is deliberately not "raised and inset agree with each
+ * other": DAY's two tokens currently hold the same literal, so comparing them
+ * would compare a quantity to itself and could only ever fail on NIGHT.
+ */
+private fun assertMovesGroundTowardInk(
+    name: String,
+    palette: Palette,
+    overlay: (Palette) -> Color,
+) {
+    val ground = palette.surface.luminance()
+    val toInk = Math.signum(palette.ink.luminance() - ground)
+    val moved = Math.signum(overlay(palette).over(palette.surface).luminance() - ground)
+    assertEquals(
+        "$name must move its own ground toward its own ink, not away from it",
+        toInk,
+        moved,
+        0f,
+    )
 }
 
 /** A straight source-over composite, so an overlay can be judged against its ground. */

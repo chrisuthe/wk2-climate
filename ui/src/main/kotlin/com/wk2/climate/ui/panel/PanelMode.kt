@@ -57,7 +57,7 @@ fun PanelMode(
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
         ) {
             ModeTile(
                 palette, live, on = state.autoOn, height = Dimens.modeTileHeight,
@@ -90,11 +90,11 @@ fun PanelMode(
             ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(Dimens.tileGap))
 
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
         ) {
             ModeTile(
                 palette, live, on = state.frontDefrostOn, height = Dimens.modeTileHeight,

@@ -23,9 +23,11 @@ import com.wk2.climate.design.Type
  * One section of screen 1d: a 1dp top border, an optional micro-header, then
  * content.
  *
- * Sections are separated by a border rather than by gaps, which is what lets
- * the page's child heights sum to a known total and the footer pin to the
- * bottom with the remaining space.
+ * Sections are separated by a border rather than by gaps, so a section
+ * contributes only its own content height to the page and the borders cost
+ * nothing: [topDivider] is drawn, not laid out. Nothing here pins the footer —
+ * that is [ClimatePanel]'s weighted Spacer, which absorbs whatever the
+ * sections leave over.
  */
 @Composable
 fun PanelSection(
