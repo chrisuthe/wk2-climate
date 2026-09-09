@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Palette.NIGHT's surface and ink. The launcher icon is the app's only
+      appearance outside its own windows, so it uses the same two colours the
+      night bar draws with rather than a pair invented for the icon.
+    -->
+    <color name="ic_launcher_background">#FF0B0C0D</color>
+</resources>

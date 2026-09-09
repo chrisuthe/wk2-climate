@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  minSdk is 26, so every device that can install this app supports adaptive
+  icons. That is why there is no legacy PNG fallback at any density.
+
+  monochrome is API 33 and targetSdk is 33; older versions skip the unknown tag.
+  It reuses the foreground because a stroked glyph is already the mask shape the
+  themed-icon pipeline wants.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
