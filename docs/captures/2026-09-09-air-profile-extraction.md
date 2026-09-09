@@ -174,27 +174,57 @@ class name; `canbus >> 16` is the vehicle variant. The low-16 rule holds for
 1077 of the 1200 mappings. So `0x190176` is base 374, variant 25,
 `CAR_PA_Wrangler_18_20_Low`.
 
-### Which profile is this truck actually running?
+### Which profile is this truck actually running? Wrangler, not `_All`
 
-Unresolved, and the mapping makes the current assumption look wrong.
+Settled, and the earlier attribution was wrong.
 
-`Car_0374_PA_Jeep_All` was attributed to this vehicle from `updateTemp`'s
-LOW/HIGH rendering. But it is wired to only two ids, both
-`CAR_XP1_ZiYouGuang` - a Renegade - and it declares 6 of the 19 commands we use.
-`Car_0374_PA_Jeep_Wrangler` declares 18 and agrees with the vehicle on all 18,
-and is wired to the `CAR_PA_*` family: Wrangler, RAM, Durango, GMC, Escalade.
+`FinalCanbus.CAR_PA_Cherokee_14_22 = 2621814` is base 374, variant 40 - a
+2014-2022 Grand Cherokee on the PA canbus. `AirFactory` wires that id to
+**`Car_0374_PA_Jeep_Wrangler`**, despite the class name. The PA family shares one
+profile class across Wrangler, RAM, Durango, GMC and Escalade, and the Grand
+Cherokee is in it.
 
-Both are consistent with what we have measured, since `_All`'s six values are a
-subset and neither conflicts. The command table points at Wrangler.
+That profile declares 18 commands as literal `sendCmd` calls with exactly the
+indices we send: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20,
+21, 22, 23, 24. Our table differs from it by **one** index - 15, `MAX_AC` - whose
+`acMax(boolean)` is an empty method here, matching wiki p3's note that
+`U_AIR_ACMAX` is fitted but not on the factory bar.
 
-**Test, next time the vehicle is online:** register module 7 code 1000 and read
-`ints[0]`. Predictions:
+`Car_0374_PA_Jeep_All` is the Renegade (`CAR_XP1_ZiYouGuang`, ids 374 and 65910).
+It was attributed to this vehicle from `updateTemp`'s LOW/HIGH rendering, which
+the two profiles share. Corrected in `Command.kt`, the README and wiki p13.
 
-- low 16 bits == 374
-- the variant resolves, through `air-canbus-ids.json`, to
-  `Car_0374_PA_Jeep_Wrangler` rather than `_All`
+This also removes an apparent contradiction. If our profile were `_All`, the
+factory bar could not have driven seat heat, sync or auto - all empty there -
+yet it did. It ran Wrangler, which implements them. Nothing extra needed
+explaining; the profile identification was simply wrong.
 
-If it resolves to `_All` instead, then the profile a unit runs does **not**
-bound which indices the MCU accepts - our vehicle answers 18 commands its own
-profile never sends - and the extracted tables are a floor rather than a
-contract. Either result is worth knowing; the second is the more useful.
+**Still worth reading code 1000 on the vehicle** to confirm the id is 2621814
+rather than another PA variant. The profile class is the same either way, so the
+command table does not depend on the answer.
+
+## Correction: `com.syu.canbus` does hold climate code
+
+Session 3 concluded that `com.syu.canbus` "holds no MCU frame or protocol code"
+and that `com.syu.air` was the only valuable target. The first half is right and
+the conclusion was too broad. `com/syu/carinfo/air/` holds **31** climate UI
+classes, and they carry a per-vehicle command table of their own.
+
+`ConstAllAirDara` is a mutable static table - `C_AIR_SEAT_HOT_LEFT`,
+`C_AIR_AC_MAX`, `C_AIR_WIND_ADD` and dozens more - where **every field defaults
+to 255**, and per-vehicle blocks assign the real indices at runtime, switched on
+`DataCanbus.DATA[1000]`. `Air_Activity_All_NewAdd_HP` alone contains 2161 such
+assignments; `Air_Activity_All_Normal` 1977, across 9665 lines.
+
+For multi-vehicle work this is the better source, for two reasons:
+
+- **255 is an explicit "not fitted" sentinel.** `com.syu.air`'s profiles express
+  absence by omission, which is indistinguishable from an unexposed control.
+  This table states it.
+- **It is keyed per variant**, on the exact id, not per protocol family.
+
+It does not help this vehicle: no air activity in `com.syu.canbus` matches our
+id, which fits - our profile draws its own UI through `headerLayoutId()` and
+`contentLayoutid()` rather than delegating to a canbus activity. But any future
+attempt at broad vehicle support should extract `ConstAllAirDara` blocks rather
+than, or alongside, the `Car_*` profiles.

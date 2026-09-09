@@ -122,7 +122,7 @@ design is used directly as a dp value.
 ## Portability
 
 Read codes (`U_AIR_*`) are universal across FYT UIS7870 units. **Command indices
-are per-vehicle** and the ones here come from `Car_0374_PA_Jeep_All`. On another
+are per-vehicle** and the ones here match `Car_0374_PA_Jeep_Wrangler`. On another
 vehicle they must be swept and rebuilt — see
 [wiki: Sending Commands](https://github.com/chrisuthe/7870-Projects/wiki/6-Sending-Commands).
 

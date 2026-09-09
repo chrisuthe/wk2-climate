@@ -11,8 +11,14 @@ package com.wk2.climate.bus
  * `C_VOL` for writes and `U_SPECTRUM` for reads — with a single untyped
  * `send(module, code, payload)` that collision eventually becomes a bug.
  *
- * Indices are **specific to the Jeep Grand Cherokee WK2** (vehicle profile
- * `Car_0374_PA_Jeep_All`). Another vehicle needs its own table.
+ * Indices are **specific to the Jeep Grand Cherokee WK2**, whose vehicle
+ * profile is `Car_0374_PA_Jeep_Wrangler` -- reached from canbus id 2621814
+ * (`CAR_PA_Cherokee_14_22`), despite the class name. That profile declares 18
+ * of the 19 commands below with exactly these indices; the one it does not is
+ * MAX_AC, fitted here but absent from the factory bar.
+ *
+ * An earlier revision attributed this to `Car_0374_PA_Jeep_All`, which is the
+ * Renegade and declares 6. Another vehicle needs its own table.
  */
 enum class Command(
     val module: Int,
