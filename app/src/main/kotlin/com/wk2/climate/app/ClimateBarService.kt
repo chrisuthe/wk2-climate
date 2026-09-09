@@ -3,6 +3,8 @@ package com.wk2.climate.app
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
@@ -236,7 +238,8 @@ class ClimateBarService : AccessibilityService() {
     private fun barWindowParams(): WindowManager.LayoutParams {
         val height = designBarHeightPx()
         warnIfNavInsetDisagrees(height)
-        val top = resources.displayMetrics.heightPixels - height
+        val top = displayHeightPx() - height
+        Log.i(TAG, "bar window: y=$top height=$height display=${displayHeightPx()}px")
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             height,
@@ -269,6 +272,32 @@ class ClimateBarService : AccessibilityService() {
      * root — no longer hold. That is worth a warning, and it is much better
      * than the alternative symptom of rendering a fragment of the UI.
      */
+    /**
+     * The **real** display height in pixels, system decor included.
+     *
+     * Not `resources.displayMetrics.heightPixels`: for a service that value is
+     * the *application* area, which on this head unit already has the 227px
+     * navigation bar subtracted (`dumpsys window displays` reports
+     * `cur=1080x1920 app=1080x1693`). Using it put the bar at
+     * `1693 - 227 = 1466`, drawing it directly *above* the factory bar instead
+     * of over it — both bars visible at once, and every touch landing 227px
+     * from where it looked.
+     *
+     * A 2032 window with `FLAG_LAYOUT_NO_LIMITS` is positioned against the
+     * whole display, so the whole display is what it must be measured against.
+     */
+    private fun displayHeightPx(): Int {
+        val wm = getSystemService(WindowManager::class.java)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            wm.currentWindowMetrics.bounds.height()
+        } else {
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(metrics)
+            metrics.heightPixels
+        }
+    }
+
     private fun warnIfNavInsetDisagrees(designHeightPx: Int) {
         val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         if (id <= 0) return
