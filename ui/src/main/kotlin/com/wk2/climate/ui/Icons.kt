@@ -12,9 +12,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import com.wk2.climate.design.R
 
-/** The final glyph assets, extracted from a conventional automotive HVAC set. */
+/**
+ * The **bitmap** glyph assets, from a conventional automotive HVAC set.
+ *
+ * Only the ones with no vector source live here. Everything drawn is in
+ * [Glyphs] instead -- see [VectorGlyph] for why. `defrost` used to be here and
+ * was replaced by `material-symbols-light:hvac-max-defrost`.
+ */
 object Glyph {
-    val defrost = R.drawable.ic_defrost
     val recirc = R.drawable.ic_recirc
     val face = R.drawable.ic_face
     val faceFeet = R.drawable.ic_face_feet

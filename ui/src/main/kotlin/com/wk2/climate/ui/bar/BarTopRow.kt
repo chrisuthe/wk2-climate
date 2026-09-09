@@ -26,6 +26,7 @@ import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.Glyph
+import com.wk2.climate.ui.FrontDefrostGlyph
 import com.wk2.climate.ui.GlyphIcon
 import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
@@ -247,7 +248,7 @@ private fun AdaptiveSlotCell(
             SlotContent.FRONT_DEFROST -> Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlyphIcon(Glyph.defrost, tint = ink, height = 34.dp)
+                FrontDefrostGlyph(tint = ink, size = 34.dp)
                 Spacer(Modifier.width(14.dp))
                 BasicText(
                     text = "FRONT DEFROST",

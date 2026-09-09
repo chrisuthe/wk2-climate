@@ -24,6 +24,7 @@ import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.Glyph
+import com.wk2.climate.ui.FrontDefrostGlyph
 import com.wk2.climate.ui.GlyphIcon
 import com.wk2.climate.ui.RearDefrostGlyph
 import com.wk2.climate.ui.pressedTint
@@ -103,7 +104,7 @@ fun PanelMode(
                 onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    GlyphIcon(Glyph.defrost, tint = ink, height = 44.dp)
+                    FrontDefrostGlyph(tint = ink, size = 44.dp)
                     Spacer(Modifier.width(10.dp))
                     BasicText("FRONT DEF", style = Type.modeLabelTiny.copy(color = ink))
                 }
