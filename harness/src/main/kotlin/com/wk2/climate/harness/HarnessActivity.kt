@@ -177,7 +177,7 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Key("LO", palette) { bus.inject(Signal.TEMP_LEFT, -2) }
             Key("NIGHT", palette) {
-                bus.inject(Signal.ILLUMINATION, if (state.isNight) 0 else 1)
+                bus.inject(Signal.ILLUMINATION, if (state.isNight == true) 0 else 1)
             }
             Key("DROP", palette) { bus.setConnected(!connected) }
             Key("BAR", palette) { showBar = true }

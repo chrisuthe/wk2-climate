@@ -41,7 +41,9 @@ fun ClimateBar(
     modifier: Modifier = Modifier,
 ) {
     // Day and night differ in luminance only, never in layout, so muscle
-    // memory holds. Driven by the vehicle's illumination signal, not a clock.
+    // memory holds. Driven by the vehicle's illumination signal, not a clock —
+    // and `isNight` is null until the vehicle reports one, which
+    // `Palette.forNight` renders as NIGHT on purpose. See it for why.
     val palette = Palette.forNight(state.isNight)
 
     // One gate, read straight off bus state. Absence is whole-module here —

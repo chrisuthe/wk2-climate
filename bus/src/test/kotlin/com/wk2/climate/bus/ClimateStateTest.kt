@@ -27,7 +27,8 @@ class ClimateStateTest {
         assertFalse(s.acOn)
         assertFalse(s.autoOn)
         assertFalse(s.powerOn)
-        assertFalse(s.isNight)
+        // Illumination is the one nullable flag: absent is not "day".
+        assertNull(s.isNight)
     }
 
     @Test
@@ -117,12 +118,17 @@ class ClimateStateTest {
         assertEquals(SeatLevel.OFF, s.seatHeatL)
         assertFalse(s.wheelHeatOn)
         assertEquals(10, s.volume)
-        assertFalse("illumination 0 is day", s.isNight)
+        assertEquals("illumination 0 is day", false, s.isNight)
     }
 
     @Test
-    fun `illumination one is night`() {
-        assertTrue(ClimateState.EMPTY.with(Signal.ILLUMINATION, 1).isNight)
+    fun `illumination tells absent from zero from one`() {
+        // The whole point of it being nullable. An absent illumination must be
+        // distinguishable from a reported zero, because the palette treats the
+        // two differently: unknown renders NIGHT, a reported zero renders DAY.
+        assertNull("never reported", ClimateState.EMPTY.isNight)
+        assertEquals("reported 0 is day", false, ClimateState.EMPTY.with(Signal.ILLUMINATION, 0).isNight)
+        assertEquals("reported 1 is night", true, ClimateState.EMPTY.with(Signal.ILLUMINATION, 1).isNight)
     }
 
     @Test

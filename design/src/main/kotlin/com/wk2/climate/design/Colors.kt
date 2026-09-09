@@ -83,7 +83,25 @@ data class Palette(
             trackEnd           = Color(0xFFBC4527),
         )
 
-        fun forNight(isNight: Boolean): Palette = if (isNight) NIGHT else DAY
+        /**
+         * The palette for a reported illumination — and for an unreported one.
+         *
+         * **An unknown illumination selects [NIGHT].** `null` means the
+         * vehicle has never told us: `ILLUMINATION` only changes when the
+         * headlights switch, so a cold start at night with the lights already
+         * on is exactly the case that is never pushed, and the old
+         * `Boolean`-only signature collapsed that into [DAY].
+         *
+         * The consequences are asymmetric, which is what decides it. Too dark
+         * a bar is a nuisance the driver resolves by looking at it. A
+         * full-brightness white bar at night in a moving vehicle is a
+         * genuine hazard. So the default takes the safer side.
+         *
+         * This is a *rendering policy applied to an absent reading* — nothing
+         * anywhere synthesises an illumination value, and `ClimateState`
+         * still reports `null`. Do not "fix" this back to `?: false`.
+         */
+        fun forNight(isNight: Boolean?): Palette = if (isNight == false) DAY else NIGHT
     }
 }
 

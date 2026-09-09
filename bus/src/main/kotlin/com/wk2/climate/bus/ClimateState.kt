@@ -112,8 +112,21 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
     // ---- derived: other modules ----
     val volume: Int? get() = raw[Signal.VOLUME]
 
-    /** Day/night follows the vehicle's illumination signal, never a clock. */
-    val isNight: Boolean get() = flag(Signal.ILLUMINATION)
+    /**
+     * Day/night follows the vehicle's illumination signal, never a clock —
+     * and `null` when the vehicle has never reported it.
+     *
+     * The one nullable flag, on purpose. [flag] collapses absent into `false`,
+     * which for illumination means an unreported signal reads as *day*:
+     * `ILLUMINATION` only changes when the headlights switch, so a cold start
+     * at night with the lights already on is precisely the case that never
+     * gets pushed. What the palette does with `null` is a rendering policy and
+     * belongs where the palette is chosen — `Palette.forNight` in `:design`.
+     *
+     * Every other flag stays non-null: absence there is the whole CANBUS
+     * module being quiet, which [hasClimateData] already carries in one place.
+     */
+    val isNight: Boolean? get() = raw[Signal.ILLUMINATION]?.let { it == 1 }
 
     private fun flag(signal: Signal): Boolean = raw[signal] == 1
 
