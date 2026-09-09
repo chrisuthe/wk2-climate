@@ -2,4 +2,20 @@
 <resources>
     <string name="app_name">WK2 Climate</string>
     <string name="service_description">Draws the replacement climate and navigation bar over the factory bar, and provides its Home and Back actions.</string>
+
+    <!--
+      Setup screen copy. Typographic characters are numeric character
+      references rather than literal UTF-8: string literals in this project
+      have been mangled repeatedly by shell round-trips, and unlike a comment
+      a mangled literal ships to the screen. &#8594; arrow, &#8220;&#8221;
+      quotes, &#8212; em dash.
+    -->
+    <string name="setup_enabled_title">Climate bar is active</string>
+    <string name="setup_enabled_body">The bar has replaced the factory one at the bottom of the screen. To turn it off, disable this service under Settings &#8594; Accessibility &#8212; the factory bar comes straight back.</string>
+
+    <string name="setup_disabled_title">Not enabled yet</string>
+    <string name="setup_disabled_body">Enable &#8220;WK2 Climate&#8221; under Settings &#8594; Accessibility. If Android warns about a restricted setting, open App info for this app, choose &#8220;Allow restricted settings&#8221; from its menu, then try again.</string>
+
+    <string name="setup_nosettings_title">Cannot open Settings</string>
+    <string name="setup_nosettings_body">This ROM has no accessibility settings screen, so the service has to be enabled over adb. Append this service to enabled_accessibility_services &#8212; append, never overwrite, or the services already listed will stop working.</string>
 </resources>

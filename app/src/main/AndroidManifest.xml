@@ -11,6 +11,21 @@
         android:label="@string/app_name"
         android:allowBackup="false">
 
+        <!-- The only activity. It exists to deep-link to the accessibility
+             screen, because the bar cannot enable itself: the capability is
+             granted by the user in Settings and nothing else. See
+             SetupActivity. -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".ClimateBarService"
             android:exported="true"

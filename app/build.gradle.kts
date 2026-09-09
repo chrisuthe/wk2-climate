@@ -87,6 +87,7 @@ kotlin {
 
 dependencies {
     implementation(project(":ui"))
+    implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.kotlinx.coroutines.android)
