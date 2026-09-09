@@ -10,6 +10,9 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,6 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
@@ -332,6 +337,19 @@ class ClimateBarService : AccessibilityService() {
      * unconditionally. `destroy()` rather than `hide()`: the host is never
      * reused, so its lifecycle must reach DESTROYED and its ViewModel store
      * must be cleared, or every open leaks one.
+     *
+     * The close is **not** animated, and that asymmetry is deliberate. Every
+     * exit route ends here -- CLOSE, [onKeyEvent]'s BACK, [hidePanelAndBar] on
+     * a dead bus, [teardown] on unbind -- and the last two must remove a
+     * trusted overlay covering the whole app area *now*, not after a frame
+     * budget. Reversing the entrance would mean deferring `destroy()` until an
+     * animation finished, which either leaves those two routes with a second,
+     * immediate path (so the exit is inconsistent anyway) or delays handing
+     * the screen back during exactly the failure this file exists to handle.
+     * It would also swallow a CLIMATE tap landing inside those 220ms, since
+     * [openPanel]'s double-open guard would still see a live `panelHost`. The
+     * spec asks for the entrance by name and direction; nothing depends on a
+     * reverse, so the page simply goes.
      */
     private fun closePanel() {
         panelHost?.destroy()
@@ -342,11 +360,50 @@ class ClimateBarService : AccessibilityService() {
     private fun PanelContent() {
         val state by bus.state.collectAsState()
 
+        // Screen 1d's entrance: 220ms ease-out translate-Y, the only animation
+        // on this screen. Nothing fades and no *value* animates -- no numeral,
+        // tile fill or readout is interpolated anywhere in this project, and a
+        // grep for the state-animation and crossfade APIs must stay empty --
+        // only this one vertical offset.
+        //
+        // Translated inside the Compose tree, never by moving the window:
+        // driving `LayoutParams.y` through `updateViewLayout` once a frame is
+        // expensive and janky on this hardware. `graphicsLayer` re-draws a
+        // layer at an offset without re-measuring or recomposing anything, and
+        // its `size` is the page's own height -- so the page starts exactly one
+        // page below its resting place, which is what "slides up over app
+        // content" means whatever height the window turns out to have.
+        //
+        // Keyed on `Unit`, which here means once per composition. The panel's
+        // composition is created by `ComposeOverlayHost.show()` and disposed by
+        // [closePanel], so one open is exactly one run. That matters because
+        // vehicle state streams continuously: `bus.state` recomposes this
+        // function many times a second, and an effect keyed on anything that
+        // moves would restart the slide mid-flight or re-slide the page under
+        // the driver's finger. A reopen is a *new* composition, so the entrance
+        // plays again then, which is correct.
+        //
+        // `Animatable` driven from a `LaunchedEffect` rather than
+        // `rememberCoroutineScope`: the effect's coroutine is a structured
+        // child of this composition, so removing the window cancels it. No
+        // animation can outlive the panel.
+        val slide = remember { Animatable(1f) }
+        LaunchedEffect(Unit) {
+            slide.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(Dimens.PANEL_TRANSITION_MS, easing = EaseOut),
+            )
+        }
+
         ClimatePanel(
             state = state,
             outsideF = outsideF(state),
             onCommand = { bus.send(it) },
             onClose = { closePanel() },
+            // On `ClimatePanel`'s own modifier parameter, not a wrapper: it
+            // adds no layout node, so the footer-pinning `BoxWithConstraints`
+            // still measures against the window's own bounded constraints.
+            modifier = Modifier.graphicsLayer { translationY = slide.value * size.height },
         )
     }
 
