@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +26,7 @@ import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.Glyph
 import com.wk2.climate.ui.GlyphIcon
+import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
@@ -81,20 +81,17 @@ fun BarTopRow(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier
-                    .size(19.dp)
-                    .then(
-                        when {
-                            // Never filled while indeterminate, and the ring
-                            // drops to faint ink rather than staying warm: a
-                            // warm ring is the resting look of a control we
-                            // know to be off.
-                            !live -> Modifier.border(2.5.dp, palette.inkFaint, CircleShape)
-                            wheelOn -> Modifier.background(palette.warm, CircleShape)
-                            else -> Modifier.border(2.5.dp, palette.warm, CircleShape)
-                        },
-                    ),
+            // A filled glyph, so the three states are the tint alone -- see
+            // WheelHeatGlyph. Warm only when it is actually heating; neutral
+            // ink when we know it is off; faint when we have been told
+            // nothing.
+            WheelHeatGlyph(
+                tint = when {
+                    !live -> palette.inkFaint
+                    wheelOn -> palette.warm
+                    else -> palette.ink
+                },
+                size = 24.dp,
             )
             Spacer(Modifier.width(9.dp))
             BasicText(

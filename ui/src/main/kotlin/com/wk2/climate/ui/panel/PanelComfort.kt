@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import com.wk2.climate.bus.SeatLevel
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
+import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
@@ -210,19 +210,16 @@ private fun HeatedWheel(palette: Palette, live: Boolean, on: Boolean, onClick: (
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(26.dp)
-                .then(
-                    when {
-                        // Faint ink, not warm: a warm ring is the resting look
-                        // of a control we know to be off. Same choice, same
-                        // token, as the bar's 19dp wheel glyph.
-                        !live -> Modifier.border(3.dp, palette.inkFaint, CircleShape)
-                        on -> Modifier.background(palette.warmBright, CircleShape)
-                        else -> Modifier.border(3.dp, palette.warmBright, CircleShape)
-                    },
-                ),
+        WheelHeatGlyph(
+            // Tint-only states, same reasoning as the bar's glyph: warm only
+            // when it is heating, neutral ink when we know it is off, faint
+            // when we have been told nothing. See WheelHeatGlyph.
+            tint = when {
+                !live -> palette.inkFaint
+                on -> palette.warmBright
+                else -> palette.ink
+            },
+            size = 30.dp,
         )
         Spacer(Modifier.width(14.dp))
         BasicText(
