@@ -40,8 +40,39 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         _state.value = _state.value.with(signal, value)
     }
 
+    /**
+     * Replace the whole snapshot, as an ignition cycle does.
+     *
+     * `ClimateState.EMPTY` is the only way to reach the cold-start case from a
+     * running harness: bound and connected, with the vehicle having reported
+     * nothing. [inject] cannot get there — it only ever adds.
+     */
+    fun replace(state: ClimateState) {
+        _state.value = state
+    }
+
     fun setConnected(value: Boolean) {
         _connected.value = value
+    }
+
+    private var _refreshes = 0
+
+    /** How many times [refresh] has been asked for. Lets a test assert on the schedule. */
+    val refreshes: Int get() = _refreshes
+
+    /**
+     * Counts the request and reports nothing new.
+     *
+     * Deliberately **not** a replay: this fake's state is already whatever it
+     * was constructed with, so re-emitting it would prove that a refresh
+     * populates a bar that was never empty. The interesting case is
+     * `FakeVehicleBus(ClimateState.EMPTY)`, where refreshing changes nothing —
+     * which is exactly what re-registration does when the MCU is reporting no
+     * climate frames, and the case the retry has to give up on. Use [inject]
+     * to model a vehicle that does answer.
+     */
+    override fun refresh() {
+        _refreshes++
     }
 
     override fun send(command: Command) {

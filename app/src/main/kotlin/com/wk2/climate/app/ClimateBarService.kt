@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
+import com.wk2.climate.bus.RefreshRetry
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
@@ -30,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -82,6 +84,10 @@ class ClimateBarService : AccessibilityService() {
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also {
             scope = it
             it.launch { followBus() }
+            // The *same* scope, so teardown() cancels this with everything
+            // else. A second scope, or a coroutine launched anywhere it could
+            // outlive this connection, is the bug this file exists to prevent.
+            it.launch { nagForClimateData() }
         }
     }
 
@@ -114,6 +120,60 @@ class ClimateBarService : AccessibilityService() {
      */
     private suspend fun followBus() {
         followConnection(bus.connected, BUS_GRACE_MS, ::showBar, ::hideBar)
+    }
+
+    /**
+     * Forces the vendor service to report climate state after a cold start.
+     *
+     * Registration subscribes to *changes* only. On an ignition cycle the head
+     * unit restarts, this process comes up with an empty state map, all 20
+     * climate codes register successfully — and nothing arrives until the
+     * driver moves something. That is exactly what the owner hit: blank
+     * temperatures and a bar that read as a powered-off HVAC until a `+`
+     * press produced the first change.
+     *
+     * `SyuVehicleBus.seedAll()` already asks directly via `IRemoteModule.get`
+     * on connect, and is kept: it is correct against the vendor contract and
+     * costs about 5ms. But measured on the vehicle with the ignition **off**
+     * it returned `seeded 0/20` with no exception, so whether it answers with
+     * the engine running is unknown. This is the second, independent attempt —
+     * the OEM's own `Registrar.notify()`, which is nothing but a
+     * re-registration.
+     *
+     * Waits for the connection first: re-registering before any module is
+     * bound would do nothing. A bus that never connects leaves this suspended
+     * until [teardown] cancels the scope, which is correct — there is nothing
+     * to refresh, and `ConnectionGate` has already pulled the bar.
+     *
+     * The schedule and the stopping rule are [RefreshRetry.refreshUntilData],
+     * kept in `:bus` so they are provable with virtual time rather than only
+     * on a vehicle whose ignition has just been cycled. This is the Android
+     * wiring: which flow to wait on, what a refresh is, and what to log.
+     */
+    private suspend fun nagForClimateData() {
+        bus.connected.first { it }
+        var attempt = 0
+        val total = RefreshRetry.DEFAULT_DELAYS_MS.size
+        RefreshRetry.refreshUntilData(
+            hasData = { bus.state.value.hasClimateData },
+            refresh = {
+                attempt++
+                // One line per attempt, never per signal: this unit's main log
+                // ring buffer is 256 KiB and wraps in well under a minute.
+                Log.i(TAG, "no climate data yet — re-registering, attempt $attempt/$total")
+                bus.refresh()
+            },
+        )
+        if (bus.state.value.hasClimateData) {
+            Log.i(TAG, "climate data present after $attempt re-registration(s)")
+        } else {
+            Log.w(
+                TAG,
+                "still no climate data after $attempt re-registration(s) — the bar is " +
+                    "showing an indeterminate state and waits for the vehicle to report " +
+                    "a change. Expected with the ignition off.",
+            )
+        }
     }
 
     private fun showBar() {

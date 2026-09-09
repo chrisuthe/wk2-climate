@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wk2.climate.bus.AdaptiveSlot
+import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
 import com.wk2.climate.bus.Signal
@@ -140,6 +141,13 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             item { Mono("power       ${state.powerOn}", palette.ink) }
             item { Mono("volume      ${state.volume}", palette.ink) }
             item { Mono("night       ${state.isNight}", palette.ink) }
+            item {
+                Mono(
+                    "climateData ${state.hasClimateData}",
+                    if (state.hasClimateData) palette.ink else palette.warm,
+                )
+            }
+            item { Mono("refreshes   ${bus.refreshes}", palette.ink) }
             item { Mono("--- adaptive slot ---", palette.inkMuted) }
             item { Mono("outside     ${outsideF ?: "undecoded (null)"}", palette.ink) }
             item { Mono("slot holds  $slotContent", palette.accent) }
@@ -173,6 +181,15 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             }
             Key("DROP", palette) { bus.setConnected(!connected) }
             Key("BAR", palette) { showBar = true }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The cold-start case the emulator cannot otherwise reach: a bound
+            // bus that has reported no climate signal at all. BLANK drops the
+            // whole state map so screen 2a can be seen rendering indeterminate;
+            // BASE puts the measured vehicle baseline back.
+            Key("BLANK", palette) { bus.replace(ClimateState.EMPTY) }
+            Key("BASE", palette) { bus.replace(FakeVehicleBus.VEHICLE_BASELINE) }
+            Key("REFRESH", palette) { bus.refresh() }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Key("COLD", palette) { scrub(20) }

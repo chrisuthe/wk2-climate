@@ -123,7 +123,21 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
 
     // ---- IRemoteModule.register(cb, code, flag) = txn 3 ----
 
-    private fun registerAll() {
+    /**
+     * Registers one callback per module against every code in that module.
+     *
+     * [verbose] is on for the connect-time call, whose `module 7: registered
+     * 20/20 codes` line is the only positive evidence that the bus came up.
+     * [refresh] turns it off: it runs up to four times in the first eight
+     * seconds, and this unit's main log ring buffer is 256 KiB and wraps in
+     * well under a minute, so a refresh must not spend it on lines that say
+     * the same thing the connect line already said.
+     *
+     * Returns the number of codes that failed, so a quiet caller can still
+     * report a problem.
+     */
+    private fun registerAll(verbose: Boolean = true): Int {
+        var failed = 0
         for ((module, binder) in modules) {
             val callback = callbacks.getOrPut(module) { ModuleCallback(module) }
             val signals = Signal.inModule(module)
@@ -132,11 +146,34 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
                 if (runCatching { register(binder, callback, signal.code) }.isSuccess) {
                     ok++
                 } else {
-                    Log.w(TAG, "register failed for $signal")
+                    failed++
+                    if (verbose) Log.w(TAG, "register failed for $signal")
                 }
             }
-            Log.i(TAG, "module $module: registered $ok/${signals.size} codes")
+            if (verbose) Log.i(TAG, "module $module: registered $ok/${signals.size} codes")
         }
+        return failed
+    }
+
+    /**
+     * The OEM's `notify()` mechanism: re-register the same callbacks.
+     *
+     * `Registrar.notify(int... codes)` in the decompiled vendor code does
+     * nothing else, so re-registration *is* their refresh primitive. Reuses
+     * the existing [ModuleCallback] per module from [callbacks], so no
+     * duplicate callbacks accumulate and the vendor service is being handed
+     * exactly the binder it already holds.
+     *
+     * Logs nothing on success — the caller logs the attempt, and this runs
+     * repeatedly on a log buffer that wraps in seconds.
+     */
+    override fun refresh() {
+        if (modules.isEmpty()) {
+            Log.w(TAG, "refresh: no modules bound, nothing to re-register")
+            return
+        }
+        val failed = registerAll(verbose = false)
+        if (failed > 0) Log.w(TAG, "refresh: $failed codes failed to re-register")
     }
 
     private fun register(module: IBinder, callback: ModuleCallback, code: Int) {

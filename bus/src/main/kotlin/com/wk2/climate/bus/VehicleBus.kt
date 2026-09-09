@@ -21,4 +21,18 @@ interface VehicleBus {
 
     /** Dispatch a write. Never update [state] optimistically in response. */
     fun send(command: Command)
+
+    /**
+     * Ask the vehicle to report current values again.
+     *
+     * Registration subscribes to *changes* only, so a client that comes up
+     * while the vehicle is quiet — every ignition cycle — sees nothing until
+     * something moves. The OEM's own remedy is re-registration: their
+     * `Registrar.notify(int... codes)` does nothing but register the same
+     * callback for those codes again. So this is a push request, not a read:
+     * values arrive through [state] as ordinary updates, or not at all.
+     *
+     * Cheap and idempotent. [RefreshRetry] owns when to call it.
+     */
+    fun refresh()
 }
