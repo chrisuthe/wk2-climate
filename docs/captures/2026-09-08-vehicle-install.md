@@ -405,3 +405,49 @@ precedes it.
 
 Deliberately not chosen unilaterally: option 1 changes what the app puts on the
 owner's screen.
+
+### The vendor-whitelist route is closed, and why
+
+The owner found a setting called **"Control custom application"**, sitting
+beside "navi app" and "voice app", currently unset — and reported no per-app
+power-saving settings anywhere on the unit.
+
+It cannot help us, for a reason that matters more than the setting does:
+
+```
+cmd package query-activities --brief -a android.intent.action.MAIN     -c android.intent.category.LAUNCHER   ->  no com.wk2.climate
+```
+
+**Our app has no activity at all.** No launcher entry, no launchable component,
+so it is absent from every app picker on the device including that one.
+
+That absence is also the mechanism of the problem. `PowerController.RecogA`
+weighs `mFgEvent`, `mLastLaunchTime`, `mProcState` and `mNotificationState`. An
+app with no launchable component can never generate a launch or foreground
+event, so **every input that classifier uses to decide an app matters reads zero
+for us, permanently.** We are not a borderline case it happens to misjudge; we
+are the exact profile a background cleaner is built to reap.
+
+("Control custom application" is most likely a hardware-key binding —
+`com.syu.steer` is installed and FYT units have a custom steering-wheel key —
+rather than power management. But the existence of a vendor "designated app"
+concept is consistent with the classifier's `mHasNoClearNotificationWhenNavi`
+field.)
+
+### Decision: wait for the capture before building anything
+
+Owner's call, and the right one. The two candidate fixes — a foreground service
+with an ongoing notification, and adding a launcher activity — are both
+inferred from **log field names**, not from an observed cause. The
+`deviceidle` whitelist already applied may be sufficient on its own.
+
+So: change nothing, let the next ignition cycle produce the actual `forceStop`
+line, and build against evidence. Cost is one cycle where the bar may disappear
+again, against the alternative of putting a permanent notification on the
+owner's head unit to fix something we have not yet proven.
+
+**What to read from the capture next session:** grep
+`/sdcard/wk2-persist.log*` for `forceStop`, `Force stopping`, `BgClean`,
+`CHECK_APPSTATE` and `com.wk2.climate`, and establish (a) what killed it,
+(b) whether the `deviceidle` whitelist changed anything, and (c) whether the
+kill happens at ignition-off, during the off period, or at ignition-on.
