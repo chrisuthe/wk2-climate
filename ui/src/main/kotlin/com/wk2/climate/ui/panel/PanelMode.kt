@@ -38,6 +38,13 @@ import com.wk2.climate.ui.target
  * selected as far as we have been told", a filled one would say "the vehicle
  * told us this is on". The tiles stay tappable: pressing one is what makes the
  * vehicle report.
+ *
+ * Lighting nothing is only half of it. An unlit outlined tile at full-strength
+ * ink is indistinguishable from a tile we *know* to be off, which is the bug
+ * the owner reported against the bar -- a confident "everything off" from a
+ * vehicle that had said nothing. So while [live] is false the ink drops to
+ * [Palette.inkMuted] too, exactly as `BarTopRow` does it, and the grid reads
+ * as not-yet-live rather than as a working display of zeros.
  */
 @Composable
 fun PanelMode(
@@ -53,19 +60,19 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = live && state.autoOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.autoOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.AUTO) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = live && state.acOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.acOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("A/C", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = live && state.recircOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.recircOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.RECIRC) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -77,7 +84,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = live && state.maxAcOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.maxAcOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.MAX_AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
@@ -90,7 +97,7 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = live && state.frontDefrostOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.frontDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -102,7 +109,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = live && state.rearDefrostOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.rearDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.REAR_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -117,7 +124,7 @@ fun PanelMode(
             // target on this page falls below 96dp. It drives U_AIR_SYNC; the
             // factory label says DUAL, which is why DUAL is the sub-label.
             ModeTile(
-                palette, active = live && state.syncOn, height = Dimens.modeTileHeight,
+                palette, live, on = state.syncOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.SYNC) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -134,10 +141,18 @@ fun PanelMode(
     }
 }
 
+/**
+ * One mode tile.
+ *
+ * [on] is what the vehicle reported; [live] is whether it has reported at all.
+ * The two are combined here rather than at the call sites so there is one gate
+ * per tile and no way to fill from a flag whose `false` only means "silent".
+ */
 @Composable
 private fun ModeTile(
     palette: Palette,
-    active: Boolean,
+    live: Boolean,
+    on: Boolean,
     height: Dp,
     activeFill: Color,
     activeInk: Color,
@@ -145,6 +160,7 @@ private fun ModeTile(
     modifier: Modifier = Modifier,
     content: @Composable (ink: Color) -> Unit,
 ) {
+    val active = live && on
     val (interaction, pressed) = rememberPressState()
     val shape = RoundedCornerShape(Dimens.radiusTile)
     Box(
@@ -160,6 +176,14 @@ private fun ModeTile(
             .target(interaction, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        content(if (active) activeInk else palette.inkDim)
+        content(
+            when {
+                active -> activeInk
+                // Muted, not dim: a full-strength unlit tile reads as a tile
+                // we know to be off.
+                !live -> palette.inkMuted
+                else -> palette.inkDim
+            },
+        )
     }
 }

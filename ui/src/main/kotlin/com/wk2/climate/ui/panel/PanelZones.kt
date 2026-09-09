@@ -39,9 +39,22 @@ import com.wk2.climate.ui.holdRepeatTarget
 import com.wk2.climate.ui.rememberPressState
 import java.util.Locale
 
+/**
+ * The two temperature zones.
+ *
+ * [live] is false until the vehicle has reported a climate signal. The
+ * numerals are already honest in that case -- an absent setpoint is
+ * [Temp.Unavailable] and renders as an em dash -- but full-strength ink makes
+ * a dash read as a considered value, so the readout drops to muted ink. This
+ * is the same wording and the same token as `BarZones`, deliberately. The
+ * zone labels are section-header style and stay as they are: they name a
+ * region of the cabin and assert nothing about the climate system. The
+ * steppers stay live too -- pressing one is what forces the vehicle to report.
+ */
 @Composable
 fun PanelZones(
     palette: Palette,
+    live: Boolean,
     driver: Temp,
     passenger: Temp,
     onDriverDown: () -> Unit,
@@ -51,9 +64,10 @@ fun PanelZones(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth()) {
-        Zone(palette, "DRIVER", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
+        Zone(palette, live, "DRIVER", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
         Zone(
             palette,
+            live,
             "PASSENGER",
             passenger,
             onPassengerDown,
@@ -66,6 +80,7 @@ fun PanelZones(
 @Composable
 private fun Zone(
     palette: Palette,
+    live: Boolean,
     label: String,
     temp: Temp,
     onDown: () -> Unit,
@@ -97,7 +112,7 @@ private fun Zone(
             // steppers have claimed their fixed 110dp.
             ZoneStepper(palette, "\u2212", palette.cool, palette.coolBright, onDown)
             BasicText(
-                text = zoneText(temp, palette),
+                text = zoneText(temp, palette, live),
                 style = Type.zoneValueLarge,
                 modifier = Modifier.weight(1f, fill = false),
             )
@@ -139,11 +154,15 @@ private fun ZoneStepper(
  * Sentinels never render as a number: [Temp.Lo] and [Temp.Hi] render as
  * `"LOW"` / `"HIGH"`, matching what screen 2a's bar already renders for this
  * vehicle profile, and [Temp.Unavailable] renders as an em dash.
+ *
+ * With no climate data at all the ink is muted rather than full strength, so
+ * the whole climate area reads as not-yet-live instead of as a working display
+ * that happens to have nothing in it.
  */
 @Composable
-private fun zoneText(temp: Temp, palette: Palette): AnnotatedString =
+private fun zoneText(temp: Temp, palette: Palette, live: Boolean): AnnotatedString =
     buildAnnotatedString {
-        withStyle(SpanStyle(color = palette.ink)) {
+        withStyle(SpanStyle(color = if (live) palette.ink else palette.inkMuted)) {
             when (temp) {
                 is Temp.Degrees -> {
                     append(

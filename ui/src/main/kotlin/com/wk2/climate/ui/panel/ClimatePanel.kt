@@ -37,11 +37,27 @@ fun ClimatePanel(
     // Absence is whole-module here — CANBUS silent — so per-flag nullability
     // would carry no more information.
     //
-    // Only the two sections that read collapsing booleans need it. The rest
-    // are honest by construction: the zones and the fan model absence as
-    // Temp.Unavailable / Fan.Unavailable, the seat tiles as
-    // SeatLevel.UNAVAILABLE, AirflowMode has explicit NONE/UNKNOWN states that
-    // light nothing, and the header hides its status line on a null reading.
+    // It does two things, and both matter. Nothing is *lit* from a flag whose
+    // `false` only means "the vehicle has said nothing" — and the ink of every
+    // control that makes a claim about the climate system drops to muted, so
+    // the page reads as not-yet-live rather than as a working display of
+    // zeros. Lighting nothing on its own is not enough: an unlit outlined tile
+    // at full-strength ink is exactly what a tile we *know* to be off looks
+    // like, which is the bug the owner reported against the bar.
+    //
+    // This is a rendering policy applied to a known-absent reading. Nothing
+    // here synthesises a value — the sections that model absence honestly
+    // (Temp.Unavailable, Fan.Unavailable, SeatLevel.UNAVAILABLE,
+    // AirflowMode.UNKNOWN) keep doing so, and `live` only changes how loudly
+    // that absence is drawn.
+    //
+    // Deliberately *not* gated: the CLOSE button, which must stay fully
+    // legible so the driver can always leave the page; the footer and its
+    // HOLD · OFF control; the section headers and zone labels; and the header's
+    // OUT reading, which arrives on MAIN rather than CANBUS and so is live
+    // even while the climate module is silent. None of them asserts anything
+    // about the climate system. PanelFan needs no gate either: its unavailable
+    // readout is already drawn in inkFaint.
     val live = state.hasClimateData
 
     Column(
@@ -65,6 +81,7 @@ fun ClimatePanel(
         ) {
             PanelZones(
                 palette = palette,
+                live = live,
                 driver = state.tempLeft,
                 passenger = state.tempRight,
                 onDriverDown = { onCommand(Command.TEMP_L_DOWN) },
@@ -84,7 +101,12 @@ fun ClimatePanel(
         }
 
         PanelSection(palette = palette, header = "AIRFLOW \u2014 FOUR MODES, DIRECT") {
-            PanelAirflow(palette = palette, mode = state.airflow, onSelect = onCommand)
+            PanelAirflow(
+                palette = palette,
+                live = live,
+                mode = state.airflow,
+                onSelect = onCommand,
+            )
         }
 
         PanelSection(palette = palette, header = "MODE") {

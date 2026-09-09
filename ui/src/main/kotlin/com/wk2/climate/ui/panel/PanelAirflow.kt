@@ -33,10 +33,17 @@ import com.wk2.climate.ui.target
  * up to four times to land on a mode; this never does.
  *
  * Icon-only by design — no text labels.
+ *
+ * [live] is false until the vehicle has reported a climate signal. Nothing is
+ * lit in that case already — an unreported airflow is [AirflowMode.UNKNOWN],
+ * which is not in [AirflowMode.selectable] — but four full-strength glyphs
+ * read as four modes we have been told are unselected, so the inactive tint
+ * drops to muted ink alongside the rest of the page's climate controls.
  */
 @Composable
 fun PanelAirflow(
     palette: Palette,
+    live: Boolean,
     mode: AirflowMode,
     onSelect: (Command) -> Unit,
     modifier: Modifier = Modifier,
@@ -48,6 +55,7 @@ fun PanelAirflow(
         AirflowMode.selectable.forEach { candidate ->
             AirflowTile(
                 palette = palette,
+                live = live,
                 active = candidate == mode,
                 res = candidate.glyphRes(),
                 glyphHeight = candidate.glyphHeight(),
@@ -61,6 +69,7 @@ fun PanelAirflow(
 @Composable
 private fun AirflowTile(
     palette: Palette,
+    live: Boolean,
     active: Boolean,
     res: Int,
     glyphHeight: Dp,
@@ -85,7 +94,11 @@ private fun AirflowTile(
         // One asset per glyph; active vs inactive is a tint, not a different file.
         GlyphIcon(
             res = res,
-            tint = if (active) palette.accentInk else palette.ink,
+            tint = when {
+                active -> palette.accentInk
+                !live -> palette.inkMuted
+                else -> palette.ink
+            },
             height = glyphHeight,
         )
     }

@@ -63,7 +63,20 @@ data class Palette(
 
         val DAY = Palette(
             surface            = Color(0xFFECEAE6),
-            surfaceRaised      = Color(0xFFFFFFFF),
+            // rgba(0,0,0,.05) -- the *opposite polarity* of night's
+            // rgba(255,255,255,.05), not the same value.
+            //
+            // The handoff's token is an **overlay**, not a colour: a 5% white
+            // wash recesses a panel on a dark ground and glares on a light
+            // one. This was once opaque `#ffffff`, which inverted the intended
+            // depth -- the fan meter and the four seat tiles rendered as the
+            // brightest cards on the page instead of as recessed insets. Read
+            // the handoff's day column (README "Inset strip" row) as flipping
+            // the overlay's polarity, and never as reusing night's literal.
+            //
+            // `surface-card #ffffff` in README's day token list names a token
+            // this UI has no equivalent of -- nothing on 1d or 2a is a card.
+            surfaceRaised      = Color(0x0D000000),   // rgba(0,0,0,.05)
             surfaceInset       = Color(0x0D000000),   // rgba(0,0,0,.05)
             ink                = Color(0xFF16181A),
             inkDim             = Color(0xCC16181A),
