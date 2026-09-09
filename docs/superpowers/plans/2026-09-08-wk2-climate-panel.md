@@ -1062,19 +1062,19 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = state.autoOn, height = Dimens.modeTileRow1,
+                palette, active = state.autoOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.AUTO) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = state.acOn, height = Dimens.modeTileRow1,
+                palette, active = state.acOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("A/C", style = Type.modeLabelLarge.copy(color = ink)) }
 
             ModeTile(
-                palette, active = state.recircOn, height = Dimens.modeTileRow1,
+                palette, active = state.recircOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.RECIRC) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -1086,7 +1086,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = state.maxAcOn, height = Dimens.modeTileRow1,
+                palette, active = state.maxAcOn, height = Dimens.modeTileHeight,
                 activeFill = palette.cool, activeInk = palette.surface,
                 onClick = { onCommand(Command.MAX_AC) }, modifier = Modifier.weight(1f),
             ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
@@ -1099,7 +1099,7 @@ fun PanelMode(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ModeTile(
-                palette, active = state.frontDefrostOn, height = Dimens.modeTileRow2,
+                palette, active = state.frontDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -1111,7 +1111,7 @@ fun PanelMode(
             }
 
             ModeTile(
-                palette, active = state.rearDefrostOn, height = Dimens.modeTileRow2,
+                palette, active = state.rearDefrostOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.REAR_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
@@ -1126,7 +1126,7 @@ fun PanelMode(
             // target on this page falls below 96dp. It drives U_AIR_SYNC; the
             // factory label says DUAL, which is why DUAL is the sub-label.
             ModeTile(
-                palette, active = state.syncOn, height = Dimens.modeTileRow2,
+                palette, active = state.syncOn, height = Dimens.modeTileHeight,
                 activeFill = palette.accent, activeInk = palette.accentInk,
                 onClick = { onCommand(Command.SYNC) }, modifier = Modifier.weight(1f),
             ) { ink ->

@@ -45,8 +45,16 @@ object Dimens {
     val fanStepperWidth = 104.dp
     val fanMeterHeight = 96.dp
     val airflowTileHeight = 136.dp
-    val modeTileRow1 = 104.dp
-    val modeTileRow2 = 96.dp
+    /**
+     * Both mode grids. The handoff gives them the same height — README's "Two
+     * grids, gap 14px, tiles height 104", and every tile in 1d's markup
+     * (AUTO/A/C/RECIRC/MAX A/C and FRONT DEF/REAR DEF/SYNC) is `height:104px`.
+     *
+     * This was two constants, and the second held 96, so the lower grid drew
+     * 8dp short. One name for one measurement: two names for the same value is
+     * how the wrong one hid.
+     */
+    val modeTileHeight = 104.dp
     val comfortTileHeight = 96.dp
     val holdOffWidth = 180.dp
 
