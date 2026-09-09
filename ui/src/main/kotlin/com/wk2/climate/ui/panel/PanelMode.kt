@@ -25,6 +25,7 @@ import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
 import com.wk2.climate.ui.Glyph
 import com.wk2.climate.ui.GlyphIcon
+import com.wk2.climate.ui.RearDefrostGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
@@ -114,7 +115,7 @@ fun PanelMode(
                 onClick = { onCommand(Command.REAR_DEFROST) }, modifier = Modifier.weight(1f),
             ) { ink ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RearDefrostGlyph(tint = ink)
+                    RearDefrostGlyph(tint = ink, size = 40.dp)
                     Spacer(Modifier.width(10.dp))
                     BasicText("REAR DEF", style = Type.modeLabelTiny.copy(color = ink))
                 }
