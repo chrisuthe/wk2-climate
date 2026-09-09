@@ -121,9 +121,8 @@ the meanings do not.
 - **A profile is a source of known-correct starting values, not a capability
   map.** Trust what it declares. Infer nothing from what it omits.
 - **Never pool across profiles**, including siblings sharing a prefix.
-- **The user must identify their vehicle.** Whether the selected canbus profile
-  is readable at runtime is still unknown; if it is not, a picker over 228 entries
-  is the fallback.
+- **The vehicle does not need to be asked for.** The canbus id is a readable
+  signal - see below - so profile selection is automatic. No picker.
 - **Everything a profile omits still needs sweeping**, which is the part that
   cannot be automated safely - `CLIMATE_POWER` is in that space, and on a vehicle
   with no physical HVAC controls a mis-sent index has no undo.
@@ -137,3 +136,65 @@ Reproduce with:
 ```
 python tools/extract-air-profiles.py <jadx-out>/sources/com/syu/air/canbus docs/data/air-command-tables.json
 ```
+
+---
+
+## The vehicle identifies itself: module 7, read code 1000
+
+The open question above - whether the selected profile is discoverable at
+runtime - is answered in `CarPx3`, and the answer is yes, over the IPC we
+already use:
+
+```java
+sCodes[sIndex] = 1000;
+this.mTools.enableModule(7, sCodes);
+// ...
+case 1000:
+    if (JTools.check(ints, 0) && this.mCurrCanbus != ints[0]) {
+        this.mCurrCanbus = ints[0];
+        this.mAir = AirFactory.create(this.mContext, this.mCurrCanbus, instance);
+        this.mContext.startService(new Intent("com.syu.air.AirService"));
+    }
+```
+
+**Module 7, read code 1000, `ints[0]`.** The same module and the same
+registration mechanism as every `U_AIR_*` code we already consume - adding it
+costs one entry in our signal set. `com.syu.air` does not query it either; it
+waits for the callback, which is consistent with registration being the only
+read path.
+
+`AirFactory.create` is then a switch mapping that id to one of **222** profile
+classes across **1200** distinct ids, extracted to
+`docs/data/air-canbus-ids.json`.
+
+### The id is a packed pair
+
+`canbus & 0xFFFF` is the base protocol and matches the four-digit number in the
+class name; `canbus >> 16` is the vehicle variant. The low-16 rule holds for
+1077 of the 1200 mappings. So `0x190176` is base 374, variant 25,
+`CAR_PA_Wrangler_18_20_Low`.
+
+### Which profile is this truck actually running?
+
+Unresolved, and the mapping makes the current assumption look wrong.
+
+`Car_0374_PA_Jeep_All` was attributed to this vehicle from `updateTemp`'s
+LOW/HIGH rendering. But it is wired to only two ids, both
+`CAR_XP1_ZiYouGuang` - a Renegade - and it declares 6 of the 19 commands we use.
+`Car_0374_PA_Jeep_Wrangler` declares 18 and agrees with the vehicle on all 18,
+and is wired to the `CAR_PA_*` family: Wrangler, RAM, Durango, GMC, Escalade.
+
+Both are consistent with what we have measured, since `_All`'s six values are a
+subset and neither conflicts. The command table points at Wrangler.
+
+**Test, next time the vehicle is online:** register module 7 code 1000 and read
+`ints[0]`. Predictions:
+
+- low 16 bits == 374
+- the variant resolves, through `air-canbus-ids.json`, to
+  `Car_0374_PA_Jeep_Wrangler` rather than `_All`
+
+If it resolves to `_All` instead, then the profile a unit runs does **not**
+bound which indices the MCU accepts - our vehicle answers 18 commands its own
+profile never sends - and the extracted tables are a floor rather than a
+contract. Either result is worth knowing; the second is the more useful.
