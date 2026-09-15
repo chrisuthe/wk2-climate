@@ -1,6 +1,8 @@
 package com.wk2.climate.app
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
@@ -28,8 +30,8 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * each call site.
  *
  * One instance owns one window. The bar keeps one alive for the life of the
- * service; the climate panel creates and destroys one on demand, so `hide()`
- * and `destroy()` are load-bearing.
+ * service; the climate panel and the seat menu each create and destroy one on
+ * demand, so `hide()` and `destroy()` are load-bearing.
  */
 class ComposeOverlayHost(private val context: Context) :
     LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
@@ -55,13 +57,44 @@ class ComposeOverlayHost(private val context: Context) :
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 
-    fun show(params: WindowManager.LayoutParams, content: @Composable () -> Unit) {
+    /**
+     * [onOutsideTouch] fires on `MotionEvent.ACTION_OUTSIDE`, which a window
+     * only receives with `FLAG_WATCH_OUTSIDE_TOUCH` set in [params]. Only the
+     * touch's DOWN is delivered, and only as this one event: the rest of the
+     * gesture goes to whatever window it landed on. That is how the seat menu
+     * dismisses on a touch anywhere else while still letting that touch do
+     * what it landed on.
+     *
+     * Wired as an `OnTouchListener` on the `ComposeView` rather than inside
+     * Compose, because an outside event has no position inside this window
+     * for Compose's pointer input to route it to. The listener returns false
+     * for every other action so Compose handles the window's own touches
+     * exactly as before. `ClickableViewAccessibility` is suppressed on that
+     * basis: nothing here consumes a click, so there is no `performClick` to
+     * call.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    fun show(
+        params: WindowManager.LayoutParams,
+        onOutsideTouch: (() -> Unit)? = null,
+        content: @Composable () -> Unit,
+    ) {
         if (view != null) return
         val composeView = ComposeView(context).apply {
             setViewTreeLifecycleOwner(this@ComposeOverlayHost)
             setViewTreeViewModelStoreOwner(this@ComposeOverlayHost)
             setViewTreeSavedStateRegistryOwner(this@ComposeOverlayHost)
             setContent { content() }
+            if (onOutsideTouch != null) {
+                setOnTouchListener { _, event ->
+                    if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                        onOutsideTouch()
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
         }
         // Must be RESUMED before attach: ComposeView will not compose while the
         // owner it found in the view tree is below STARTED.

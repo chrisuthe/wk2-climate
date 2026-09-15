@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
@@ -26,11 +27,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.RefreshRetry
+import com.wk2.climate.bus.SeatMenuLatch
+import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
+import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
+import com.wk2.climate.ui.bar.SeatMenu
+import com.wk2.climate.ui.bar.seatMenuHeight
+import com.wk2.climate.ui.bar.seatMenuX
 import com.wk2.climate.ui.panel.ClimatePanel
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
@@ -101,6 +108,39 @@ class ClimateBarService : AccessibilityService() {
      * the whole exit.
      */
     private val panelOpen = mutableStateOf(false)
+
+    /**
+     * The open seat menu's window, which exists only while a menu is open.
+     *
+     * Same lifetime story as [panelHost]: one host owns one window, created in
+     * [applySeatMenu] and discarded there too, and null means "no menu window
+     * exists". Switching sides destroys one window and creates another rather
+     * than moving the same one.
+     */
+    private var menuHost: ComposeOverlayHost? = null
+
+    /**
+     * Which menu is open and why a tap does what it does -- in particular the
+     * re-tap race, where the bar's click on the owning seat button arrives
+     * *after* the menu window has already seen the same touch as
+     * `ACTION_OUTSIDE`. See [SeatMenuLatch]; this class only feeds it events
+     * and applies what it returns.
+     *
+     * `SystemClock.elapsedRealtime()` for the latch's clock, never the wall
+     * clock: this head unit sets its clock from GPS and the network while the
+     * bar is live, and a forward sync inside the 400ms window would turn a
+     * swallowed re-tap into a reopen.
+     */
+    private val seatMenuLatch = SeatMenuLatch()
+
+    /**
+     * Which seat's menu is open, for the bar to paint that button as open.
+     *
+     * Compose state rather than a read of `menuHost`, which is a plain field
+     * the bar cannot observe -- the same reason [panelOpen] exists. Set and
+     * cleared only in [applySeatMenu], together with the window.
+     */
+    private val seatMenu = mutableStateOf<SeatSide?>(null)
 
     /**
      * The service's own scope, created in [onServiceConnected] and cancelled in
@@ -183,12 +223,16 @@ class ClimateBarService : AccessibilityService() {
      * The panel goes first so the screen is never left showing a live panel
      * over a missing bar.
      *
+     * The menu goes first: it is the topmost window and the one with the
+     * least reason to exist without a bus.
+     *
      * Nothing reopens it when the bus returns: [showBar] restores the bar, and
      * the driver reaches 1d again by tapping CLIMATE. Restoring a panel the
      * driver did not ask for, over whatever app is now in front, would be a
      * window appearing on its own.
      */
     private fun hidePanelAndBar() {
+        closeSeatMenu()
         closePanel()
         hideBar()
     }
@@ -312,6 +356,7 @@ class ClimateBarService : AccessibilityService() {
             // while the panel is up would leave our panel covering the
             // launcher.
             onHome = {
+                closeSeatMenu()
                 requestPanelClose()
                 performGlobalAction(GLOBAL_ACTION_HOME)
             },
@@ -320,10 +365,12 @@ class ClimateBarService : AccessibilityService() {
                 else performGlobalAction(GLOBAL_ACTION_BACK)
             },
             panelOpen = panelOpen.value,
-            onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
-            // Wired in the seat-menu commit; the bar paints no menu open until then.
-            seatMenuOpen = null,
-            onSeatButton = {},
+            onToggleClimate = {
+                closeSeatMenu()
+                if (panelOpen.value) requestPanelClose() else openPanel()
+            },
+            seatMenuOpen = seatMenu.value,
+            onSeatButton = ::onSeatButton,
         )
     }
 
@@ -455,6 +502,117 @@ class ClimateBarService : AccessibilityService() {
         panelHost = null
         panelClosing.value = false
         panelOpen.value = false
+    }
+
+    /** A seat button click, from the bar. */
+    private fun onSeatButton(side: SeatSide) {
+        applySeatMenu(seatMenuLatch.onButtonTap(side, SystemClock.elapsedRealtime()))
+    }
+
+    /** `ACTION_OUTSIDE` on the open menu's window. */
+    private fun onMenuOutsideTouch() {
+        applySeatMenu(seatMenuLatch.onOutsideTouch(SystemClock.elapsedRealtime()))
+    }
+
+    /**
+     * Every non-touch route to a closed menu: BACK, HOME, CLIMATE, a dead bus
+     * and teardown. Safe with no menu open.
+     */
+    private fun closeSeatMenu() {
+        applySeatMenu(seatMenuLatch.close())
+    }
+
+    /**
+     * Makes the menu window match what the latch decided: none, or one side's.
+     *
+     * The single place a menu window is ever added or removed. A different
+     * side means the old window goes and a new one is created -- there is
+     * never a second window over the first, and never one being moved.
+     *
+     * The bus check is the same one [openPanel] makes, for the same reason:
+     * **never create a window that cannot drive the vehicle.** With the bus
+     * gone our bar is already gone with it, so the factory bar is exposed and
+     * the tap that got here is dropped rather than answered with a menu whose
+     * every command would be lost. The latch is told, so it does not believe a
+     * menu is open that was never shown.
+     *
+     * `destroy()` rather than `hide()`, as for the panel: the host is never
+     * reused, so its lifecycle must reach DESTROYED and its ViewModel store
+     * must be cleared, or every open leaks one. No animation on the way in or
+     * out -- the spec shows none, and nothing in this project animates a value.
+     */
+    private fun applySeatMenu(side: SeatSide?) {
+        if (side != null && side == seatMenu.value) return
+        menuHost?.destroy()
+        menuHost = null
+        seatMenu.value = null
+        if (side == null) return
+        if (scope == null || !::bus.isInitialized || !bus.connected.value) {
+            Log.w(TAG, "seat menu ignored — no vehicle bus, so it could drive nothing")
+            seatMenuLatch.close()
+            return
+        }
+        val host = ComposeOverlayHost(this)
+        menuHost = host
+        try {
+            host.show(seatMenuWindowParams(side), onOutsideTouch = ::onMenuOutsideTouch) {
+                SeatMenuContent(side)
+            }
+            seatMenu.value = side
+        } catch (t: Throwable) {
+            Log.e(TAG, "could not add the seat menu window; the bar remains usable", t)
+            host.destroy()
+            menuHost = null
+            seatMenuLatch.close()
+        }
+    }
+
+    @Composable
+    private fun SeatMenuContent(side: SeatSide) {
+        val state by bus.state.collectAsState()
+        SeatMenu(
+            palette = Palette.forNight(state.isNight),
+            side = side,
+            state = state,
+            onCommand = { bus.send(it) },
+        )
+    }
+
+    /**
+     * The menu sits flush on top of the bar, inside the centre column, in
+     * **display** coordinates on the same basis as the bar -- so it is flush
+     * on any hardware, whatever the framework's inset says. Its top is the
+     * bar's top less the menu's own height.
+     *
+     * `FLAG_NOT_TOUCH_MODAL` so a touch outside it still reaches whatever it
+     * landed on -- AUTO toggles, the app underneath gets its tap -- and
+     * `FLAG_WATCH_OUTSIDE_TOUCH` so that same touch also tells us to close.
+     * Otherwise the bar's own flags: a trusted overlay the system does not
+     * hide during permission dialogs, not focusable, laid out in screen
+     * coordinates with no limits.
+     */
+    private fun seatMenuWindowParams(side: SeatSide): WindowManager.LayoutParams {
+        val density = resources.displayMetrics.density
+        val width = (Dimens.seatMenuWidth.value * density).roundToInt()
+        val height = (seatMenuHeight(side).value * density).roundToInt()
+        val left = (seatMenuX(side).value * density).roundToInt()
+        val top = displayHeightPx() - designBarHeightPx() - height
+        Log.i(TAG, "seat menu window ($side): x=$left y=$top ${width}x${height}px")
+        return WindowManager.LayoutParams(
+            width,
+            height,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = left
+            y = top
+        }
     }
 
     @Composable
@@ -747,6 +905,7 @@ class ClimateBarService : AccessibilityService() {
         // The panel must not outlive the service either: its window is a
         // trusted overlay over the whole app area, and nothing else can remove
         // it once this instance is gone.
+        closeSeatMenu()
         closePanel()
         if (::barHost.isInitialized) barHost.destroy()
         if (::bus.isInitialized) bus.disconnect()
@@ -787,8 +946,14 @@ class ClimateBarService : AccessibilityService() {
      * consumes the gesture first, is a vehicle question. If it does not, the
      * CLOSE button in screen 1d's header is unaffected and remains the exit —
      * back is an enhancement, never the only way out.
+     *
+     * A menu is closed before a panel would be: BACK peels the topmost thing.
      */
     override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event?.keyCode == KeyEvent.KEYCODE_BACK && menuHost != null) {
+            if (event.action == KeyEvent.ACTION_UP) closeSeatMenu()
+            return true
+        }
         if (event?.keyCode == KeyEvent.KEYCODE_BACK && panelHost != null) {
             if (event.action == KeyEvent.ACTION_UP) requestPanelClose()
             return true
