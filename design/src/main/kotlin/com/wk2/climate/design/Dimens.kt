@@ -112,11 +112,11 @@ object Dimens {
 
     // ---- radii ----
     val radiusPip = 3.dp
+    val radiusMenu = 16.dp
     val radiusSmall = 5.dp
     val radiusTile = 18.dp
     val radiusStepper = 20.dp
     val radiusPill = 26.dp
-    val radiusMenu = 16.dp
 
     // ---- interaction timing ----
     const val HOLD_REPEAT_DELAY_MS = 400L
