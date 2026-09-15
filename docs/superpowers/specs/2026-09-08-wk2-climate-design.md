@@ -149,7 +149,7 @@ and attaches `ViewTreeLifecycleOwner`, `ViewTreeSavedStateRegistryOwner` and
 
 | Module | Contents | JVM-testable |
 |---|---|---|
-| `:bus` | `VehicleBus`, `Signal`, `Command`, `ClimateState`, `SyuVehicleBus`, `FakeVehicleBus`, adaptive-slot state machine | **yes** |
+| `:bus` | `VehicleBus`, `Signal`, `Command`, `ClimateState`, `SyuVehicleBus`, `FakeVehicleBus`, seat-menu latch | **yes** |
 | `:design` | colour and dimension tokens, type scale, icons as `VectorDrawable` | — |
 | `:ui` | Compose composables for 2a and 1d | previewable |
 | `:app` | `ClimateBarService`, `ComposeOverlayHost`, wiring | — |
