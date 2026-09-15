@@ -772,17 +772,16 @@ class ClimateBarService : AccessibilityService() {
      * bits, with bit 28 as a validity flag. Verified against the head unit's
      * own status bar on the vehicle: raw `0x10000744` -> 1860 tenths -> 86 F.
      *
-     * Only trusted when the vehicle is reporting Fahrenheit. [AdaptiveSlot]'s
-     * thresholds are Fahrenheit, and whether `U_TEMP_OUT` is unit-scaled the
-     * way `TEMP_LEFT`/`TEMP_RIGHT` are is **unverified** — the vehicle
-     * observation above was taken with the unit set to Fahrenheit, so it does
-     * not distinguish the two. If it is scaled, a 30 C day would decode as
-     * "30" and swing the slot to FRONT DEFROST in the heat. So this fails safe
-     * rather than guessing.
+     * Only trusted when the vehicle is reporting Fahrenheit. Whether
+     * `U_TEMP_OUT` is unit-scaled the way `TEMP_LEFT`/`TEMP_RIGHT` are is
+     * **unverified** — the vehicle observation above was taken with the unit
+     * set to Fahrenheit, so it does not distinguish the two. If it is scaled,
+     * a 30 C day would display as 30°F. So this fails safe rather than
+     * guessing.
      *
-     * An invalid, out-of-range or non-Fahrenheit reading returns null, and
-     * [AdaptiveSlot] pins to the middle band in that case, so neither cell is
-     * ever blank and the bar's geometry never changes.
+     * An invalid, out-of-range or non-Fahrenheit reading returns null, which
+     * screen 1d's header renders as an em dash. This used to also drive the
+     * bar's adaptive cells; those are gone, and the header is its only reader.
      */
     private fun outsideF(state: ClimateState): Int? {
         if (state.tempUnit != TempUnit.FAHRENHEIT) return null

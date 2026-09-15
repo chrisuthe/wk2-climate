@@ -48,7 +48,7 @@ import com.wk2.climate.ui.target
  * The seat tiles need no gate: [SeatLevel] carries UNAVAILABLE for an
  * unreported signal, and `hasClimateData == false` means the level *is*
  * UNAVAILABLE by construction. They mute off the level itself for that reason
- * -- one honest source, no second gate -- matching `BarTopRow`'s SeatSlot.
+ * -- one honest source, no second gate -- as the bar's `SeatIndicator` does.
  */
 @Composable
 fun PanelComfort(

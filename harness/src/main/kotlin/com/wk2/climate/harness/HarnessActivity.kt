@@ -33,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
@@ -58,35 +57,22 @@ import com.wk2.climate.ui.panel.ClimatePanel
 class HarnessActivity : ComponentActivity() {
 
     private val bus = FakeVehicleBus()
-    private val slot = AdaptiveSlot()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { Harness(bus, slot) }
+        setContent { Harness(bus) }
     }
 }
 
 @Composable
-private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
+private fun Harness(bus: FakeVehicleBus) {
     val state by bus.state.collectAsState()
     val connected by bus.connected.collectAsState()
     val palette = Palette.forNight(state.isNight)
 
-    // Drive the adaptive slot from a scrubbable temperature so its hysteresis
-    // and dwell can be watched without waiting on weather.
-    //
-    // slot.update() mutates the state machine, so it must NOT be called during
-    // composition — recomposition would advance it unpredictably. It is driven
-    // from the button handlers below and its result held in Compose state.
+    // Screen 1d's header shows the outside temperature; OUT below cycles it
+    // through the values that used to matter, plus null for "not decoded".
     var outsideF by remember { mutableStateOf<Int?>(null) }
-    var clock by remember { mutableStateOf(0L) }
-    var band by remember { mutableStateOf(slot.band) }
-
-    fun scrub(toF: Int?) {
-        outsideF = toF
-        clock += 60_000L                      // step past the dwell window
-        band = slot.update(toF, clock)
-    }
 
     var showBar by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
@@ -153,6 +139,7 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             item { Mono("seatHeatL   ${state.seatHeatL}", palette.ink) }
             item { Mono("seatHeatR   ${state.seatHeatR}", palette.ink) }
             item { Mono("seatVentL   ${state.seatVentL}", palette.ink) }
+            item { Mono("seatVentR   ${state.seatVentR}", palette.ink) }
             item { Mono("ac/auto     ${state.acOn} / ${state.autoOn}", palette.ink) }
             item { Mono("recirc/max  ${state.recircOn} / ${state.maxAcOn}", palette.ink) }
             item { Mono("sync/wheel  ${state.syncOn} / ${state.wheelHeatOn}", palette.ink) }
@@ -166,10 +153,6 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
                 )
             }
             item { Mono("refreshes   ${bus.refreshes}", palette.ink) }
-            item { Mono("--- adaptive slot ---", palette.inkMuted) }
-            item { Mono("outside     ${outsideF ?: "undecoded (null)"}", palette.ink) }
-            item { Mono("band        $band", palette.accent) }
-            item { Mono("cells       ${band.first} / ${band.second}", palette.accent) }
         }
 
         Mono("commands", palette.inkMuted)
@@ -212,10 +195,12 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             Key("REFRESH", palette) { bus.refresh() }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Key("COLD", palette) { scrub(20) }
-            Key("MILD", palette) { scrub(60) }
-            Key("HOT", palette) { scrub(95) }
-            Key("NULL", palette) { scrub(null) }
+            Key("OUT ${outsideF ?: "—"}", palette) {
+                outsideF = when (outsideF) { null -> 20; 20 -> 95; else -> null }
+            }
+            Key("SEAT R", palette) { bus.send(Command.SEAT_HEAT_R) }
+            Key("VENT L", palette) { bus.send(Command.SEAT_VENT_L) }
+            Key("WHEEL", palette) { bus.send(Command.WHEEL_HEAT) }
         }
     }
 }

@@ -97,8 +97,7 @@ fun RearDefrostGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
  *
  * Replaces the asset pack's bitmap, which is now unreferenced. Drawn for the
  * same reason as the rest: one drawing for both palettes and every state, and
- * it stays crisp at the two sizes it is used at -- 34dp in the bar's adaptive
- * cell and 44dp on the panel's mode tile.
+ * it stays crisp at any size; today that is 44dp on the panel's mode tile.
  */
 @Composable
 fun FrontDefrostGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
