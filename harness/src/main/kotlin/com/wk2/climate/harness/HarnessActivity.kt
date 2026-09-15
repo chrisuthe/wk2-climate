@@ -9,12 +9,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -36,10 +39,15 @@ import androidx.compose.ui.unit.sp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
+import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
+import com.wk2.climate.ui.bar.SeatButton
+import com.wk2.climate.ui.bar.SeatIndicator
+import com.wk2.climate.ui.bar.SeatMenu
+import com.wk2.climate.ui.bar.seatMenuX
 import com.wk2.climate.ui.panel.ClimatePanel
 
 /**
@@ -92,12 +100,23 @@ private fun Harness(bus: FakeVehicleBus) {
         return
     }
 
+    // The harness has no second window, so the menu is drawn inline, directly
+    // above the bar at the x the service would place its window. Re-tapping
+    // the same button closes it; the other button switches. The service's
+    // outside-touch dismissal has no equivalent here.
+    var menuSide by remember { mutableStateOf<SeatSide?>(null) }
     if (showBar) {
         Column(
             Modifier.fillMaxSize().background(palette.surface),
             verticalArrangement = Arrangement.Bottom,
         ) {
-            Key("INSPECTOR", palette) { showBar = false }
+            Key("INSPECTOR", palette) { showBar = false; menuSide = null }
+            menuSide?.let { side ->
+                Row {
+                    Spacer(Modifier.width(seatMenuX(side)))
+                    SeatMenu(palette = palette, side = side, state = state, onCommand = { bus.send(it) })
+                }
+            }
             ClimateBar(
                 state = state,
                 onCommand = { bus.send(it) },
@@ -106,10 +125,54 @@ private fun Harness(bus: FakeVehicleBus) {
                 // The harness shows the bar and the panel as separate views, so
                 // there is no panel over this bar to toggle: the caret stays up.
                 panelOpen = false,
-                onToggleClimate = {},
-                seatMenuOpen = null,
-                onSeatButton = {},
+                onToggleClimate = { menuSide = null },
+                seatMenuOpen = menuSide,
+                onSeatButton = { side -> menuSide = if (menuSide == side) null else side },
             )
+        }
+        return
+    }
+
+    var showSeats by remember { mutableStateOf(false) }
+    if (showSeats) {
+        // Every state a seat button can be in, both sides, on the current
+        // palette. NIGHT toggles the palette from the inspector. The first
+        // driver button also shows the wheel badge; the last on each row is
+        // painted as "menu open".
+        val samples = listOf(
+            "heat LOW" to SeatIndicator(SeatIndicator.Kind.HEAT, 1),
+            "heat HIGH" to SeatIndicator(SeatIndicator.Kind.HEAT, 2),
+            "cool LOW" to SeatIndicator(SeatIndicator.Kind.COOL, 1),
+            "cool HIGH" to SeatIndicator(SeatIndicator.Kind.COOL, 2),
+            "off" to SeatIndicator(SeatIndicator.Kind.OFF, 0),
+            "unknown" to SeatIndicator(SeatIndicator.Kind.UNKNOWN, 0),
+        )
+        Column(
+            Modifier.fillMaxSize().background(palette.surface).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Key("INSPECTOR", palette) { showSeats = false }
+            for (side in SeatSide.entries) {
+                Mono(side.name, palette.inkMuted)
+                Row(Modifier.height(Dimens.barTopRow)) {
+                    samples.forEachIndexed { i, (_, indicator) ->
+                        SeatButton(
+                            palette = palette,
+                            side = side,
+                            indicator = indicator,
+                            wheelOn = side == SeatSide.DRIVER && i == 0,
+                            menuOpen = i == samples.lastIndex,
+                            onClick = {},
+                        )
+                    }
+                }
+                Row { samples.forEach { (name, _) -> Box(Modifier.width(Dimens.seatButton)) { Mono(name, palette.inkMuted, 11.sp) } } }
+            }
+            Mono("menus, live off the fake bus", palette.inkMuted)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                SeatMenu(palette = palette, side = SeatSide.DRIVER, state = state, onCommand = { bus.send(it) })
+                SeatMenu(palette = palette, side = SeatSide.PASSENGER, state = state, onCommand = { bus.send(it) })
+            }
         }
         return
     }
@@ -184,6 +247,7 @@ private fun Harness(bus: FakeVehicleBus) {
             Key("DROP", palette) { bus.setConnected(!connected) }
             Key("BAR", palette) { showBar = true }
             Key("PANEL", palette) { showPanel = true }
+            Key("SEATS", palette) { showSeats = true }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // The cold-start case the emulator cannot otherwise reach: a bound
