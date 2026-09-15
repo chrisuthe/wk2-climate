@@ -20,10 +20,10 @@ class BarGeometryTest {
 
     /** The top row, left to right, as `BarTopRow` lays it out. */
     private val topRow: List<Pair<String, Dp>> = listOf(
+        "driver seat" to Dimens.seatButton,
         "AUTO" to Dimens.slotAuto,
-        "first adaptive cell" to Dimens.slotAdaptiveFirst,
-        "second adaptive cell" to Dimens.slotAdaptiveSecond,
         "CLIMATE" to Dimens.slotClimate,
+        "passenger seat" to Dimens.seatButton,
     )
 
     @Test
@@ -62,5 +62,10 @@ class BarGeometryTest {
     @Test
     fun `the nav column's two rows fill the bar's height`() {
         assertEquals(Dimens.barHeight, Dimens.barNavRow + Dimens.barNavRow)
+    }
+
+    @Test
+    fun `AUTO and CLIMATE meet on the centre divider, so the row mirrors the zones beneath it`() {
+        assertEquals(Dimens.barCenterColumn / 2, Dimens.seatButton + Dimens.slotAuto)
     }
 }

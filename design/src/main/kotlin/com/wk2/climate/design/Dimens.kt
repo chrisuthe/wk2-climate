@@ -32,15 +32,31 @@ object Dimens {
     // asserted in ui's BarGeometryTest, because an overflow here would push
     // CLIMATE off the edge silently rather than failing.
     //
-    // AUTO is leftmost and takes the widest cell: it is the most important
-    // control in the row. The two adaptive cells are the only region whose
-    // contents change, and they change together. The first is 200 because
-    // FRONT DEFROST -- glyph plus the longest label in the row -- is what has
-    // to fit it; the second holds only SEAT HEAT or MAX A/C and fits 174.
-    val slotAuto = 210.dp
-    val slotAdaptiveFirst = 200.dp
-    val slotAdaptiveSecond = 174.dp
-    val slotClimate = 184.dp
+    // Mirror-symmetric about the centre divider, like the zones beneath: a
+    // seat button at each end, AUTO and CLIMATE between them. Nothing in this
+    // row changes what it holds any more -- the two adaptive cells that used
+    // to sit between AUTO and CLIMATE are gone, and every cell can be found
+    // by feel.
+    val seatButton = 128.dp
+    val slotAuto = 256.dp
+    val slotAdaptiveFirst = 200.dp     // retired in the next commit
+    val slotAdaptiveSecond = 174.dp    // retired in the next commit
+    val slotClimate = 256.dp
+
+    // ---- the seat menus, which float above the bar in their own window ----
+    // Measured from a screenshot of the design at ~1.25 px/dp, so approximate;
+    // where the design file disagrees, the file wins. The anchors are exact:
+    // the driver menu is left-aligned to the driver button, which is the bar's
+    // left column, and the passenger menu is right-aligned to the passenger
+    // button, which is the centre column's right edge.
+    val seatMenuWidth = 360.dp
+    val seatMenuRow = 96.dp
+    val seatMenuDriverX = barSideColumn
+    val seatMenuPassengerX = barSideColumn + barCenterColumn - seatMenuWidth
+    val seatMenuIconSize = 28.dp
+    val seatMenuIconInset = 27.dp     // icon's left edge from the menu's left edge
+    val seatMenuLabelX = 74.dp        // label's left edge from the menu's left edge
+    val seatMenuStateInset = 24.dp    // state text's right edge from the menu's right edge
     val barStepper = 100.dp
     val volumeReadout = 35.dp         // deliberately below minTarget: not tappable
 
@@ -100,6 +116,7 @@ object Dimens {
     val radiusTile = 18.dp
     val radiusStepper = 20.dp
     val radiusPill = 26.dp
+    val radiusMenu = 16.dp
 
     // ---- interaction timing ----
     const val HOLD_REPEAT_DELAY_MS = 400L

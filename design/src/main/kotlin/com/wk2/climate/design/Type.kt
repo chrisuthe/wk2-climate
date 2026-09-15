@@ -96,6 +96,14 @@ object Type {
     /** CLIMATE's ▲. Manrope 400 13px. */
     val barCaret = ui(13.sp, FontWeight.Normal)
 
+    /** The seat button's OFF, and its em dash when unreported. IBM Plex Mono 800 11px, ls .14em. */
+    val seatButtonState = mono(11.sp, FontWeight.Bold, 1.54.sp)
+
+    // ---- the seat menus ----
+
+    /** SEAT HEAT / SEAT COOL / STEERING WHEEL. Manrope 700 18px, ls .05em. */
+    val menuLabel = ui(18.sp, FontWeight.Bold, 0.9.sp)
+
     /** Adaptive slot title. Manrope 800 16px, ls .04em. */
     val slotLabel = ui(16.sp, FontWeight.ExtraBold, 0.64.sp)
 
