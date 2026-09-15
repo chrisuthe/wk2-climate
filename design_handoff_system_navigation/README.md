@@ -101,6 +101,8 @@ Left border `1px` divider.
 
 ### The adaptive slot — the only thing that changes
 
+> **Superseded 2026-09-14.** The adaptive slot was replaced by a seat button at each end of the top row, each opening a per-seat menu; see docs/superpowers/specs/2026-09-14-seat-buttons-design.md. This section is kept as the original handoff.
+
 One 200 × 96 region. Outside temperature selects its contents; **nothing else in the bar moves, resizes, or changes position** at any temperature.
 
 | Condition | Slot holds | Rendering |

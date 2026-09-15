@@ -21,26 +21,29 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.RefreshRetry
+import com.wk2.climate.bus.SeatMenuLatch
+import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
 import com.wk2.climate.design.Dimens
+import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
+import com.wk2.climate.ui.bar.SeatMenu
+import com.wk2.climate.ui.bar.seatMenuHeight
+import com.wk2.climate.ui.bar.seatMenuX
 import com.wk2.climate.ui.panel.ClimatePanel
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -64,7 +67,6 @@ class ClimateBarService : AccessibilityService() {
 
     private lateinit var bus: SyuVehicleBus
     private lateinit var barHost: ComposeOverlayHost
-    private val slot = AdaptiveSlot()
 
     /**
      * Screen 1d's window, which exists only while the panel is open.
@@ -106,6 +108,39 @@ class ClimateBarService : AccessibilityService() {
      * the whole exit.
      */
     private val panelOpen = mutableStateOf(false)
+
+    /**
+     * The open seat menu's window, which exists only while a menu is open.
+     *
+     * Same lifetime story as [panelHost]: one host owns one window, created in
+     * [applySeatMenu] and discarded there too, and null means "no menu window
+     * exists". Switching sides destroys one window and creates another rather
+     * than moving the same one.
+     */
+    private var menuHost: ComposeOverlayHost? = null
+
+    /**
+     * Which menu is open and why a tap does what it does -- in particular the
+     * re-tap race, where the bar's click on the owning seat button arrives
+     * *after* the menu window has already seen the same touch as
+     * `ACTION_OUTSIDE`. See [SeatMenuLatch]; this class only feeds it events
+     * and applies what it returns.
+     *
+     * `SystemClock.elapsedRealtime()` for the latch's clock, never the wall
+     * clock: this head unit sets its clock from GPS and the network while the
+     * bar is live, and a forward sync inside the 400ms window would turn a
+     * swallowed re-tap into a reopen.
+     */
+    private val seatMenuLatch = SeatMenuLatch()
+
+    /**
+     * Which seat's menu is open, for the bar to paint that button as open.
+     *
+     * Compose state rather than a read of `menuHost`, which is a plain field
+     * the bar cannot observe -- the same reason [panelOpen] exists. Set and
+     * cleared only in [applySeatMenu], together with the window.
+     */
+    private val seatMenu = mutableStateOf<SeatSide?>(null)
 
     /**
      * The service's own scope, created in [onServiceConnected] and cancelled in
@@ -185,7 +220,10 @@ class ClimateBarService : AccessibilityService() {
      * vehicle. Removing it hands the screen — and the factory bar beneath our
      * own — straight back.
      *
-     * The panel goes first so the screen is never left showing a live panel
+     * The menu goes first: it is the topmost window and the one with the
+     * least reason to exist without a bus.
+     *
+     * The panel goes next so the screen is never left showing a live panel
      * over a missing bar.
      *
      * Nothing reopens it when the bus returns: [showBar] restores the bar, and
@@ -194,6 +232,7 @@ class ClimateBarService : AccessibilityService() {
      * window appearing on its own.
      */
     private fun hidePanelAndBar() {
+        closeSeatMenu()
         closePanel()
         hideBar()
     }
@@ -302,30 +341,8 @@ class ClimateBarService : AccessibilityService() {
     private fun BarContent() {
         val state by bus.state.collectAsState()
 
-        // The adaptive pair is re-evaluated on a timer rather than per state
-        // change: its own hysteresis and dwell decide whether anything moves,
-        // and outside temperature moves far more slowly than the poll interval.
-        //
-        // SystemClock.elapsedRealtime(), never the settable wall clock:
-        // this head unit sets its clock from GPS and the network while the bar
-        // is live, and AdaptiveSlot only ever compares this value against
-        // `lockedUntil` and `lastChangeAt + dwellMillis`. A forward wall-clock
-        // sync would leap past both, swapping the pair immediately after a tap
-        // -- so the driver's second press lands on FRONT DEFROST instead of the
-        // seat heat they aimed at, which is the exact harm the tap lockout
-        // exists to prevent. elapsedRealtime is monotonic, unsettable, and a
-        // drop-in because nothing here persists across a process restart.
-        var band by remember { mutableStateOf(slot.band) }
-        LaunchedEffect(Unit) {
-            while (true) {
-                band = slot.update(outsideF(state), SystemClock.elapsedRealtime())
-                delay(SLOT_POLL_MS)
-            }
-        }
-
         ClimateBar(
             state = state,
-            band = band,
             onCommand = { bus.send(it) },
             // Both nav keys close the panel first when it is open.
             //
@@ -338,36 +355,28 @@ class ClimateBarService : AccessibilityService() {
             // HOME gets the same treatment for a different reason: going home
             // while the panel is up would leave our panel covering the
             // launcher.
+            //
+            // The bar's BACK closes the seat menu too. It is already an
+            // outside touch on the menu window, but spec §4 lists BACK as a
+            // close route in its own right, so it is stated here rather than
+            // left to touch geometry.
             onHome = {
+                closeSeatMenu()
                 requestPanelClose()
                 performGlobalAction(GLOBAL_ACTION_HOME)
             },
             onBack = {
+                closeSeatMenu()
                 if (panelHost != null) requestPanelClose()
                 else performGlobalAction(GLOBAL_ACTION_BACK)
             },
             panelOpen = panelOpen.value,
-            onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
-            onSlotPressChange = { cell, down ->
-                if (down) {
-                    slot.onFingerDown(cell)
-                } else {
-                    slot.onFingerUp(cell)
-                    // Arm the tap lockout on release: neither cell must change
-                    // for a moment after the driver's finger leaves either of
-                    // them, or their next press lands on a control they did
-                    // not aim at. The lockout is deliberately not per-cell --
-                    // the pair moves as one, so a tap on either freezes both.
-                    // Release is the moment the tap completes — and taking it
-                    // from here rather than from `onCommand` avoids
-                    // duplicating the UI's SlotContent-to-Command mapping as a
-                    // second source of truth. A press dragged off a cell arms
-                    // it too, which only ever delays a swap.
-                    //
-                    // Same clock as the poll above, and for the same reason.
-                    slot.onTap(SystemClock.elapsedRealtime())
-                }
+            onToggleClimate = {
+                closeSeatMenu()
+                if (panelOpen.value) requestPanelClose() else openPanel()
             },
+            seatMenuOpen = seatMenu.value,
+            onSeatButton = ::onSeatButton,
         )
     }
 
@@ -499,6 +508,117 @@ class ClimateBarService : AccessibilityService() {
         panelHost = null
         panelClosing.value = false
         panelOpen.value = false
+    }
+
+    /** A seat button click, from the bar. */
+    private fun onSeatButton(side: SeatSide) {
+        applySeatMenu(seatMenuLatch.onButtonTap(side, SystemClock.elapsedRealtime()))
+    }
+
+    /** `ACTION_OUTSIDE` on the open menu's window. */
+    private fun onMenuOutsideTouch() {
+        applySeatMenu(seatMenuLatch.onOutsideTouch(SystemClock.elapsedRealtime()))
+    }
+
+    /**
+     * Every non-touch route to a closed menu: BACK, HOME, CLIMATE, a dead bus
+     * and teardown. Safe with no menu open.
+     */
+    private fun closeSeatMenu() {
+        applySeatMenu(seatMenuLatch.close())
+    }
+
+    /**
+     * Makes the menu window match what the latch decided: none, or one side's.
+     *
+     * The single place a menu window is ever added or removed. A different
+     * side means the old window goes and a new one is created -- there is
+     * never a second window over the first, and never one being moved.
+     *
+     * The bus check is the same one [openPanel] makes, for the same reason:
+     * **never create a window that cannot drive the vehicle.** With the bus
+     * gone our bar is already gone with it, so the factory bar is exposed and
+     * the tap that got here is dropped rather than answered with a menu whose
+     * every command would be lost. The latch is told, so it does not believe a
+     * menu is open that was never shown.
+     *
+     * `destroy()` rather than `hide()`, as for the panel: the host is never
+     * reused, so its lifecycle must reach DESTROYED and its ViewModel store
+     * must be cleared, or every open leaks one. No animation on the way in or
+     * out -- the spec shows none, and nothing in this project animates a value.
+     */
+    private fun applySeatMenu(side: SeatSide?) {
+        if (side != null && side == seatMenu.value) return
+        menuHost?.destroy()
+        menuHost = null
+        seatMenu.value = null
+        if (side == null) return
+        if (scope == null || !::bus.isInitialized || !bus.connected.value) {
+            Log.w(TAG, "seat menu ignored — no vehicle bus, so it could drive nothing")
+            seatMenuLatch.close()
+            return
+        }
+        val host = ComposeOverlayHost(this)
+        menuHost = host
+        try {
+            host.show(seatMenuWindowParams(side), onOutsideTouch = ::onMenuOutsideTouch) {
+                SeatMenuContent(side)
+            }
+            seatMenu.value = side
+        } catch (t: Throwable) {
+            Log.e(TAG, "could not add the seat menu window; the bar remains usable", t)
+            host.destroy()
+            menuHost = null
+            seatMenuLatch.close()
+        }
+    }
+
+    @Composable
+    private fun SeatMenuContent(side: SeatSide) {
+        val state by bus.state.collectAsState()
+        SeatMenu(
+            palette = Palette.forNight(state.isNight),
+            side = side,
+            state = state,
+            onCommand = { bus.send(it) },
+        )
+    }
+
+    /**
+     * The menu sits flush on top of the bar, inside the centre column, in
+     * **display** coordinates on the same basis as the bar -- so it is flush
+     * on any hardware, whatever the framework's inset says. Its top is the
+     * bar's top less the menu's own height.
+     *
+     * `FLAG_NOT_TOUCH_MODAL` so a touch outside it still reaches whatever it
+     * landed on -- AUTO toggles, the app underneath gets its tap -- and
+     * `FLAG_WATCH_OUTSIDE_TOUCH` so that same touch also tells us to close.
+     * Otherwise the bar's own flags: a trusted overlay the system does not
+     * hide during permission dialogs, not focusable, laid out in screen
+     * coordinates with no limits.
+     */
+    private fun seatMenuWindowParams(side: SeatSide): WindowManager.LayoutParams {
+        val density = resources.displayMetrics.density
+        val width = (Dimens.seatMenuWidth.value * density).roundToInt()
+        val height = (seatMenuHeight(side).value * density).roundToInt()
+        val left = (seatMenuX(side).value * density).roundToInt()
+        val top = displayHeightPx() - designBarHeightPx() - height
+        Log.i(TAG, "seat menu window ($side): x=$left y=$top ${width}x${height}px")
+        return WindowManager.LayoutParams(
+            width,
+            height,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = left
+            y = top
+        }
     }
 
     @Composable
@@ -658,17 +778,16 @@ class ClimateBarService : AccessibilityService() {
      * bits, with bit 28 as a validity flag. Verified against the head unit's
      * own status bar on the vehicle: raw `0x10000744` -> 1860 tenths -> 86 F.
      *
-     * Only trusted when the vehicle is reporting Fahrenheit. [AdaptiveSlot]'s
-     * thresholds are Fahrenheit, and whether `U_TEMP_OUT` is unit-scaled the
-     * way `TEMP_LEFT`/`TEMP_RIGHT` are is **unverified** — the vehicle
-     * observation above was taken with the unit set to Fahrenheit, so it does
-     * not distinguish the two. If it is scaled, a 30 C day would decode as
-     * "30" and swing the slot to FRONT DEFROST in the heat. So this fails safe
-     * rather than guessing.
+     * Only trusted when the vehicle is reporting Fahrenheit. Whether
+     * `U_TEMP_OUT` is unit-scaled the way `TEMP_LEFT`/`TEMP_RIGHT` are is
+     * **unverified** — the vehicle observation above was taken with the unit
+     * set to Fahrenheit, so it does not distinguish the two. If it is scaled,
+     * a 30 C day would display as 30°F. So this fails safe rather than
+     * guessing.
      *
-     * An invalid, out-of-range or non-Fahrenheit reading returns null, and
-     * [AdaptiveSlot] pins to the middle band in that case, so neither cell is
-     * ever blank and the bar's geometry never changes.
+     * An invalid, out-of-range or non-Fahrenheit reading returns null, which
+     * screen 1d's header renders as an em dash. This used to also drive the
+     * bar's adaptive cells; those are gone, and the header is its only reader.
      */
     private fun outsideF(state: ClimateState): Int? {
         if (state.tempUnit != TempUnit.FAHRENHEIT) return null
@@ -791,6 +910,7 @@ class ClimateBarService : AccessibilityService() {
         // The panel must not outlive the service either: its window is a
         // trusted overlay over the whole app area, and nothing else can remove
         // it once this instance is gone.
+        closeSeatMenu()
         closePanel()
         if (::barHost.isInitialized) barHost.destroy()
         if (::bus.isInitialized) bus.disconnect()
@@ -831,8 +951,14 @@ class ClimateBarService : AccessibilityService() {
      * consumes the gesture first, is a vehicle question. If it does not, the
      * CLOSE button in screen 1d's header is unaffected and remains the exit —
      * back is an enhancement, never the only way out.
+     *
+     * A menu is closed before a panel would be: BACK peels the topmost thing.
      */
     override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event?.keyCode == KeyEvent.KEYCODE_BACK && menuHost != null) {
+            if (event.action == KeyEvent.ACTION_UP) closeSeatMenu()
+            return true
+        }
         if (event?.keyCode == KeyEvent.KEYCODE_BACK && panelHost != null) {
             if (event.action == KeyEvent.ACTION_UP) requestPanelClose()
             return true
@@ -854,9 +980,6 @@ class ClimateBarService : AccessibilityService() {
          * bar. The vehicle's own bind completes well inside this.
          */
         const val BUS_GRACE_MS = 4_000L
-
-        /** The slot's own dwell is 30s, so polling faster than this buys nothing. */
-        const val SLOT_POLL_MS = 5_000L
 
         /** Sanity window for a decoded outside temperature. */
         const val OUTSIDE_F_MIN = -60

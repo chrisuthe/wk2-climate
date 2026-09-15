@@ -3,7 +3,6 @@ package com.wk2.climate.ui.panel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +28,7 @@ import com.wk2.climate.ui.SeatHeatLeftGlyph
 import com.wk2.climate.ui.SeatHeatRightGlyph
 import com.wk2.climate.ui.SeatCoolRightGlyph
 import com.wk2.climate.ui.SeatCoolLeftGlyph
+import com.wk2.climate.ui.SeatPips
 import com.wk2.climate.ui.WheelHeatGlyph
 import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
@@ -48,7 +48,7 @@ import com.wk2.climate.ui.target
  * The seat tiles need no gate: [SeatLevel] carries UNAVAILABLE for an
  * unreported signal, and `hasClimateData == false` means the level *is*
  * UNAVAILABLE by construction. They mute off the level itself for that reason
- * -- one honest source, no second gate -- matching `BarTopRow`'s SeatSlot.
+ * -- one honest source, no second gate -- as the bar's `SeatIndicator` does.
  */
 @Composable
 fun PanelComfort(
@@ -156,13 +156,19 @@ private fun ComfortTile(
             if (mirrored) {
                 SeatState(palette, level, litColor)
                 Spacer(Modifier.width(14.dp))
-                SeatPips(palette, level, litColor, Modifier.weight(1f))
+                // 8dp between the two pips, per the handoff mockup's
+                // `display:flex;gap:8px` pip group (System Navigation.dc.html
+                // lines 438/442/446/450). Not the fan meter's `gap: 6px`
+                // (README:180) -- that is a different control. Slimmer than
+                // the handoff's 14dp: the glyph is the tile's subject and the
+                // pips are the qualifier.
+                SeatPips(palette, level.litPips, litColor, pipHeight = 10.dp, gap = 8.dp, Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
                 glyph(tint)
             } else {
                 glyph(tint)
                 Spacer(Modifier.width(16.dp))
-                SeatPips(palette, level, litColor, Modifier.weight(1f))
+                SeatPips(palette, level.litPips, litColor, pipHeight = 10.dp, gap = 8.dp, Modifier.weight(1f))
                 Spacer(Modifier.width(14.dp))
                 SeatState(palette, level, litColor)
             }
@@ -246,41 +252,6 @@ private fun HeatedWheel(palette: Palette, live: Boolean, on: Boolean, onClick: (
  * make room -- 10dp rather than the handoff's 14.
  */
 private val SEAT_GLYPH = 48.dp
-
-/**
- * The two-pip level indicator.
- *
- * Slimmer than the handoff's 14dp: the glyph is the tile's subject now and the
- * pips are the qualifier, so they read better as a lighter weight beside it.
- * Extracted so the driver and passenger orderings share one definition rather
- * than mirroring a copy.
- */
-@Composable
-private fun SeatPips(
-    palette: Palette,
-    level: SeatLevel,
-    litColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        repeat(2) { index ->
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(10.dp)
-                    .background(
-                        if (index < level.litPips) litColor else palette.ink.copy(alpha = 0.13f),
-                        RoundedCornerShape(5.dp),
-                    ),
-            )
-            // 8dp between the two pips, per the handoff mockup's
-            // `display:flex;gap:8px` pip group (System Navigation.dc.html lines
-            // 438/442/446/450). Not the fan meter's `gap: 6px` (README:180) --
-            // that is a different control.
-            if (index == 0) Spacer(Modifier.width(8.dp))
-        }
-    }
-}
 
 /** The word beside the pips. A dash for UNAVAILABLE, never `OFF`. */
 @Composable

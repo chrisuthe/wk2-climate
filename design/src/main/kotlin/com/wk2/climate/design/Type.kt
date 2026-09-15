@@ -96,14 +96,13 @@ object Type {
     /** CLIMATE's ▲. Manrope 400 13px. */
     val barCaret = ui(13.sp, FontWeight.Normal)
 
-    /** Adaptive slot title. Manrope 800 16px, ls .04em. */
-    val slotLabel = ui(16.sp, FontWeight.ExtraBold, 0.64.sp)
+    /** The seat button's OFF, and its em dash when unreported. IBM Plex Mono 800 11px, ls .14em. */
+    val seatButtonState = mono(11.sp, FontWeight.Bold, 1.54.sp)
 
-    /** Adaptive slot's defrost label. Manrope 800 15px, ls .04em. */
-    val slotLabelSmall = ui(15.sp, FontWeight.ExtraBold, 0.6.sp)
+    // ---- the seat menus ----
 
-    /** Adaptive slot OFF / LOW / HIGH. IBM Plex Mono 800 11px, ls .14em. */
-    val slotState = mono(11.sp, FontWeight.Bold, 1.54.sp)
+    /** SEAT HEAT / SEAT COOL / STEERING WHEEL. Manrope 700 18px, ls .05em. */
+    val menuLabel = ui(18.sp, FontWeight.Bold, 0.9.sp)
 
     /** Zone temperature numeral. Manrope 700 48px, ls -0.03em. */
     val zoneValue = ui(48.sp, FontWeight.Bold, (-1.44).sp)

@@ -61,6 +61,26 @@ fun SeatCoolRightGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
     VectorGlyph(pathData = SEAT_COOL_RIGHT, tint = tint, size = size, modifier = modifier)
 
 /**
+ * The driver's seat with no heat or cool mark: the bar's seat button when the
+ * seat is off or unreported.
+ *
+ * The icon set has no plain seat, so this is the seat-outline subpath that
+ * opens `material-symbols:seat-cool-left-sharp` -- [SEAT_COOL_LEFT] begins
+ * with exactly this path and then draws its snowflake. Taking the outline from
+ * the same source keeps the silhouette identical to the heat and cool variants,
+ * so the button's glyph does not change shape between states, only its mark.
+ * `GlyphsTest` pins the relationship.
+ */
+@Composable
+fun SeatPlainLeftGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
+    VectorGlyph(pathData = SEAT_PLAIN_LEFT, tint = tint, size = size, modifier = modifier)
+
+/** The passenger's seat with no mark. The outline subpath of [SEAT_COOL_RIGHT]; see [SeatPlainLeftGlyph]. */
+@Composable
+fun SeatPlainRightGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
+    VectorGlyph(pathData = SEAT_PLAIN_RIGHT, tint = tint, size = size, modifier = modifier)
+
+/**
  * Rear defrost. `material-symbols-light:windshield-defrost-rear`, filled.
  *
  * Replaces a hand-drawn rounded rect with three wave strokes, which existed
@@ -77,8 +97,7 @@ fun RearDefrostGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
  *
  * Replaces the asset pack's bitmap, which is now unreferenced. Drawn for the
  * same reason as the rest: one drawing for both palettes and every state, and
- * it stays crisp at the two sizes it is used at -- 34dp in the bar's adaptive
- * cell and 44dp on the panel's mode tile.
+ * it stays crisp at any size; today that is 44dp on the panel's mode tile.
  */
 @Composable
 fun FrontDefrostGlyph(tint: Color, size: Dp, modifier: Modifier = Modifier) =
@@ -139,7 +158,23 @@ private const val SEAT_HEAT_RIGHT =
         ".925.263t.65.712q.325.625.488 1.3T21 8.65q0 .4-.05.788t-.175.762" +
         "L18 21z"
 
-private const val SEAT_COOL_LEFT =
+/** The seat outline alone: [SEAT_COOL_LEFT] up to and including its first `z`. */
+internal const val SEAT_PLAIN_LEFT =
+    "M17.025 21H6L3.225 10.2q-.1-.375-.162-.762T3 8.65q0-.7.163-1.375" +
+        "t.487-1.3q.225-.45.638-.712T5.2 5q.575 0 1 .425t.425 1q0 .275-.1" +
+        ".525t-.3.45q-.475.5-.562 1.163T5.85 9.85l.5 1.05q.725 1.575 1.18" +
+        "8 3.25T8 17.575v1.1q.425-.275.9-.475t1-.2H15q.85 0 1.438.588T17." +
+        "025 20z"
+
+/** The seat outline alone: [SEAT_COOL_RIGHT] up to and including its first `z`. */
+internal const val SEAT_PLAIN_RIGHT =
+    "M6.975 21v-1q0-.825.588-1.412T9 18h5.075q.525 0 1.013.2t.912.475" +
+        "v-1.1q0-1.75.462-3.425t1.188-3.25l.5-1.05q.275-.625.188-1.287T17" +
+        ".775 7.4q-.2-.2-.3-.45t-.1-.525q0-.575.413-1T18.775 5q.5 0 .925." +
+        "263t.65.712q.325.625.488 1.3T21 8.65q0 .4-.05.788t-.175.762L18 2" +
+        "1z"
+
+internal const val SEAT_COOL_LEFT =
     "M17.025 21H6L3.225 10.2q-.1-.375-.162-.762T3 8.65q0-.7.163-1.375" +
         "t.487-1.3q.225-.45.638-.712T5.2 5q.575 0 1 .425t.425 1q0 .275-.1" +
         ".525t-.3.45q-.475.5-.562 1.163T5.85 9.85l.5 1.05q.725 1.575 1.18" +
@@ -151,7 +186,7 @@ private const val SEAT_COOL_LEFT =
         "L18.8 8.25H21v1.5h-2.2l1.725 1.725l-1.05 1.05L16.7 9.75h-.95v.95" +
         "l2.775 2.775l-1.05 1.05L15.75 12.8V15z"
 
-private const val SEAT_COOL_RIGHT =
+internal const val SEAT_COOL_RIGHT =
     "M6.975 21v-1q0-.825.588-1.412T9 18h5.075q.525 0 1.013.2t.912.475" +
         "v-1.1q0-1.75.462-3.425t1.188-3.25l.5-1.05q.275-.625.188-1.287T17" +
         ".775 7.4q-.2-.2-.3-.45t-.1-.525q0-.575.413-1T18.775 5q.5 0 .925." +

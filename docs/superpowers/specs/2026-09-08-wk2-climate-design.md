@@ -149,7 +149,7 @@ and attaches `ViewTreeLifecycleOwner`, `ViewTreeSavedStateRegistryOwner` and
 
 | Module | Contents | JVM-testable |
 |---|---|---|
-| `:bus` | `VehicleBus`, `Signal`, `Command`, `ClimateState`, `SyuVehicleBus`, `FakeVehicleBus`, adaptive-slot state machine | **yes** |
+| `:bus` | `VehicleBus`, `Signal`, `Command`, `ClimateState`, `SyuVehicleBus`, `FakeVehicleBus`, seat-menu latch | **yes** |
 | `:design` | colour and dimension tokens, type scale, icons as `VectorDrawable` | — |
 | `:ui` | Compose composables for 2a and 1d | previewable |
 | `:app` | `ClimateBarService`, `ComposeOverlayHost`, wiring | — |
@@ -561,6 +561,11 @@ Deltas only:
 
 ### The adaptive slot
 
+> **Superseded 2026-09-14.** The adaptive slot is gone. The top row is now
+> driver seat button / AUTO / CLIMATE / passenger seat button, and each seat
+> button opens a menu holding what the slot used to surface for that seat. See
+> `2026-09-14-seat-buttons-design.md`. The text below is kept for the record.
+
 The one variable region (200x96), driven by a pure state machine in `:bus`:
 
 ```
@@ -630,7 +635,7 @@ and lumbar seats.
 | Tap airflow mode | Direct idempotent set. Re-tapping the active mode is a genuine no-op. |
 | Tap AUTO / A/C / RECIRC / MAX A/C / defrost / SYNC | Toggle. Leaving AUTO lands on fan 3 with FACE — see section 5.6. |
 | Tap seat heat / cool | Presented cycle `OFF → HIGH → LOW → OFF` via section 5.2. |
-| Tap adaptive slot | Acts on whatever it currently holds. |
+| Tap seat button | Opens that seat's menu; re-tap closes it. Superseded row — see `2026-09-14-seat-buttons-design.md` §4. |
 | Press-and-hold HOLD · OFF | ~800 ms with visible fill progress. **Single tap does nothing.** |
 | Any state change | Reflected from the bus, never optimistically from the tap. |
 
