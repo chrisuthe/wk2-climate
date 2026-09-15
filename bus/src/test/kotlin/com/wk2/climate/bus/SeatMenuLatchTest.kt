@@ -100,4 +100,33 @@ class SeatMenuLatchTest {
         latch.onOutsideTouch(1_000)
         assertEquals(SeatSide.PASSENGER, latch.onButtonTap(SeatSide.PASSENGER, 60_000))
     }
+
+    @Test
+    fun `a second outside touch with nothing open keeps the first one's record`() {
+        val latch = SeatMenuLatch()
+        latch.onButtonTap(SeatSide.DRIVER, 0)
+        latch.onOutsideTouch(5_000)
+        assertNull(latch.onOutsideTouch(5_100))
+        // Still inside the window measured from the first touch, so still the same tap.
+        assertNull(latch.onButtonTap(SeatSide.DRIVER, 5_000 + window - 1))
+    }
+
+    @Test
+    fun `close with nothing open is a no-op`() {
+        val latch = SeatMenuLatch()
+        assertNull(latch.close())
+        assertNull(latch.open)
+    }
+
+    @Test
+    fun `an outside touch on any other control followed by an own-side tap inside the window is swallowed`() {
+        // The spec's rule is keyed on side and time only. Tapping AUTO with the
+        // driver menu open, then the driver button within the window, drops that
+        // tap; the driver taps again. A known trade, documented here.
+        val latch = SeatMenuLatch()
+        latch.onButtonTap(SeatSide.DRIVER, 0)
+        latch.onOutsideTouch(5_000)                  // the AUTO tap
+        assertNull(latch.onButtonTap(SeatSide.DRIVER, 5_000 + window / 2))
+        assertEquals(SeatSide.DRIVER, latch.onButtonTap(SeatSide.DRIVER, 5_000 + window / 2 + 10))
+    }
 }

@@ -53,6 +53,13 @@ class SeatIndicatorTest {
     fun `every combination lights pips only when heat or cool is shown`() {
         for (heat in SeatLevel.entries) for (vent in SeatLevel.entries) {
             val i = SeatIndicator.of(heat, vent)
+            val expectedKind = when {
+                heat.isOn -> Kind.HEAT
+                vent.isOn -> Kind.COOL
+                heat == SeatLevel.OFF && vent == SeatLevel.OFF -> Kind.OFF
+                else -> Kind.UNKNOWN
+            }
+            assertEquals("$heat / $vent", expectedKind, i.kind)
             val expectedPips = when (i.kind) {
                 Kind.HEAT -> heat.litPips
                 Kind.COOL -> vent.litPips

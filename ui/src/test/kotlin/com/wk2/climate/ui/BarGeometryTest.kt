@@ -108,4 +108,17 @@ class BarGeometryTest {
             Dimens.barWidth - (seatMenuX(SeatSide.PASSENGER) + Dimens.seatMenuWidth),
         )
     }
+
+    @Test
+    fun `a menu row's label sits right of its icon and its state text inside the menu`() {
+        assertTrue(
+            "label x must clear the icon: ${Dimens.seatMenuLabelX.value} <= " +
+                "${Dimens.seatMenuIconInset.value} + ${Dimens.seatMenuIconSize.value}",
+            Dimens.seatMenuLabelX > Dimens.seatMenuIconInset + Dimens.seatMenuIconSize,
+        )
+        assertTrue(
+            "label and state inset overrun the menu width",
+            Dimens.seatMenuLabelX + Dimens.seatMenuStateInset < Dimens.seatMenuWidth,
+        )
+    }
 }

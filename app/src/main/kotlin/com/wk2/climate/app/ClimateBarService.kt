@@ -220,11 +220,11 @@ class ClimateBarService : AccessibilityService() {
      * vehicle. Removing it hands the screen — and the factory bar beneath our
      * own — straight back.
      *
-     * The panel goes first so the screen is never left showing a live panel
-     * over a missing bar.
-     *
      * The menu goes first: it is the topmost window and the one with the
      * least reason to exist without a bus.
+     *
+     * The panel goes next so the screen is never left showing a live panel
+     * over a missing bar.
      *
      * Nothing reopens it when the bus returns: [showBar] restores the bar, and
      * the driver reaches 1d again by tapping CLIMATE. Restoring a panel the
@@ -355,12 +355,18 @@ class ClimateBarService : AccessibilityService() {
             // HOME gets the same treatment for a different reason: going home
             // while the panel is up would leave our panel covering the
             // launcher.
+            //
+            // The bar's BACK closes the seat menu too. It is already an
+            // outside touch on the menu window, but spec §4 lists BACK as a
+            // close route in its own right, so it is stated here rather than
+            // left to touch geometry.
             onHome = {
                 closeSeatMenu()
                 requestPanelClose()
                 performGlobalAction(GLOBAL_ACTION_HOME)
             },
             onBack = {
+                closeSeatMenu()
                 if (panelHost != null) requestPanelClose()
                 else performGlobalAction(GLOBAL_ACTION_BACK)
             },

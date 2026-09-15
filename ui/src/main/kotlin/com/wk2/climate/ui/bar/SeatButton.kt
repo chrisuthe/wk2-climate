@@ -42,6 +42,11 @@ import com.wk2.climate.ui.target
  * the same in every state (see `SeatPlainLeftGlyph`), and the readout row
  * under it has a fixed height, so nothing moves when the state changes.
  *
+ * `OFF` is drawn in `inkMuted` and the em dash in `inkFaint` -- the button
+ * keeps the two distinguishable at a glance, per spec §3, where the menu's
+ * rows follow the 1d comfort tiles and use `inkFaint` for both. Deliberate,
+ * not a drift.
+ *
  * Driver uses the LEFT glyph variants and passenger the RIGHT, as the panel's
  * comfort tiles do. The driver's button also carries the heated-wheel badge
  * in its top-right corner when the wheel is on -- independent of the seat, so
