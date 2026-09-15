@@ -1,6 +1,6 @@
 # Screen 2a revision: seat buttons and seat menu — design
 
-**Status:** spec written, not yet reviewed by the owner. Supersedes the adaptive
+**Status:** implemented on `feat/seat-buttons` (plan: `../plans/2026-09-14-seat-buttons.md`); awaiting the owner's vehicle pass (§8) and answers to §10. Supersedes the adaptive
 slot in `2026-09-08-wk2-climate-design.md` §6 and its row in §8. Everything else
 in that spec stands.
 
