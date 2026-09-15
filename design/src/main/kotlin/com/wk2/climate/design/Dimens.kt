@@ -39,8 +39,6 @@ object Dimens {
     // by feel.
     val seatButton = 128.dp
     val slotAuto = 256.dp
-    val slotAdaptiveFirst = 200.dp     // retired in the next commit
-    val slotAdaptiveSecond = 174.dp    // retired in the next commit
     val slotClimate = 256.dp
 
     // ---- the seat menus, which float above the bar in their own window ----

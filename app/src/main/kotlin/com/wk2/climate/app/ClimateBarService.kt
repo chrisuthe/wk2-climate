@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
-import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
@@ -21,11 +20,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import com.wk2.climate.bus.AdaptiveSlot
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.RefreshRetry
@@ -40,7 +37,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -64,7 +60,6 @@ class ClimateBarService : AccessibilityService() {
 
     private lateinit var bus: SyuVehicleBus
     private lateinit var barHost: ComposeOverlayHost
-    private val slot = AdaptiveSlot()
 
     /**
      * Screen 1d's window, which exists only while the panel is open.
@@ -302,30 +297,8 @@ class ClimateBarService : AccessibilityService() {
     private fun BarContent() {
         val state by bus.state.collectAsState()
 
-        // The adaptive pair is re-evaluated on a timer rather than per state
-        // change: its own hysteresis and dwell decide whether anything moves,
-        // and outside temperature moves far more slowly than the poll interval.
-        //
-        // SystemClock.elapsedRealtime(), never the settable wall clock:
-        // this head unit sets its clock from GPS and the network while the bar
-        // is live, and AdaptiveSlot only ever compares this value against
-        // `lockedUntil` and `lastChangeAt + dwellMillis`. A forward wall-clock
-        // sync would leap past both, swapping the pair immediately after a tap
-        // -- so the driver's second press lands on FRONT DEFROST instead of the
-        // seat heat they aimed at, which is the exact harm the tap lockout
-        // exists to prevent. elapsedRealtime is monotonic, unsettable, and a
-        // drop-in because nothing here persists across a process restart.
-        var band by remember { mutableStateOf(slot.band) }
-        LaunchedEffect(Unit) {
-            while (true) {
-                band = slot.update(outsideF(state), SystemClock.elapsedRealtime())
-                delay(SLOT_POLL_MS)
-            }
-        }
-
         ClimateBar(
             state = state,
-            band = band,
             onCommand = { bus.send(it) },
             // Both nav keys close the panel first when it is open.
             //
@@ -348,26 +321,9 @@ class ClimateBarService : AccessibilityService() {
             },
             panelOpen = panelOpen.value,
             onToggleClimate = { if (panelOpen.value) requestPanelClose() else openPanel() },
-            onSlotPressChange = { cell, down ->
-                if (down) {
-                    slot.onFingerDown(cell)
-                } else {
-                    slot.onFingerUp(cell)
-                    // Arm the tap lockout on release: neither cell must change
-                    // for a moment after the driver's finger leaves either of
-                    // them, or their next press lands on a control they did
-                    // not aim at. The lockout is deliberately not per-cell --
-                    // the pair moves as one, so a tap on either freezes both.
-                    // Release is the moment the tap completes — and taking it
-                    // from here rather than from `onCommand` avoids
-                    // duplicating the UI's SlotContent-to-Command mapping as a
-                    // second source of truth. A press dragged off a cell arms
-                    // it too, which only ever delays a swap.
-                    //
-                    // Same clock as the poll above, and for the same reason.
-                    slot.onTap(SystemClock.elapsedRealtime())
-                }
-            },
+            // Wired in the seat-menu commit; the bar paints no menu open until then.
+            seatMenuOpen = null,
+            onSeatButton = {},
         )
     }
 
@@ -854,9 +810,6 @@ class ClimateBarService : AccessibilityService() {
          * bar. The vehicle's own bind completes well inside this.
          */
         const val BUS_GRACE_MS = 4_000L
-
-        /** The slot's own dwell is 30s, so polling faster than this buys nothing. */
-        const val SLOT_POLL_MS = 5_000L
 
         /** Sanity window for a decoded outside temperature. */
         const val OUTSIDE_F_MIN = -60

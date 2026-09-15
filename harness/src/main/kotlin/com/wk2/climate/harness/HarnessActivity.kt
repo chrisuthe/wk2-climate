@@ -114,7 +114,6 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
             Key("INSPECTOR", palette) { showBar = false }
             ClimateBar(
                 state = state,
-                band = band,
                 onCommand = { bus.send(it) },
                 onHome = {},
                 onBack = {},
@@ -122,9 +121,8 @@ private fun Harness(bus: FakeVehicleBus, slot: AdaptiveSlot) {
                 // there is no panel over this bar to toggle: the caret stays up.
                 panelOpen = false,
                 onToggleClimate = {},
-                onSlotPressChange = { cell, down ->
-                    if (down) slot.onFingerDown(cell) else slot.onFingerUp(cell)
-                },
+                seatMenuOpen = null,
+                onSeatButton = {},
             )
         }
         return
