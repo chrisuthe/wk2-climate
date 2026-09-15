@@ -34,6 +34,13 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The action's default is `tools platform-tools`, and the SDK
+          # repository no longer publishes a package called `tools`, so
+          # `sdkmanager tools` exits 1 and the job dies before Gradle runs
+          # (seen 2026-09-15; main was green on 2026-09-09 with no change
+          # here). Gradle fetches the platform and build-tools it needs.
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
