@@ -19,8 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -44,6 +46,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -521,8 +524,8 @@ class ClimateBarService : AccessibilityService() {
     }
 
     /**
-     * Every non-touch route to a closed menu: BACK, HOME, CLIMATE, a dead bus
-     * and teardown. Safe with no menu open.
+     * Every non-touch route to a closed menu: BACK, HOME, CLIMATE, the idle
+     * timeout, a dead bus and teardown. Safe with no menu open.
      */
     private fun closeSeatMenu() {
         applySeatMenu(seatMenuLatch.close())
@@ -576,11 +579,19 @@ class ClimateBarService : AccessibilityService() {
     @Composable
     private fun SeatMenuContent(side: SeatSide) {
         val state by bus.state.collectAsState()
+        // A forgotten menu sits over app content indefinitely otherwise. Scoped
+        // to this window's composition, so closing the menu any other way
+        // cancels it.
+        var taps by remember { mutableIntStateOf(0) }
+        LaunchedEffect(taps) {
+            delay(Dimens.SEAT_MENU_IDLE_MS)
+            closeSeatMenu()
+        }
         SeatMenu(
             palette = Palette.forNight(state.isNight),
             side = side,
             state = state,
-            onCommand = { bus.send(it) },
+            onCommand = { taps++; bus.send(it) },
         )
     }
 

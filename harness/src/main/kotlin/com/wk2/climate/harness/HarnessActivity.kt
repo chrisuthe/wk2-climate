@@ -24,8 +24,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
@@ -143,9 +146,15 @@ private fun Harness(bus: FakeVehicleBus) {
                 Key("INSPECTOR", palette) { showBar = false; menuSide = null }
             }
             menuSide?.let { side ->
+                // The service's idle timeout, keyed on the side too so switching restarts it.
+                var taps by remember(side) { mutableIntStateOf(0) }
+                LaunchedEffect(side, taps) {
+                    delay(Dimens.SEAT_MENU_IDLE_MS)
+                    menuSide = null
+                }
                 Row {
                     Spacer(Modifier.width(seatMenuX(side)))
-                    SeatMenu(palette = palette, side = side, state = state, onCommand = { bus.send(it) })
+                    SeatMenu(palette = palette, side = side, state = state, onCommand = { taps++; bus.send(it) })
                 }
             }
             ClimateBar(

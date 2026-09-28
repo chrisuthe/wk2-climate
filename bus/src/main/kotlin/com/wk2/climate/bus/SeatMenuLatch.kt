@@ -67,7 +67,7 @@ class SeatMenuLatch(private val retapWindowMillis: Long = DEFAULT_RETAP_WINDOW_M
         return null
     }
 
-    /** Every non-touch close: BACK, HOME, CLIMATE, a dead bus, teardown. Leaves no re-tap record. */
+    /** Every non-touch close: BACK, HOME, CLIMATE, idle timeout, a dead bus, teardown. Leaves no re-tap record. */
     fun close(): SeatSide? {
         open = null
         outsideClosed = null

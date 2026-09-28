@@ -117,13 +117,15 @@ colour when on, muted when off, `—` when unknown.
 - **Stays open across row taps.** Cycling to LOW needs two taps, so a row tap
   must never dismiss.
 - **Closes** on: a second tap of its own button; any touch outside the menu;
-  BACK; HOME; opening 1d via CLIMATE; the bus going away; service teardown.
+  BACK; HOME; opening 1d via CLIMATE; 30 s without a tap; the bus going away;
+  service teardown.
 - **An outside touch still does what it landed on.** The menu window is not
   touch-modal, so tapping AUTO with a menu open closes the menu *and* toggles
   AUTO, and a touch on app content reaches the app. A touch on either seat button
   is resolved by the re-tap rule in section 5: its own button closes, the other
   switches.
-- **No auto-dismiss timeout** (assumed — confirm with the owner).
+- **Closes after 30 s idle** (owner's decision). A row tap restarts the timer, so
+  a menu in use never closes under the driver's finger.
 - **No animation** on open or close (assumed — the design shows none). Values
   are never animated in any case.
 - Opening a menu while 1d is open is allowed; the menu draws above it. Tapping
@@ -236,7 +238,7 @@ the slot's use of it goes. Update its KDoc, which currently justifies itself by
 ## 10. Open questions for the owner
 
 1. Passenger menu has two rows (no steering wheel) — assumed.
-2. No auto-dismiss timeout — assumed.
+2. ~~No auto-dismiss timeout — assumed.~~ Resolved: closes after 30 s idle.
 3. No open/close animation — assumed.
 4. Can the updated `System Navigation.dc.html` be exported into
    `design_handoff_system_navigation/` so the build works from the file, not a

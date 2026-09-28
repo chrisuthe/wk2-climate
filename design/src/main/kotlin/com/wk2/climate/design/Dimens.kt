@@ -121,4 +121,6 @@ object Dimens {
     const val HOLD_REPEAT_INTERVAL_MS = 150L
     const val POWER_HOLD_MS = 800L
     const val PANEL_TRANSITION_MS = 220
+    // Idle, not since opening: a row tap restarts it, so a menu in use never closes.
+    const val SEAT_MENU_IDLE_MS = 30_000L
 }
