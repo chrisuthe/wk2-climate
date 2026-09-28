@@ -2,6 +2,8 @@ package com.wk2.climate.harness
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,6 +79,7 @@ private fun Harness(bus: FakeVehicleBus) {
     val state by bus.state.collectAsState()
     val connected by bus.connected.collectAsState()
     val palette = Palette.forNight(state.isNight)
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     // Screen 1d's header shows the outside temperature; OUT below cycles it
     // through the values that used to matter, plus null for "not decoded".
@@ -84,6 +87,23 @@ private fun Harness(bus: FakeVehicleBus) {
 
     var showBar by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
+    var showSeats by remember { mutableStateOf(false) }
+    var menuSide by remember { mutableStateOf<SeatSide?>(null) }
+    var panelOverBar by remember { mutableStateOf(false) }
+
+    // System Back steps out one level, like INSPECTOR. Without this it
+    // finishes the activity from any view and takes the fake bus state with it.
+    BackHandler(enabled = showPanel || showBar || showSeats) {
+        if (menuSide != null) {
+            menuSide = null
+        } else if (panelOverBar) {
+            panelOverBar = false
+        } else {
+            showPanel = false
+            showBar = false
+            showSeats = false
+        }
+    }
 
     if (showPanel) {
         // The surface behind the INSPECTOR key: without it the strip is the
@@ -103,14 +123,25 @@ private fun Harness(bus: FakeVehicleBus) {
     // The harness has no second window, so the menu is drawn inline, directly
     // above the bar at the x the service would place its window. Re-tapping
     // the same button closes it; the other button switches. The service's
-    // outside-touch dismissal has no equivalent here.
-    var menuSide by remember { mutableStateOf<SeatSide?>(null) }
+    // outside-touch dismissal has no equivalent here. CLIMATE likewise draws
+    // the panel inline in the space above the bar, where the service's panel
+    // window sits.
     if (showBar) {
         Column(
             Modifier.fillMaxSize().background(palette.surface),
             verticalArrangement = Arrangement.Bottom,
         ) {
-            Key("INSPECTOR", palette) { showBar = false; menuSide = null }
+            if (panelOverBar) {
+                ClimatePanel(
+                    state = state,
+                    outsideF = outsideF,
+                    onCommand = { bus.send(it) },
+                    onClose = { panelOverBar = false },
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Key("INSPECTOR", palette) { showBar = false; menuSide = null }
+            }
             menuSide?.let { side ->
                 Row {
                     Spacer(Modifier.width(seatMenuX(side)))
@@ -121,11 +152,10 @@ private fun Harness(bus: FakeVehicleBus) {
                 state = state,
                 onCommand = { bus.send(it) },
                 onHome = {},
-                onBack = {},
-                // The harness shows the bar and the panel as separate views, so
-                // there is no panel over this bar to toggle: the caret stays up.
-                panelOpen = false,
-                onToggleClimate = { menuSide = null },
+                // In the car this is a system Back; here it walks the harness views.
+                onBack = { backDispatcher?.onBackPressed() },
+                panelOpen = panelOverBar,
+                onToggleClimate = { menuSide = null; panelOverBar = !panelOverBar },
                 seatMenuOpen = menuSide,
                 onSeatButton = { side -> menuSide = if (menuSide == side) null else side },
             )
@@ -133,7 +163,6 @@ private fun Harness(bus: FakeVehicleBus) {
         return
     }
 
-    var showSeats by remember { mutableStateOf(false) }
     if (showSeats) {
         // Every state a seat button can be in, both sides, on the current
         // palette. NIGHT toggles the palette from the inspector. The first
