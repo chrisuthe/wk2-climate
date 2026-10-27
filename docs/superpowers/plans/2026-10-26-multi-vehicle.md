@@ -100,7 +100,7 @@ def test_tsv_round_trip_lines(self):
     ID_ADDITIONS = {2687350: {"MAX_AC": 15}, 5308790: {"MAX_AC": 15}}
     ```
     Assert that each class addition's literals appear in that class's `airMode` `sendcmd` entries, and fail loudly if they don't. Class additions merge into the `P` line; id additions go in the `V` extra column.
-  - Write the JSON with `profile, table, send_format, trusted, supported` per profile, and the TSV with a header comment naming the APK's `versionName` (from `AndroidManifest.xml` is not parseable in stdlib; use the APK file name and SHA-256 instead).
+  - Write the JSON with `profile, table, send_format, trusted, supported` per profile, and the TSV with a header comment naming the APK's `versionName` (the APK's file name and SHA-256; the binary manifest is not worth parsing for a version string).
 
 - [ ] **Step 5: Run the unit tests.** Expected: all pass.
 
@@ -398,7 +398,7 @@ The existing tests that use `seatMenuRows(side)` switch to `seatMenuRows(side, f
     - FOOTER needs `CLIMATE_POWER`.
   - `ClimatePanel(state, features, outsideF, onCommand, onClose, modifier)`
 
-- [ ] **Step 1: Write the failing tests.**
+- [ ] **Step 1: Write the failing tests.** Use the same `wk2` and `f(...)` helpers as `BarGeometryTest` (copy them; they're test-local).
 
 ```kotlin
 @Test fun `WK2 all yes keeps every section and today's tiles`() {
@@ -429,6 +429,7 @@ The existing tests that use `seatMenuRows(side)` switch to `seatMenuRows(side, f
 **Files:**
 - Create: `app/src/main/kotlin/com/wk2/climate/app/VehicleStore.kt`
 - Modify: `app/src/main/kotlin/com/wk2/climate/app/ClimateBarService.kt` (`onServiceConnected`, `followBus`, `BarContent`, `PanelContent`, `SeatMenuContent`, `onSeatButton`, `seatMenuWindowParams`)
+- Modify: `bus/src/main/kotlin/com/wk2/climate/bus/Signal.kt:55-72` (`CANBUS_ID` KDoc: the id now selects the command table; it stays `diagnostic = true` so a silent id never holds the retry open)
 
 **Interfaces:**
 - Consumes: `SavedVehicle`, `resolveVehicle`, `VehicleStatus`, `VehicleCatalog.bundled()`, `Features.seatSlot`, `SyuVehicleBus.table`, `ClimateBar(..., features, ...)`, `ClimatePanel(..., features, ...)`, `seatMenuHeight(side, features)`.
@@ -503,9 +504,10 @@ Copy (exact):
   The seat button in the harness follows `features.seatSlot` exactly as the service does.
 
 - [ ] **Step 1: Implement** the presets and the picker button. Keep the existing views.
+- [ ] **Step 1b: Baseline first.** Before installing this branch's harness, build and install the harness from `dc5c009` (`git worktree add ../wk2-base dc5c009`), and capture its bar and panel into `docs/screenshots/vehicles/0-baseline-bar.png` and `-panel.png`.
 - [ ] **Step 2: Run on an AVD.** `./gradlew :harness:installDebug`, step through each preset, and capture a screenshot of bar + panel per preset into `docs/screenshots/vehicles/` named `<n>-<slug>-bar.png` and `-panel.png`.
   Expected:
-  - Preset 1 matches `docs/screenshots/vehicle-bar.png`'s current-layout successors pixel for pixel in the top row.
+  - Preset 1's captures are identical to the baseline captures (compare the PNG bytes, or by eye at 100% if the encoder differs).
   - Presets 3, 4 and 6 show the widened cells.
   - Preset 6 has no FAN, AIRFLOW, COMFORT or footer.
 - [ ] **Step 3: Commit** — `git commit -m "harness: step through vehicle presets"`
