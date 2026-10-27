@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.Features
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
@@ -53,93 +54,112 @@ fun PanelMode(
     palette: Palette,
     state: ClimateState,
     live: Boolean,
+    features: Features,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
-        ) {
-            ModeTile(
-                palette, live, on = state.autoOn, height = Dimens.modeTileHeight,
-                activeFill = palette.accent, activeInk = palette.accentInk,
-                onClick = { onCommand(Command.AUTO) }, modifier = Modifier.weight(1f),
-            ) { ink -> BasicText("AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
-
-            ModeTile(
-                palette, live, on = state.acOn, height = Dimens.modeTileHeight,
-                activeFill = palette.cool, activeInk = palette.surface,
-                onClick = { onCommand(Command.AC) }, modifier = Modifier.weight(1f),
-            ) { ink -> BasicText("A/C", style = Type.modeLabelLarge.copy(color = ink)) }
-
-            ModeTile(
-                palette, live, on = state.recircOn, height = Dimens.modeTileHeight,
-                activeFill = palette.accent, activeInk = palette.accentInk,
-                onClick = { onCommand(Command.RECIRC) }, modifier = Modifier.weight(1f),
-            ) { ink ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    GlyphIcon(Glyph.recirc, tint = ink, height = 26.dp)
-                    Spacer(Modifier.width(10.dp))
-                    BasicText("RECIRC", style = Type.modeLabelSmall.copy(color = ink))
-                }
-            }
-
-            ModeTile(
-                palette, live, on = state.maxAcOn, height = Dimens.modeTileHeight,
-                activeFill = palette.cool, activeInk = palette.surface,
-                onClick = { onCommand(Command.MAX_AC) }, modifier = Modifier.weight(1f),
-            ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
-        }
-
-        Spacer(Modifier.height(Dimens.tileGap))
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
-        ) {
-            ModeTile(
-                palette, live, on = state.frontDefrostOn, height = Dimens.modeTileHeight,
-                activeFill = palette.accent, activeInk = palette.accentInk,
-                onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = Modifier.weight(1f),
-            ) { ink ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FrontDefrostGlyph(tint = ink, size = 44.dp)
-                    Spacer(Modifier.width(10.dp))
-                    BasicText("FRONT DEF", style = Type.modeLabelTiny.copy(color = ink))
-                }
-            }
-
-            ModeTile(
-                palette, live, on = state.rearDefrostOn, height = Dimens.modeTileHeight,
-                activeFill = palette.accent, activeInk = palette.accentInk,
-                onClick = { onCommand(Command.REAR_DEFROST) }, modifier = Modifier.weight(1f),
-            ) { ink ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RearDefrostGlyph(tint = ink, size = 40.dp)
-                    Spacer(Modifier.width(10.dp))
-                    BasicText("REAR DEF", style = Type.modeLabelTiny.copy(color = ink))
-                }
-            }
-
-            // SYNC lives here rather than as a pill on the passenger zone, so no
-            // target on this page falls below 96dp. It drives U_AIR_SYNC; the
-            // factory label says DUAL, which is why DUAL is the sub-label.
-            ModeTile(
-                palette, live, on = state.syncOn, height = Dimens.modeTileHeight,
-                activeFill = palette.accent, activeInk = palette.accentInk,
-                onClick = { onCommand(Command.SYNC) }, modifier = Modifier.weight(1f),
-            ) { ink ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BasicText("SYNC", style = Type.modeLabelSmall.copy(color = ink))
-                    Spacer(Modifier.width(10.dp))
-                    BasicText(
-                        "DUAL",
-                        style = Type.syncSub.copy(color = ink.copy(alpha = 0.4f)),
-                    )
+        modeRows(features).forEachIndexed { index, row ->
+            if (index > 0) Spacer(Modifier.height(Dimens.tileGap))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
+            ) {
+                // weight(1f) on every present tile is what shares the row
+                // evenly once an absent one is dropped.
+                for (command in row) {
+                    ModeTileFor(palette, state, live, command, onCommand, Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+/** The tile for one [command] of [modeRows], with the content and colours it has always had. */
+@Composable
+private fun ModeTileFor(
+    palette: Palette,
+    state: ClimateState,
+    live: Boolean,
+    command: Command,
+    onCommand: (Command) -> Unit,
+    modifier: Modifier,
+) {
+    when (command) {
+        Command.AUTO -> ModeTile(
+            palette, live, on = state.autoOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.AUTO) }, modifier = modifier,
+        ) { ink -> BasicText("AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
+
+        Command.AC -> ModeTile(
+            palette, live, on = state.acOn, height = Dimens.modeTileHeight,
+            activeFill = palette.cool, activeInk = palette.surface,
+            onClick = { onCommand(Command.AC) }, modifier = modifier,
+        ) { ink -> BasicText("A/C", style = Type.modeLabelLarge.copy(color = ink)) }
+
+        Command.RECIRC -> ModeTile(
+            palette, live, on = state.recircOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.RECIRC) }, modifier = modifier,
+        ) { ink ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlyphIcon(Glyph.recirc, tint = ink, height = 26.dp)
+                Spacer(Modifier.width(10.dp))
+                BasicText("RECIRC", style = Type.modeLabelSmall.copy(color = ink))
+            }
+        }
+
+        Command.MAX_AC -> ModeTile(
+            palette, live, on = state.maxAcOn, height = Dimens.modeTileHeight,
+            activeFill = palette.cool, activeInk = palette.surface,
+            onClick = { onCommand(Command.MAX_AC) }, modifier = modifier,
+        ) { ink -> BasicText("MAX A/C", style = Type.modeLabelSmall.copy(color = ink)) }
+
+        Command.FRONT_DEFROST -> ModeTile(
+            palette, live, on = state.frontDefrostOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.FRONT_DEFROST) }, modifier = modifier,
+        ) { ink ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FrontDefrostGlyph(tint = ink, size = 44.dp)
+                Spacer(Modifier.width(10.dp))
+                BasicText("FRONT DEF", style = Type.modeLabelTiny.copy(color = ink))
+            }
+        }
+
+        Command.REAR_DEFROST -> ModeTile(
+            palette, live, on = state.rearDefrostOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.REAR_DEFROST) }, modifier = modifier,
+        ) { ink ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RearDefrostGlyph(tint = ink, size = 40.dp)
+                Spacer(Modifier.width(10.dp))
+                BasicText("REAR DEF", style = Type.modeLabelTiny.copy(color = ink))
+            }
+        }
+
+        // SYNC lives here rather than as a pill on the passenger zone, so no
+        // target on this page falls below 96dp. It drives U_AIR_SYNC; the
+        // factory label says DUAL, which is why DUAL is the sub-label.
+        Command.SYNC -> ModeTile(
+            palette, live, on = state.syncOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.SYNC) }, modifier = modifier,
+        ) { ink ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText("SYNC", style = Type.modeLabelSmall.copy(color = ink))
+                Spacer(Modifier.width(10.dp))
+                BasicText(
+                    "DUAL",
+                    style = Type.syncSub.copy(color = ink.copy(alpha = 0.4f)),
+                )
+            }
+        }
+
+        // modeRows names only the seven tiles above.
+        else -> error("$command has no mode tile")
     }
 }
 

@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+
 /**
  * Owns the replacement bar.
  *
@@ -726,6 +727,7 @@ class ClimateBarService : AccessibilityService() {
 
         ClimatePanel(
             state = state,
+            features = wk2Features,
             outsideF = outsideF(state),
             onCommand = { bus.send(it) },
             onClose = { requestPanelClose() },

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.Features
 import com.wk2.climate.bus.SeatLevel
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
@@ -55,44 +56,57 @@ fun PanelComfort(
     palette: Palette,
     state: ClimateState,
     live: Boolean,
+    features: Features,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val rows = comfortRows(features)
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
-            ComfortTile(
-                palette, state.seatHeatL, palette.warm,
-                glyph = { tint -> SeatHeatLeftGlyph(tint, SEAT_GLYPH) },
-                onClick = { onCommand(Command.SEAT_HEAT_L) },
-                modifier = Modifier.weight(1f),
-            )
-            ComfortTile(
-                palette, state.seatHeatR, palette.warm,
-                glyph = { tint -> SeatHeatRightGlyph(tint, SEAT_GLYPH) },
-                onClick = { onCommand(Command.SEAT_HEAT_R) },
-                modifier = Modifier.weight(1f),
-                mirrored = true,
-            )
+        // The gap goes before a row only when a row is already above it, so
+        // an omitted row leaves no stray tileGap behind.
+        var first = true
+        if (rows.heat) {
+            first = false
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
+                ComfortTile(
+                    palette, state.seatHeatL, palette.warm,
+                    glyph = { tint -> SeatHeatLeftGlyph(tint, SEAT_GLYPH) },
+                    onClick = { onCommand(Command.SEAT_HEAT_L) },
+                    modifier = Modifier.weight(1f),
+                )
+                ComfortTile(
+                    palette, state.seatHeatR, palette.warm,
+                    glyph = { tint -> SeatHeatRightGlyph(tint, SEAT_GLYPH) },
+                    onClick = { onCommand(Command.SEAT_HEAT_R) },
+                    modifier = Modifier.weight(1f),
+                    mirrored = true,
+                )
+            }
         }
-        Spacer(Modifier.height(Dimens.tileGap))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
-            ComfortTile(
-                palette, state.seatVentL, palette.cool,
-                glyph = { tint -> SeatCoolLeftGlyph(tint, SEAT_GLYPH) },
-                onClick = { onCommand(Command.SEAT_VENT_L) },
-                modifier = Modifier.weight(1f),
-            )
-            ComfortTile(
-                palette, state.seatVentR, palette.cool,
-                glyph = { tint -> SeatCoolRightGlyph(tint, SEAT_GLYPH) },
-                onClick = { onCommand(Command.SEAT_VENT_R) },
-                modifier = Modifier.weight(1f),
-                mirrored = true,
-            )
+        if (rows.vent) {
+            if (!first) Spacer(Modifier.height(Dimens.tileGap))
+            first = false
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
+                ComfortTile(
+                    palette, state.seatVentL, palette.cool,
+                    glyph = { tint -> SeatCoolLeftGlyph(tint, SEAT_GLYPH) },
+                    onClick = { onCommand(Command.SEAT_VENT_L) },
+                    modifier = Modifier.weight(1f),
+                )
+                ComfortTile(
+                    palette, state.seatVentR, palette.cool,
+                    glyph = { tint -> SeatCoolRightGlyph(tint, SEAT_GLYPH) },
+                    onClick = { onCommand(Command.SEAT_VENT_R) },
+                    modifier = Modifier.weight(1f),
+                    mirrored = true,
+                )
+            }
         }
 
-        Spacer(Modifier.height(Dimens.tileGap))
-        HeatedWheel(palette, live = live, on = state.wheelHeatOn) { onCommand(Command.WHEEL_HEAT) }
+        if (rows.wheel) {
+            if (!first) Spacer(Modifier.height(Dimens.tileGap))
+            HeatedWheel(palette, live = live, on = state.wheelHeatOn) { onCommand(Command.WHEEL_HEAT) }
+        }
     }
 }
 

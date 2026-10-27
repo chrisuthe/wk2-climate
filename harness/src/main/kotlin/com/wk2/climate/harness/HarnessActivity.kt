@@ -57,6 +57,7 @@ import com.wk2.climate.ui.bar.SeatMenu
 import com.wk2.climate.ui.bar.seatMenuX
 import com.wk2.climate.ui.panel.ClimatePanel
 
+
 /**
  * Development harness. **Not shipped.**
  *
@@ -117,6 +118,7 @@ private fun Harness(bus: FakeVehicleBus) {
             Key("INSPECTOR", palette) { showPanel = false }
             ClimatePanel(
                 state = state,
+                features = wk2Features,
                 outsideF = outsideF,
                 onCommand = { bus.send(it) },
                 onClose = { showPanel = false },
@@ -139,6 +141,7 @@ private fun Harness(bus: FakeVehicleBus) {
             if (panelOverBar) {
                 ClimatePanel(
                     state = state,
+                    features = wk2Features,
                     outsideF = outsideF,
                     onCommand = { bus.send(it) },
                     onClose = { panelOverBar = false },

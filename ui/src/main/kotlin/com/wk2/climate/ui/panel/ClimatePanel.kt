@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.Features
 import com.wk2.climate.design.Palette
 
 /**
@@ -25,10 +26,15 @@ import com.wk2.climate.design.Palette
  * nothing locally, which is what makes the protocol's side effects — the
  * macros forcing recirculation on, AUTO clearing when the fan moves — appear
  * correctly with no special-casing.
+ *
+ * [features] decides which sections and tiles exist at all (see
+ * [panelSections]): what the car lacks is omitted and the rest closes up. For
+ * the WK2 with every answer yes that is every section, exactly as before.
  */
 @Composable
 fun ClimatePanel(
     state: ClimateState,
+    features: Features,
     outsideF: Int?,
     onCommand: (Command) -> Unit,
     onClose: () -> Unit,
@@ -62,6 +68,7 @@ fun ClimatePanel(
     // about the climate system. PanelFan needs no gate either: its unavailable
     // readout is already drawn in inkFaint.
     val live = state.hasClimateData
+    val sections = panelSections(features)
 
     // BoxWithConstraints, not a bare Column, purely to learn the viewport
     // height: `heightIn(min = maxHeight)` is what makes the footer's
@@ -96,48 +103,60 @@ fun ClimatePanel(
 
             // Zero padding: each zone supplies the page gutter itself. See
             // PanelSection's contentPadding doc.
-            PanelSection(
-                palette = palette,
-                header = null,
-                topBorder = true,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                PanelZones(
+            if (PanelSectionId.ZONES in sections) {
+                PanelSection(
                     palette = palette,
-                    live = live,
-                    driver = state.tempLeft,
-                    passenger = state.tempRight,
-                    onDriverDown = { onCommand(Command.TEMP_L_DOWN) },
-                    onDriverUp = { onCommand(Command.TEMP_L_UP) },
-                    onPassengerDown = { onCommand(Command.TEMP_R_DOWN) },
-                    onPassengerUp = { onCommand(Command.TEMP_R_UP) },
-                )
+                    header = null,
+                    topBorder = true,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    PanelZones(
+                        palette = palette,
+                        live = live,
+                        dualZone = features.dualZone,
+                        driver = state.tempLeft,
+                        passenger = state.tempRight,
+                        onDriverDown = { onCommand(Command.TEMP_L_DOWN) },
+                        onDriverUp = { onCommand(Command.TEMP_L_UP) },
+                        onPassengerDown = { onCommand(Command.TEMP_R_DOWN) },
+                        onPassengerUp = { onCommand(Command.TEMP_R_UP) },
+                    )
+                }
             }
 
-            PanelSection(palette = palette, header = null) {
-                PanelFan(
-                    palette = palette,
-                    fan = state.fan,
-                    onDown = { onCommand(Command.FAN_DOWN) },
-                    onUp = { onCommand(Command.FAN_UP) },
-                )
+            if (PanelSectionId.FAN in sections) {
+                PanelSection(palette = palette, header = null) {
+                    PanelFan(
+                        palette = palette,
+                        fan = state.fan,
+                        hasAuto = features.has(Command.AUTO),
+                        onDown = { onCommand(Command.FAN_DOWN) },
+                        onUp = { onCommand(Command.FAN_UP) },
+                    )
+                }
             }
 
-            PanelSection(palette = palette, header = "AIRFLOW \u2014 FOUR MODES, DIRECT") {
-                PanelAirflow(
-                    palette = palette,
-                    live = live,
-                    mode = state.airflow,
-                    onSelect = onCommand,
-                )
+            if (PanelSectionId.AIRFLOW in sections) {
+                PanelSection(palette = palette, header = "AIRFLOW \u2014 FOUR MODES, DIRECT") {
+                    PanelAirflow(
+                        palette = palette,
+                        live = live,
+                        mode = state.airflow,
+                        onSelect = onCommand,
+                    )
+                }
             }
 
-            PanelSection(palette = palette, header = "MODE") {
-                PanelMode(palette = palette, state = state, live = live, onCommand = onCommand)
+            if (PanelSectionId.MODE in sections) {
+                PanelSection(palette = palette, header = "MODE") {
+                    PanelMode(palette = palette, state = state, live = live, features = features, onCommand = onCommand)
+                }
             }
 
-            PanelSection(palette = palette, header = "COMFORT") {
-                PanelComfort(palette = palette, state = state, live = live, onCommand = onCommand)
+            if (PanelSectionId.COMFORT in sections) {
+                PanelSection(palette = palette, header = "COMFORT") {
+                    PanelComfort(palette = palette, state = state, live = live, features = features, onCommand = onCommand)
+                }
             }
 
             // The handoff's `margin-top: auto` on the footer. The destructive
@@ -145,7 +164,9 @@ fun ClimatePanel(
             // floating under COMFORT with bare surface below it.
             Spacer(Modifier.weight(1f))
 
-            PanelFooter(palette = palette, onPowerOff = { onCommand(Command.CLIMATE_POWER) })
+            if (PanelSectionId.FOOTER in sections) {
+                PanelFooter(palette = palette, onPowerOff = { onCommand(Command.CLIMATE_POWER) })
+            }
         }
     }
 }
