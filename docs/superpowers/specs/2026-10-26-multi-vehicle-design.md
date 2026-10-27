@@ -1,6 +1,6 @@
 # Multi-vehicle support: detect the car, ask once, draw only what it has
 
-**Status:** implemented on `feat/multi-vehicle` (plan: `../plans/2026-10-26-multi-vehicle.md`); awaiting the owner's vehicle pass. Synthesized MAX A/C, the shrinking window and the rear page are later plans.
+**Status:** implemented on `feat/multi-vehicle` (plan: `../plans/2026-10-26-multi-vehicle.md`); verified on the WK2 on 2026-10-27 (fresh install and setup, every control, the cooled-seat answer toggled, an ignition cycle); PR #4. Synthesized MAX A/C, the shrinking window and the rear page are later plans.
 **Builds on:** `2026-09-08-wk2-climate-design.md` (§6 bar, §7 screen 1d) and
 `2026-09-14-seat-buttons-design.md`. Data: `docs/captures/2026-09-09-air-profile-extraction.md`,
 `docs/data/air-command-tables.json`, `docs/data/air-canbus-ids.json`.
