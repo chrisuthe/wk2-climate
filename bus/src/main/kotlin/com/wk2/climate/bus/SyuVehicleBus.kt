@@ -214,7 +214,21 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
 
     // ---- IRemoteModule.cmd(code, int[], float[], String[]) = txn 1 ----
 
+    /**
+     * The vehicle's command table, set by the service once the vehicle is
+     * resolved and cleared whenever it is not. Climate commands are framed
+     * through it; with no table, or no entry, they are dropped rather than
+     * sent with a guessed index.
+     */
+    @Volatile
+    var table: CommandTable? = null
+
     override fun send(command: Command) {
+        val payload = table.frame(command)
+        if (payload == null) {
+            Log.w(TAG, "dropping $command: not in this vehicle's table")
+            return
+        }
         val binder = modules[command.module]
         if (binder == null) {
             Log.w(TAG, "dropping $command — module ${command.module} not bound")
@@ -225,7 +239,7 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
         try {
             data.writeInterfaceToken(MODULE_DESC)
             data.writeInt(command.code)
-            data.writeIntArray(command.payload)
+            data.writeIntArray(payload)
             data.writeFloatArray(null)
             data.writeStringArray(null)
             binder.transact(TXN_CMD, data, reply, 0)
