@@ -28,8 +28,9 @@ test on hardware.
 - Render the bar and the climate window from (what we can send) ∩ (what the
   driver says the car has).
 - MAX A/C on every car that has at least A/C and a fan, native or synthesized.
-- Support a rear zone and rear seat controls on cars whose profile declares
-  them, on a separate rear page.
+- Design a rear zone and rear seat controls on a separate rear page, for
+  cars whose profile declares them. Built when a supported car needs it;
+  none does today (§4).
 
 **Non-goals**
 
@@ -81,77 +82,71 @@ test on hardware.
 A vehicle's table maps each semantic control (AC, AUTO, TEMP_L_UP, …) to its
 module-7 index. Sources, in priority order:
 
-1. **Verified tables**, hand-swept on a real vehicle and checked into the
-   repo. Today there is one: the WK2, which is the current `Command.kt` table
-   (the profile's 18 features, plus `MAX_AC` = 15 and the four idempotent
-   airflow setters 8-11, which the vehicle accepts but the extraction does not
-   carry).
-2. **Extracted profile tables** from `docs/data/air-command-tables.json`.
-   Accurate when they declare something (18/18 and 6/6 against the WK2),
+1. **Extracted profile tables**, regenerated from the `com.syu.air` APK
+   (below). Accurate when they declare something (18/18 against the WK2),
    silent about the rest. Trust what is declared; infer nothing from what is
    omitted.
+2. **Verified additions**, hand-swept on a real vehicle. Today there is one:
+   `MAX_AC` = 15 on the Grand Cherokee, which the vehicle accepts and its
+   profile does not declare.
 
 A control absent from the car's table does not exist for that car, whatever
 the setup answers say.
 
-**Verified additions are keyed by id, not by class (my call).** The WK2's
-extras (`MAX_AC` = 15, airflow 8-11) apply to `CAR_PA_GrandCherokee_14_22`
-(2687350) and `CAR_PA_GrandCherokee_14_22_Amp` (5308790) only. The same
-profile class serves 58 ids — KL Cherokee, RAM, Durango, Escalade, Gladiator,
-~30 Fords — and those get the extracted table alone, with synthesized MAX.
+### Scope: the PA family only (owner's decision, 2026-10-26)
 
-**An extracted table is trusted only if it passes mechanical checks (my
-call).** Declared-means-correct was validated on one profile family, and the
-data shows the `{1, index}` encoding does not hold everywhere:
+Every profile has its own `sendCmd`, and they turn an index into a bus frame
+in different ways. Disassembled across all 228:
 
-- 13 profiles map two controls to the same value (e.g.
-  `Car_0025_DJ_XP1_ParkAvenue` AC = AUTO = 1; `Car_0332_SiBo_GM`
-  SEAT_VENT_R = WHEEL_HEAT = 15; several 0439 profiles give left and right
-  temperatures the same values).
-- The 0439 RZC family uses 1, 2, 4, 16, 32, 128 — bitmask arguments, not
-  indices.
-- `Car_0137_RZC_IX35` declares 13 entries and sends nothing on module 7.
+| send format | profiles |
+|---|---|
+| exactly one `sendInt(7, 6, {1, cmd})`, nothing else | **2** |
+| a press frame, then a `postDelayed` release frame | 122 |
+| one frame with another command code (0, 2, 3, 22, 24, …) | ~60 |
+| several frames, or a branch on `mCurrCanbus` | ~35 |
 
-A profile is quarantined, which means it is treated as an unknown car, unless
-the extractor confirms that its `sendCmd` is the base class's (not overridden)
-and sends module 7 with `CMD_TYPE` 6, and no two controls share a value.
-Quarantine costs coverage; the alternative is a blind `CLIMATE_POWER`.
+Our bus speaks only the first, which is the one verified on the WK2. So a
+profile is **trusted** only if its `sendCmd` body is exactly that: a single
+`RemoteTools.sendInt` with module const 7, code const 6, and a two-element
+int array whose element 0 is const 1 and element 1 is the method's argument,
+with no `postDelayed` and no branch. Two profiles pass:
+`Car_0374_PA_Jeep_Wrangler` (58 ids) and `Car_0374_PA_Jeep_All` (2 ids).
+Every other profile is treated as an unknown car. Supporting other send
+formats is a separate, later piece of work, ideally with a tester who owns
+such a car. The public list is wiki page 14, *Supported Vehicles*.
 
-**Minimum table (owner's decision).** Our bar covers the factory bar, so a
-thin table would take controls away from the driver. A trusted table counts
-as supported only if it has `TEMP_L_UP` and `TEMP_L_DOWN`, plus `AC` or
-`FAN_UP`/`FAN_DOWN`. That is 155 of 228 profiles before quarantine. Below the
-cutoff the car is treated as unknown and the factory bar stays.
+Two further checks apply to trusted tables and are kept because they are
+cheap: no two controls may share an index, and the table must meet the
+**minimum (owner's decision)**: `TEMP_L_UP` and `TEMP_L_DOWN`, plus `AC` or
+`FAN_UP`/`FAN_DOWN`. Below that, our bar would take controls away from the
+driver, so the car is treated as unknown. Both PA profiles pass.
+
+**Verified additions are keyed by id, not by class (my call).** `MAX_AC` = 15
+applies to `CAR_PA_GrandCherokee_14_22` (2687350) and
+`CAR_PA_GrandCherokee_14_22_Amp` (5308790) only. The other 56 Wrangler-class
+ids get synthesized MAX (§8) instead of a blind index 15.
+
+**Airflow 8-11 comes from the profile, not a verified addition.** The
+Wrangler class's `airMode` method sends literal 8, 9, 10 and 11, and the WK2
+sweep established their meanings (FACE, FACE+FEET, FEET, FEET+GLASS) through
+that same class code. They apply to every id of the class. Profiles without
+per-mode setters get no AIRFLOW section (my call: the tiles promise direct
+selection, which a mode-cycle command cannot give).
+
+**Rear zone: designed, not built.** Neither trusted profile declares rear
+commands, so no supported car has a rear page. §7's rear design stands for
+when one does.
 
 **Where the extraction input comes from.** The jadx output behind the
 committed JSON is gone, and running jadx on this machine was refused as
 external code. Instead, a stdlib-only DEX parser was written on 2026-10-26
 (`dexconst.py`: static int values, const→iput/sput assignments, literal
-`sendCmd(n)` calls, per class → JSON). It ran cleanly on the `com.syu.air`,
-`com.syu.canbus`, `com.syu.ms` and `com.fyt.screenbutton` APKs pulled from the
-head unit with `adb pull`. Step one of the plan: move that parser into
-`tools/` and have the extractor read the APK directly (pulled from the head
-unit by the owner or over adb), so the data is reproducible. The committed
-JSON's lack of a `constants` field shows it came from an earlier script
+`sendCmd(n)` calls, per class → JSON; `dumpmethod.py`: a crude disassembly of
+one method, used for the send-format survey above). It runs on the
+`com.syu.air` APK pulled from the head unit with `adb pull`. The extractor
+moves to it and reads the APK directly, so the data is reproducible. The
+committed JSON has no `constants` field, so it came from an earlier script
 version; regenerate it rather than patching it.
-
-**Command source is `com.syu.air` only for now (my call).**
-`com.syu.canbus` has richer rear-zone tables (`PAJeepAirControlAct_SP` for
-RAM, Escalade, GMC; `ConstAllAirDara` with 255 = not fitted), but it is a
-different code path with its own encoding. It is noted as the next source,
-not used.
-
-**Extraction gaps the builder must close:**
-
-- Airflow. The current features list has no airflow setters. Some profiles
-  have idempotent per-mode setters (like the WK2's 8-11); others have only a
-  mode-cycle command. Only idempotent setters drive the AIRFLOW tiles; a
-  cycle-only car gets no AIRFLOW section (my call — a cycle cannot do direct
-  selection, which is what the tiles promise).
-- Rear zone: rear temperature up/down, rear fan up/down, rear AUTO, rear
-  power, rear lock. 25 of 228 `com.syu.air` profiles declare rear-zone or
-  rear-lock commands. None declares rear seat heat; keep the slot in the model
-  so a future source can fill it.
 
 **Code shape (left to the builder, constrained):** `Command` currently bakes
 WK2 indices into enum constants, and the UI takes `onCommand: (Command) -> Unit`.
@@ -247,7 +242,11 @@ Mockups: `panel-ladder.html`, `panel-header.html`. Approved.
   rows, no section.
 - **Height (my call; owner said it looks good):** the window shrinks to fit
   its content, so a lighter car covers less of the app beneath. It still
-  slides up from the bar as today.
+  slides up from the bar as today. **Deferred to a later plan:** the panel
+  window is full app height and consumes every touch, so a shorter page means
+  a shorter window anchored above the bar, not just a shorter layout. Until
+  then omitted sections leave space above the footer, which is today's
+  behaviour for the Spacer.
 - **Rear:** cars with a rear zone or rear seat controls get a large
   **FRONT | REAR** segmented toggle in the header, current page filled in
   (owner's choice over a single flip button and over a bottom placement). The
@@ -298,8 +297,8 @@ Rear read codes exist in `FinalCanbus` (rear temps 40/41, `REAR_POWER` 42,
 - **Regression gate:** the WK2 id plus the WK2 answers must produce today's
   bar and window exactly; existing screenshots and harness captures stay
   valid.
-- Harness: a vehicle picker that renders each ladder rung and a rear-zone
-  car, since only the WK2 exists on hardware.
+- Harness: a vehicle picker that renders each ladder rung, since only the
+  WK2 exists on hardware.
 - On the WK2: setup flow end to end; bar and window unchanged afterwards.
 
 ## 10. Left to the builder
