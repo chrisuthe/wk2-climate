@@ -17,7 +17,7 @@
    "FAN_DOWN": 21,
    "RECIRC": 35
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0020_XFY_KELUZE;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -139,7 +139,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -163,7 +163,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -432,7 +432,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -506,7 +506,7 @@
  {
   "profile": "Car_0151_AnSheng_WeiLong",
   "table": {},
-  "send_format": "sendInt(7, 0, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -560,7 +560,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -584,7 +584,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -670,7 +670,7 @@
    "SYNC": 169,
    "AUTO": 171
   },
-  "send_format": "sendInt(7, 30, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -711,7 +711,7 @@
    "AC": 14,
    "SYNC": 15
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0223_WC_Zhisheng;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -732,7 +732,7 @@
    "FAN_DOWN": 21,
    "RECIRC": 35
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0225_CYT_OuLanDe;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -838,7 +838,7 @@
    "SEAT_HEAT_R": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -847,7 +847,7 @@
   "table": {
    "AC": 2
   },
-  "send_format": "sendInt(7, 106, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -858,7 +858,7 @@
    "RECIRC": 8,
    "CLIMATE_POWER": 128
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -882,7 +882,7 @@
    "SEAT_HEAT_L": 11,
    "SEAT_HEAT_R": 13
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0265_BNR_BoYue;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -894,7 +894,7 @@
    "TEMP_R_UP": 15,
    "TEMP_R_DOWN": 16
   },
-  "send_format": "sendInt(7, 22, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -908,7 +908,7 @@
    "AC": 7,
    "AUTO": 8
   },
-  "send_format": "sendInt(7, 2, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -970,7 +970,7 @@
    "AC": 23,
    "RECIRC": 25
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0280_BNR_GS4;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -1106,7 +1106,7 @@
    "SEAT_VENT_L": 45,
    "SEAT_VENT_R": 46
   },
-  "send_format": "sendInt(7, 5, ...)",
+  "send_format": "other instructions (op 0x22)",
   "trusted": false,
   "supported": false
  },
@@ -1178,7 +1178,7 @@
    "AC": 1,
    "SYNC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -1358,7 +1358,7 @@
    "TEMP_R_UP": 90,
    "TEMP_R_DOWN": 91
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0327_HC_OldTianLai;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -1378,7 +1378,7 @@
    "SEAT_VENT_R": 15,
    "WHEEL_HEAT": 15
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -1439,7 +1439,7 @@
    "TEMP_R_UP": 5,
    "SYNC": 11
   },
-  "send_format": "sendInt(7, 87, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -1554,7 +1554,7 @@
    "AC": 23,
    "RECIRC": 25
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0355_BNR_Sonata8;.typeCmd)",
   "trusted": false,
   "supported": false
  },
@@ -1575,7 +1575,7 @@
    "AC": 23,
    "RECIRC": 25
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0355_HC_XIANDAI;.typeCmd)",
   "trusted": false,
   "supported": false
  },
@@ -1633,7 +1633,7 @@
    "SEAT_VENT_L": 45,
    "SEAT_VENT_R": 46
   },
-  "send_format": "sendInt(7, 5, ...)",
+  "send_format": "other instructions (op 0x22)",
   "trusted": false,
   "supported": false
  },
@@ -1771,7 +1771,7 @@
    "TEMP_R_UP": 33,
    "CLIMATE_POWER": 16
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0374_XP_KeLeiAo;.cmdtype)",
   "trusted": false,
   "supported": false
  },
@@ -1816,7 +1816,7 @@
    "REAR_DEFROST": 92,
    "CLIMATE_POWER": 95
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0388_HC_09TianLai;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -1863,7 +1863,7 @@
    "FAN_DOWN": 21,
    "RECIRC": 35
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (Lcom/syu/air/canbus/Car_0394_WC_KX5_AND_CYT_K3;.CMD_TYPE)",
   "trusted": false,
   "supported": false
  },
@@ -2218,7 +2218,7 @@
    "REAR_DEFROST": 6,
    "FRONT_DEFROST": 7
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -2239,7 +2239,7 @@
    "FAN_DOWN": 21,
    "RECIRC": 35
   },
-  "send_format": "sendInt(7, None, ...)",
+  "send_format": "other instructions (op 0x22)",
   "trusted": false,
   "supported": false
  },
@@ -2756,7 +2756,7 @@
    "TEMP_L_UP": 2,
    "TEMP_L_DOWN": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -2774,7 +2774,7 @@
    "TEMP_L_UP": 2,
    "TEMP_L_DOWN": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -2830,7 +2830,7 @@
    "TEMP_R_UP": 2,
    "TEMP_R_DOWN": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -2984,7 +2984,7 @@
    "TEMP_R_DOWN": 1,
    "RECIRC": 1
   },
-  "send_format": "press then delayed release",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3491,7 +3491,7 @@
    "FRONT_DEFROST": 16,
    "REAR_DEFROST": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3541,7 +3541,7 @@
    "AC": 2,
    "RECIRC": 8
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3588,7 +3588,7 @@
    "FAN_DOWN": 1,
    "FAN_UP": 2
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3820,7 +3820,7 @@
    "AC": 2,
    "RECIRC": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3830,7 +3830,7 @@
    "AC": 2,
    "RECIRC": 8
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3854,7 +3854,7 @@
    "AC": 2,
    "RECIRC": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3915,7 +3915,7 @@
    "AC": 2,
    "RECIRC": 1
   },
-  "send_format": "branches (switch)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3925,7 +3925,7 @@
    "AC": 164,
    "RECIRC": 165
   },
-  "send_format": "sendInt(7, 0, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },
@@ -3977,7 +3977,7 @@
    "AC": 164,
    "RECIRC": 165
   },
-  "send_format": "sendInt(7, 0, ...)",
+  "send_format": "no sendCmd",
   "trusted": false,
   "supported": false
  },

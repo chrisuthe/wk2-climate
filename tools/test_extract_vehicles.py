@@ -96,6 +96,28 @@ class ExtractVehiclesTest(unittest.TestCase):
                          "V\t374\tCar_0374_PA_Jeep_All\t-\t-")
         self.assertEqual(ev.render_p("X", {"AUTO": 2, "AC": 1}), "P\tX\tAC=1,AUTO=2")
 
+    def _wk2_with(self, at, *insns):
+        """The WK2 body with instructions inserted before index [at]."""
+        return WK2_SENDCMD_INSNS[:at] + list(insns) + WK2_SENDCMD_INSNS[at:]
+
+    def test_a_modified_argument_is_not_the_trusted_frame(self):
+        # add-int/lit8 v7, v7, 16 before the array is filled: sends a different index.
+        self.assertNotEqual(ev.classify_send(self._wk2_with(10, Insn(0xd8, (7, 7), 16)), arg_reg=7), "7/6/{1,cmd}")
+
+    def test_any_other_invoke_is_not_the_trusted_frame(self):
+        release = Insn(0x6e, (6, 7), None, "Lcom/syu/air/canbus/Car_X;.sendRelease")
+        self.assertNotEqual(ev.classify_send(self._wk2_with(12, release), arg_reg=7), "7/6/{1,cmd}")
+
+    def test_a_three_element_array_is_not_the_trusted_frame(self):
+        insns = list(WK2_SENDCMD_INSNS)
+        insns[6] = Insn(0x12, (3,), 3)          # new int[3]
+        self.assertNotEqual(ev.classify_send(insns, arg_reg=7), "7/6/{1,cmd}")
+
+    def test_a_constant_overwritten_by_a_field_read_is_not_trusted(self):
+        # v2 = 6, then v2 = this.CMD_TYPE: the 6 no longer holds at the call.
+        overwrite = Insn(0x52, (2, 6), None, "Lcom/syu/air/console/Air;.CMD_TYPE")
+        self.assertNotEqual(ev.classify_send(self._wk2_with(6, overwrite), arg_reg=7), "7/6/{1,cmd}")
+
 
 if __name__ == "__main__":
     unittest.main()

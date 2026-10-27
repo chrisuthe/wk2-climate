@@ -147,12 +147,25 @@ def has_duplicates(table):
     return len(set(table.values())) != len(table)
 
 
+# The only instructions a trusted sendCmd(int) body may contain: constants, the
+# read of mTools and its null check, building one array, filling it, the one
+# sendInt call, and returning. Anything else -- another invoke, arithmetic on
+# the argument, a move, a field read into a register we rely on -- means the
+# body is not exactly the frame we send, and the profile is not trusted.
+_ALLOWED_OPS = {0x12, 0x13, 0x14, 0x38, 0x39, 0x23, 0x4b, 0x0e}
+_IGET_OBJECT = 0x54
+_INVOKE_VIRTUAL = 0x6e
+
+
 def classify_send(insns, arg_reg):
-    """Name how a sendCmd(int) body frames its argument; WK2_SHAPE only for an exact match."""
-    consts = {}
-    arrays = collections.defaultdict(dict)  # array reg -> {index: value reg}
-    value_consts = {}                       # (array reg, index) -> const held by the value reg
-    sends = []
+    """Name how a sendCmd(int) body frames its argument; WK2_SHAPE only for an exact match.
+
+    Two passes. The first names the common non-matching shapes, which is what
+    the survey table in the extraction capture counts. The second is the gate:
+    an allow-list of instructions with every register write tracked, so a
+    constant that is overwritten, an argument that is modified, a third array
+    element or any other call disqualifies the body.
+    """
     for ins in insns:
         if ins.op in (0x2b, 0x2c):
             return "branches (switch)"
@@ -160,28 +173,55 @@ def classify_send(insns, arg_reg):
             return "branches on the canbus id"
         if ins.ref and ins.ref.endswith(".postDelayed"):
             return "press then delayed release"
+    n_send = sum(1 for ins in insns if ins.ref == SEND_INT)
+    if n_send != 1:
+        return "%d sendInt calls" % n_send
+
+    consts = {}        # register -> constant it holds right now
+    arg_intact = True  # the argument register still holds the argument
+    array = None       # (register, size) of the one array built
+    elements = {}      # index -> ("const", value) or ("arg",)
+    call = None
+    for ins in insns:
         if ins.op in (0x12, 0x13, 0x14):
             consts[ins.regs[0]] = ins.const
-        elif ins.op == 0x23:
-            arrays[ins.regs[0]] = {}
+            if ins.regs[0] == arg_reg:
+                arg_intact = False
+        elif ins.op == _IGET_OBJECT and ins.ref.endswith(".mTools"):
             consts.pop(ins.regs[0], None)
-        elif 0x4b <= ins.op <= 0x51:
-            value, array, index = ins.regs
-            if index in consts:
-                arrays[array][consts[index]] = value
-                value_consts[(array, consts[index])] = consts.get(value)
-        elif ins.ref == SEND_INT:
-            sends.append((ins.regs, dict(consts)))
-    if len(sends) != 1:
-        return "%d sendInt calls" % len(sends)
-    regs, at = sends[0]
+            if ins.regs[0] == arg_reg:
+                arg_intact = False
+        elif ins.op == 0x23:
+            if array is not None:
+                return "more than one array"
+            array = (ins.regs[0], consts.get(ins.regs[1]))
+            consts.pop(ins.regs[0], None)
+        elif ins.op == 0x4b:
+            value, arr, index = ins.regs
+            if array is None or arr != array[0] or index not in consts:
+                return "7/6 with another payload"
+            if value == arg_reg and arg_intact:
+                elements[consts[index]] = ("arg",)
+            elif value in consts:
+                elements[consts[index]] = ("const", consts[value])
+            else:
+                return "7/6 with another payload"
+        elif ins.op == _INVOKE_VIRTUAL and ins.ref == SEND_INT:
+            call = (ins.regs, dict(consts))
+        elif ins.op in _ALLOWED_OPS:
+            pass
+        else:
+            return "other instructions (%s)" % (ins.ref or "op %#04x" % ins.op)
+
+    regs, at = call
     if len(regs) != 4:
         return "sendInt with %d registers" % len(regs)
     _, mod, code, arr = regs
     if at.get(mod) != 7 or at.get(code) != 6:
         return "sendInt(%s, %s, ...)" % (at.get(mod), at.get(code))
-    elements = arrays.get(arr, {})
-    if sorted(elements) != [0, 1] or value_consts.get((arr, 0)) != 1 or elements[1] != arg_reg:
+    if array is None or arr != array[0] or array[1] != 2:
+        return "7/6 with another payload"
+    if elements != {0: ("const", 1), 1: ("arg",)}:
         return "7/6 with another payload"
     return WK2_SHAPE
 
@@ -211,7 +251,7 @@ def main(apk, ids_json, out_json, out_tsv):
     for profile in sorted(records):
         desc, rec = records[profile]
         table = table_from_record(rec)
-        found = method_code(dexes, desc, "sendCmd")
+        found = method_code(dexes, desc, "sendCmd", "VI")  # sendCmd(int) exactly, never another overload
         shape = classify_send(found[1], found[0] - 1) if found else "no sendCmd"
         shapes[shape] += 1
         trusted = shape == WK2_SHAPE and not has_duplicates(table)

@@ -152,11 +152,20 @@ becomes a bus frame. Classified from the bytecode, 2026-10-26:
 
 | send format | profiles |
 |---|---|
-| exactly one `sendInt(7, 6, {1, cmd})` | **2** |
+| exactly one `sendInt(7, 6, {1, cmd})`, nothing else | **2** |
 | a press frame, then a `postDelayed` release | 125 |
-| one frame with another command code (0, 2, 3, 22, 24, …) | 59 |
+| one frame with another constant command code (0, 1, 2, 3, 12, 22, 24, 32) | 37 |
+| one frame whose command code is read from a field (`CMD_TYPE` and similar) | 11 |
+| module 7 code 6, but another payload | 8 |
 | several frames, or a branch on a switch or `mCurrCanbus` | 35 |
-| no `sendCmd` body of its own | 7 |
+| other calls in the body (object construction) | 3 |
+| no `sendCmd(int)` of its own | 7 |
+
+The classifier is an allow-list: a body is trusted only if it holds nothing but
+constants, the `mTools` read and null check, one two-element array, its two
+stores, the single `sendInt`, and the return -- with the argument stored
+unmodified. `sendCmd(int)` is selected by its signature, so another overload
+can never stand in for it.
 
 The app sends only the first, which is the frame verified on the WK2, so the
 two matching profiles -- `Car_0374_PA_Jeep_Wrangler` (58 ids) and

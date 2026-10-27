@@ -60,11 +60,15 @@ class Dex:
         for k in range(nf):
             c, _, n = struct.unpack_from('<HHI', b, fo + 8 * k)
             self.fields.append((self.types[c], self.strs[n]))
+        npr, po = u(0x48), u(0x4c)
+        # Each proto's shorty: return type then parameter types, one letter
+        # each -- 'VI' is void(int). Enough to tell overloads apart here.
+        self.shorties = [self.strs[u(po + 12 * k)] for k in range(npr)]
         nm, mo = u(0x58), u(0x5c)
         self.methods = []
         for k in range(nm):
-            c, _, n = struct.unpack_from('<HHI', b, mo + 8 * k)
-            self.methods.append((self.types[c], self.strs[n]))
+            c, p, n = struct.unpack_from('<HHI', b, mo + 8 * k)
+            self.methods.append((self.types[c], self.strs[n], self.shorties[p]))
         self.ncls, self.co = u(0x60), u(0x64)
 
     def enc_value(self, i):
@@ -98,8 +102,8 @@ class Dex:
             return self.strs[int.from_bytes(raw, 'little')], i
         return None, i
 
-    def _class_methods(self, cdo):
-        """Yield (method name, code offset) for every direct and virtual method."""
+    def _class_methods(self, cdo, with_shorty=False):
+        """Yield (method name, code offset) -- plus the shorty if asked -- for every direct and virtual method."""
         b = self.b
         i = cdo
         sf, i = uleb(b, i)
@@ -116,7 +120,8 @@ class Dex:
                 _, i = uleb(b, i)
                 code, i = uleb(b, i)
                 idx += d
-                yield self.methods[idx][1], code
+                m = self.methods[idx]
+                yield (m[1], code, m[2]) if with_shorty else (m[1], code)
 
     def _class_static_fields(self, cdo):
         b = self.b
@@ -224,13 +229,13 @@ def load_apk(path):
             if nm.startswith('classes') and nm.endswith('.dex')]
 
 
-def method_code(dexes, class_desc, method_name):
-    """(registers_size, [Insn]) for the named method, or None if it has no body."""
+def method_code(dexes, class_desc, method_name, shorty):
+    """(registers_size, [Insn]) for the method with this name and shorty (e.g. 'VI'), or None."""
     for d in dexes:
         for name, cdo, _ in d.class_defs():
             if name != class_desc or not cdo:
                 continue
-            for mname, code in d._class_methods(cdo):
-                if mname == method_name and code:
+            for mname, code, mshorty in d._class_methods(cdo, with_shorty=True):
+                if mname == method_name and mshorty == shorty and code:
                     return d.registers(code), d.decode(code)
     return None
