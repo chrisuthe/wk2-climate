@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -196,8 +197,14 @@ class SetupActivity : ComponentActivity() {
                         number = status.questions.indexOf(q) + 1,
                         of = status.questions.size,
                         question = q,
-                        preview = Features(status.vehicle.table, status.answers + (q to true)),
-                        onAnswer = { yes -> store.save(saved.copy(answers = saved.answers + (q to yes))) },
+                        // Unasked questions preview as YES, so the bar shows the car as it
+                        // will be if the remaining answers are yes -- not a single-zone
+                        // bar for a dual-zone car before that question comes up.
+                        preview = Features(
+                            status.vehicle.table,
+                            Question.entries.associateWith { true } + status.answers + (q to true),
+                        ),
+                        onAnswer = { yes -> store.update { it.withAnswer(status.vehicle.id, q, yes) } },
                     )
                 }
 
@@ -209,14 +216,14 @@ class SetupActivity : ComponentActivity() {
                 for (q in questionsFor(status.vehicle.table)) {
                     val on = status.features.answers[q] == true
                     SwitchRow(palette, getString(q.label), on) {
-                        store.save(saved.copy(answers = saved.answers + (q to !on)))
+                        store.update { it.withAnswer(status.vehicle.id, q, !on) }
                     }
                     Spacer(Modifier.height(Dimens.tileGap))
                 }
                 Spacer(Modifier.height(26.dp))
                 BigButton(palette, getString(R.string.setup_ask_again), filled = false) {
                     onConfirm()
-                    store.save(SavedVehicle(status.vehicle.id, emptyMap()))
+                    store.update { it.askAgain(status.vehicle.id) }
                 }
             }
         }
@@ -251,7 +258,12 @@ class SetupActivity : ComponentActivity() {
                 onToggleClimate = {},
                 seatMenuOpen = null,
                 onSeatButton = {},
+                // The bar is a fixed 1080 x 227: let it overflow the scaled box
+                // from its top-left corner (requiredSize alone would centre the
+                // overflow and push the left edge off-screen), then scale it
+                // about that same corner.
                 modifier = Modifier
+                    .wrapContentSize(Alignment.TopStart, unbounded = true)
                     .requiredSize(Dimens.barWidth, Dimens.barHeight)
                     .graphicsLayer {
                         scaleX = PREVIEW_SCALE

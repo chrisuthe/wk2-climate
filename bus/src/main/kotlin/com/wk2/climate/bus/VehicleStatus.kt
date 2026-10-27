@@ -16,7 +16,25 @@ data class SavedVehicle(val id: Int?, val answers: Map<Question, Boolean>) {
      * changed, so the old answers describe some other car and are discarded:
      * setup runs again.
      */
-    fun onLiveId(live: Int): SavedVehicle = if (live == id) this else SavedVehicle(live, emptyMap())
+    fun onLiveId(live: Int): SavedVehicle = when {
+        // Not an id: every canbus id has a nonzero base. A transient 0 during
+        // boot must not cost the driver their setup.
+        live <= 0 -> this
+        live == id -> this
+        else -> SavedVehicle(live, emptyMap())
+    }
+
+    /**
+     * Records an answer given while the setup screen showed car [forId]. If
+     * the car on record has changed since -- the service recorded a new live
+     * id between the screen drawing and the tap -- the answer is dropped, so a
+     * stale tap can never bring the previous car's id back.
+     */
+    fun withAnswer(forId: Int, question: Question, yes: Boolean): SavedVehicle =
+        if (forId != id) this else copy(answers = answers + (question to yes))
+
+    /** Clears the answers to run setup again, for the car the screen showed, if it is still on record. */
+    fun askAgain(forId: Int): SavedVehicle = if (forId != id) this else copy(answers = emptyMap())
 
     companion object {
         val NONE = SavedVehicle(null, emptyMap())

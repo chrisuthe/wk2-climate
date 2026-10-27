@@ -278,8 +278,7 @@ class ClimateBarService : AccessibilityService() {
      */
     private suspend fun recordCanbusId() {
         bus.state.mapNotNull { it[Signal.CANBUS_ID] }.distinctUntilChanged().collect { id ->
-            val next = store.saved.value.onLiveId(id)
-            if (next != store.saved.value) store.save(next)
+            store.update { it.onLiveId(id) }
         }
     }
 

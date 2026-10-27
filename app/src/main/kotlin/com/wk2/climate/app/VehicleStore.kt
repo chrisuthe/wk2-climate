@@ -33,13 +33,31 @@ class VehicleStore(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
 
-    fun save(value: SavedVehicle) {
+    /**
+     * Applies [change] to the value on record **at write time**, never to a
+     * snapshot a caller is holding: the service and the setup screen both
+     * write, and a tap handled just after the service recorded a new id must
+     * see that id. Pair it with the guarded transitions on [SavedVehicle]
+     * (`withAnswer`, `askAgain`, `onLiveId`) so a stale intent becomes a no-op.
+     *
+     * Synchronous (`commit`), so the read below always sees the other
+     * writer's last write. Both writers -- the service's collectors and the
+     * activity's taps -- run on the main thread, which is what keeps one
+     * update's read-then-write from interleaving with the other's. Removes
+     * only the keys this store owns, so anything else kept in the same file
+     * survives.
+     */
+    fun update(change: (SavedVehicle) -> SavedVehicle) {
+        val current = read()
+        val next = change(current)
+        if (next == current) return
         prefs.edit().apply {
-            clear()
-            value.id?.let { putInt(KEY_ID, it) }
-            for ((q, yes) in value.answers) putBoolean(KEY_ANSWER + q.name, yes)
-        }.apply()
-        _saved.value = value
+            remove(KEY_ID)
+            Question.entries.forEach { remove(KEY_ANSWER + it.name) }
+            next.id?.let { putInt(KEY_ID, it) }
+            for ((q, yes) in next.answers) putBoolean(KEY_ANSWER + q.name, yes)
+        }.commit()
+        _saved.value = next
     }
 
     private fun read(): SavedVehicle {
