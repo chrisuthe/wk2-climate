@@ -55,19 +55,20 @@ enum class Signal(
     /**
      * The canbus id: which vehicle the unit is configured for.
      *
-     * Read-only, and nothing depends on it yet. It is registered so we can find
-     * out whether it actually arrives, and when - the question that decides
-     * whether per-vehicle auto-configuration is possible at all. See
-     * `docs/captures/2026-09-09-air-profile-extraction.md`.
+     * It selects the vehicle's command table: the service records it as the
+     * [SavedVehicle] id and [resolveVehicle] looks it up in [VehicleCatalog].
+     * Measured on the WK2, it arrives about 40 ms after registration,
+     * unprompted. See `docs/captures/2026-09-09-air-profile-extraction.md`.
      *
      * `com.syu.air` reads exactly this code and passes the value straight to
      * `AirFactory.create`, which switches it onto one of 222 vehicle profile
      * classes. It never queries the code either; it waits for the callback,
      * which is consistent with registration being the only read path.
      *
-     * Absence is a real possibility and is handled: this contributes to
-     * [ClimateState.missingSignals] but gates nothing, so a vehicle that never
-     * reports it behaves exactly as before. [CanbusId] decodes it.
+     * It stays `diagnostic`: the id is cached between boots, so a late or
+     * absent report must not hold the re-registration retry open. A vehicle
+     * that never reports it and has no cached id is simply never drawn for.
+     * [CanbusId] decodes it.
      */
     CANBUS_ID(7, 1000, diagnostic = true),
 
