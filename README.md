@@ -9,7 +9,7 @@ functions at a 96dp minimum target and moves everything else one tap away onto a
 full-page climate view.
 
 **Status: built and running in the vehicle.** Both screens are implemented,
-reviewed and verified on hardware. 219 tests (152 bus, 55 ui, 12 tools).
+reviewed and verified on hardware. 220 tests (153 bus, 55 ui, 12 tools).
 
 ---
 
@@ -24,17 +24,19 @@ and its caret has flipped to point down, because the same control dismisses it:
 
 ![Screen 1d running on the head unit](docs/screenshots/vehicle-panel.png)
 
-And the one screen that is a normal activity, reached from the launcher icon. It
-exists only to report whether the service is enabled and to deep-link to the
-toggle, because an app cannot grant itself accessibility:
+And the one screen that is a normal activity, reached from the launcher icon.
+Until the service is enabled it says so and deep-links to the toggle, because an
+app cannot grant itself accessibility. After that it names the car the head unit
+reports, asks the one-time setup questions, and then shows the answers as
+switches that can be changed later:
 
 ![The setup screen](docs/screenshots/setup-screen.png)
 
-All three are captured off a running vehicle, not a mockup or an emulator. Every
-value shown is what the car reported: 66&#176;F outside with both zones at 67,
-`SYNC` **un**lit because unlit means synced on this vehicle (the signal is
-`DUAL`, so its polarity is inverted), `AUTO` owning the fan, and seat cooling on
-`HIGH` both sides.
+All three are captured off a running vehicle, not a mockup or an emulator. In
+the first two, every value shown is what the car reported: 66&#176;F outside
+with both zones at 67, `SYNC` **un**lit because unlit means synced on this
+vehicle (the signal is `DUAL`, so its polarity is inverted), `AUTO` owning the
+fan, and seat cooling on `HIGH` both sides.
 
 ---
 
@@ -61,6 +63,11 @@ value shown is what the car reported: 66&#176;F outside with both zones at 67,
   never visited.
 - **There is no cabin-temperature signal at all**, confirmed by decompiling the
   vendor CANBUS app.
+- **Callbacks from different modules arrive at the same time**, each on its own
+  binder thread. A plain read-then-write of the shared state let one module's
+  update erase another's. The retry hid this for climate signals, but the
+  canbus id is sent once and never retried, so it left a fresh install
+  stuck at "Reading your car…" in about one start in five.
 
 Full write-ups, including the failed hypotheses, are in
 [`docs/captures/`](docs/captures/).
