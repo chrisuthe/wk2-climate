@@ -6,8 +6,8 @@ package com.wk2.climate.bus
  *
  * The id is a packed pair. The low 16 bits are the **base protocol** and match
  * the four-digit number in the vendor's profile class names; the high 16 bits
- * are the **vehicle variant** within that protocol. So `0x280176` is base 374,
- * variant 40 - `CAR_PA_Cherokee_14_22`, which resolves to
+ * are the **vehicle variant** within that protocol. So `0x290176` is base 374,
+ * variant 41 - `CAR_PA_GrandCherokee_14_22`, which resolves to
  * `Car_0374_PA_Jeep_Wrangler`.
  *
  * The rule holds for 1077 of the 1200 ids wired in `AirFactory`, so it is a
@@ -22,7 +22,7 @@ object CanbusId {
     /** The vehicle variant within that family: trim level, model year, market. */
     fun variant(id: Int): Int = id ushr 16
 
-    /** For logs: `2621814 (0x280176) base=374 variant=40`. */
+    /** For logs: `2687350 (0x290176) base=374 variant=41`. */
     fun describe(id: Int): String =
         "$id (0x%06X) base=${base(id)} variant=${variant(id)}".format(id)
 }

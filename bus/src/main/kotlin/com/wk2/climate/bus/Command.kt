@@ -12,8 +12,8 @@ package com.wk2.climate.bus
  * `send(module, code, payload)` that collision eventually becomes a bug.
  *
  * Indices are **specific to the Jeep Grand Cherokee WK2**, whose vehicle
- * profile is `Car_0374_PA_Jeep_Wrangler` -- reached from canbus id 2621814
- * (`CAR_PA_Cherokee_14_22`), despite the class name. That profile declares 18
+ * profile is `Car_0374_PA_Jeep_Wrangler` -- reached from canbus id 2687350
+ * (`CAR_PA_GrandCherokee_14_22`), despite the class name. That profile declares 18
  * of the 19 commands below with exactly these indices; the one it does not is
  * MAX_AC, fitted here but absent from the factory bar.
  *

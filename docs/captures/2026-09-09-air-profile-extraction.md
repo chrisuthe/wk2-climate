@@ -178,7 +178,7 @@ class name; `canbus >> 16` is the vehicle variant. The low-16 rule holds for
 
 Settled, and the earlier attribution was wrong.
 
-`FinalCanbus.CAR_PA_Cherokee_14_22 = 2621814` is base 374, variant 40 - a
+`FinalCanbus.CAR_PA_GrandCherokee_14_22 = 2687350` is base 374, variant 41 - a
 2014-2022 Grand Cherokee on the PA canbus. `AirFactory` wires that id to
 **`Car_0374_PA_Jeep_Wrangler`**, despite the class name. The PA family shares one
 profile class across Wrangler, RAM, Durango, GMC and Escalade, and the Grand
@@ -199,9 +199,25 @@ factory bar could not have driven seat heat, sync or auto - all empty there -
 yet it did. It ran Wrangler, which implements them. Nothing extra needed
 explaining; the profile identification was simply wrong.
 
-**Still worth reading code 1000 on the vehicle** to confirm the id is 2621814
-rather than another PA variant. The profile class is the same either way, so the
-command table does not depend on the answer.
+### Read on the vehicle, 2026-10-26: it arrives unprompted, and it is Wrangler
+
+Build `dc5c009`, which registers code 1000 and logs it, installed over adb. The
+reinstall restarted the service cold, and the id arrived 40 ms after
+registration without any button being touched:
+
+```
+15:38:06.258 I/wk2-bus: module 7: registered 21/21 codes
+15:38:06.299 I/wk2-bus: canbus id 2687350 (0x290176) base=374 variant=41
+```
+
+- **`2687350` is `CAR_PA_GrandCherokee_14_22`**, which `AirFactory` wires to
+  `Car_0374_PA_Jeep_Wrangler`. The falsifiable test passes: not `_All`. This
+  section first named `CAR_PA_Cherokee_14_22` (variant 40), which is the KL
+  Cherokee - same profile class, wrong constant.
+- **It is delivered on registration**, unlike the cold-start temperatures that
+  stayed blank until a button was pressed. So the id is usable for choosing a
+  command table at startup rather than only after the first change. Not yet seen
+  from an ignition-off boot, where `com.syu.ms` itself may come up after us.
 
 ## Correction: `com.syu.canbus` does hold climate code
 
