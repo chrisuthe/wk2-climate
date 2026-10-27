@@ -2,6 +2,7 @@ package com.wk2.climate.app
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.graphics.Insets
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.SystemClock
@@ -9,6 +10,7 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import androidx.compose.animation.core.Animatable
@@ -30,6 +32,7 @@ import com.wk2.climate.bus.CanbusId
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
 import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.NavBarWatch
 import com.wk2.climate.bus.SeatSlot
 import com.wk2.climate.bus.RefreshRetry
 import com.wk2.climate.bus.SeatMenuLatch
@@ -95,6 +98,12 @@ class ClimateBarService : AccessibilityService() {
      * bus a command table, or lets a command through.
      */
     private var status: StateFlow<VehicleStatus> = MutableStateFlow(VehicleStatus.Waiting)
+
+    /**
+     * Whether the system navigation bar is on screen. Re-created per
+     * connection in [followBus], on the connection's scope; see [navBarShown].
+     */
+    private var navBar: StateFlow<Boolean> = MutableStateFlow(true)
 
     /**
      * Screen 1d's window, which exists only while the panel is open.
@@ -244,19 +253,43 @@ class ClimateBarService : AccessibilityService() {
      * wiring — which flow, which grace, which window calls.
      */
     private suspend fun followBus() {
-        // The bar also needs a vehicle that is known and set up. `show` is
-        // guarded as well as the flow, because followConnection shows once up
-        // front before it looks at the flow, and a bar for a car that is not
-        // set up would be an empty window eating every touch on the factory
-        // bar for the whole grace period.
-        val ready = combine(bus.connected, status) { connected, s -> connected && s is VehicleStatus.Ready }
-            .stateIn(checkNotNull(scope), SharingStarted.Eagerly, false)
+        // The bar also needs a vehicle that is known and set up, and a
+        // navigation bar for it to stand in for: when an app hides the system
+        // bars, the factory bar slides away and the app lays out over the
+        // whole screen, so ours has to go with it. `show` is guarded as well
+        // as the flow, because followConnection shows once up front before it
+        // looks at the flow, and a bar for a car that is not set up would be
+        // an empty window eating every touch on the factory bar for the whole
+        // grace period -- or, with the bars hidden, on the app's own content.
+        val scope = checkNotNull(scope)
+        navBar = NavBarWatch.follow(NAV_BAR_POLL_MS, ::navBarShown)
+            .stateIn(scope, SharingStarted.Eagerly, navBarShown())
+        val ready = combine(bus.connected, status, navBar) { connected, s, nav ->
+            connected && s is VehicleStatus.Ready && nav
+        }.stateIn(scope, SharingStarted.Eagerly, false)
         followConnection(
             ready,
             BUS_GRACE_MS,
-            show = { if (status.value is VehicleStatus.Ready) showBar() },
+            show = { if (status.value is VehicleStatus.Ready && navBar.value) showBar() },
             hide = ::hidePanelAndBar,
         )
+    }
+
+    /**
+     * Whether the system navigation bar is on screen, read from the display's
+     * insets rather than our own window's: the bar is an accessibility
+     * overlay above the navigation bar, and a window is only given insets by
+     * sources above it, so its own insets never mention the navigation bar.
+     *
+     * A display with no navigation bar at all counts as shown, so a ROM
+     * without one keeps the bar rather than losing it for good. Before
+     * Android 11 there is no way to ask, and the bar stays as it always has.
+     */
+    private fun navBarShown(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+        val insets = getSystemService(WindowManager::class.java).currentWindowMetrics.windowInsets
+        val nav = WindowInsets.Type.navigationBars()
+        return insets.isVisible(nav) || insets.getInsetsIgnoringVisibility(nav) == Insets.NONE
     }
 
     /**
@@ -400,7 +433,9 @@ class ClimateBarService : AccessibilityService() {
     }
 
     /**
-     * Removes the bar window, leaving the factory bar visible and usable.
+     * Removes the bar window, leaving the factory bar visible and usable -- or,
+     * when an app has hidden the navigation bar, leaving the app the space the
+     * factory bar has given up.
      *
      * `isShowing` is checked so this stays quiet when it is already hidden —
      * `ComposeOverlayHost.hide()` is itself guarded against a double hide, but
@@ -409,6 +444,10 @@ class ClimateBarService : AccessibilityService() {
     private fun hideBar() {
         if (!barHost.isShowing) return
         barHost.hide()
+        if (!navBar.value) {
+            Log.i(TAG, "navigation bar hidden by the app in front — hiding the bar with it")
+            return
+        }
         Log.w(
             TAG,
             "vehicle bus unavailable — removing the bar window so the com.syu.air " +
@@ -1092,6 +1131,13 @@ class ClimateBarService : AccessibilityService() {
          * bar. The vehicle's own bind completes well inside this.
          */
         const val BUS_GRACE_MS = 4_000L
+
+        /**
+         * How often [navBarShown] is read. The factory bar takes about as
+         * long to slide away, so ours goes at much the same moment; a read
+         * is one call to the window manager.
+         */
+        const val NAV_BAR_POLL_MS = 250L
 
         /** Sanity window for a decoded outside temperature. */
         const val OUTSIDE_F_MIN = -60

@@ -9,7 +9,7 @@ functions at a 96dp minimum target and moves everything else one tap away onto a
 full-page climate view.
 
 **Status: built and running in the vehicle.** Both screens are implemented,
-reviewed and verified on hardware. 220 tests (153 bus, 55 ui, 12 tools).
+reviewed and verified on hardware. 224 tests (157 bus, 55 ui, 12 tools).
 
 ---
 
@@ -68,6 +68,11 @@ fan, and seat cooling on `HIGH` both sides.
   update erase another's. The retry hid this for climate signals, but the
   canbus id is sent once and never retried, so it left a fresh install
   stuck at "Reading your car…" in about one start in five.
+- **When an app hides the navigation bar, the factory bar really goes**, and
+  the app lays out over the whole screen. Our bar has to go with it, but an
+  accessibility overlay sits above the navigation bar and so is never told
+  about it: its own insets say "no navigation bar" whether one is showing or
+  not. The display's insets do change, so the bar polls those.
 
 Full write-ups, including the failed hypotheses, are in
 [`docs/captures/`](docs/captures/).
