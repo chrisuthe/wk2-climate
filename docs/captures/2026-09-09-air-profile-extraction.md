@@ -131,11 +131,37 @@ the meanings do not.
   notifies only on change - so an unfitted feature and an untouched one look
   identical. See `2026-09-08-vehicle-install.md`.
 
-Reproduce with:
+Reproduce with (2026-10-26 onwards, straight from the APK, no decompiler):
 
 ```
-python tools/extract-air-profiles.py <jadx-out>/sources/com/syu/air/canbus docs/data/air-command-tables.json
+adb shell pm path com.syu.air          # then adb pull that path to air.apk, outside the repo
+python -I tools/extract-vehicles.py air.apk docs/data/air-canbus-ids.json     docs/data/air-command-tables.json bus/src/main/resources/com/wk2/climate/bus/vehicles.tsv
 ```
+
+The original extraction ran over jadx output with `tools/extract-air-profiles.py`.
+That output is gone and jadx could not be run again, so the extractor was
+rebuilt on a standard-library DEX reader (`tools/dexlib.py`). Its tables agree
+with the jadx ones for every trusted profile. The differences, 31 profiles, are
+all untrusted: the DEX path also sees two-argument `sendCmd` overloads and
+constants that jadx folded away.
+
+### Send formats: why only the PA family is driven
+
+Every profile has its own `sendCmd(int)`, and they do not agree on how an index
+becomes a bus frame. Classified from the bytecode, 2026-10-26:
+
+| send format | profiles |
+|---|---|
+| exactly one `sendInt(7, 6, {1, cmd})` | **2** |
+| a press frame, then a `postDelayed` release | 125 |
+| one frame with another command code (0, 2, 3, 22, 24, …) | 55 |
+| several frames, or a branch on a switch or `mCurrCanbus` | 35 |
+| no `sendCmd` body of its own | 7 |
+
+The app sends only the first, which is the frame verified on the WK2, so the
+two matching profiles -- `Car_0374_PA_Jeep_Wrangler` (58 ids) and
+`Car_0374_PA_Jeep_All` (2 ids) -- are the only ones in `vehicles.tsv`. See
+`docs/superpowers/specs/2026-10-26-multi-vehicle-design.md` §4.
 
 ---
 
