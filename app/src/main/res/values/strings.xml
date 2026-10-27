@@ -52,4 +52,6 @@
     <string name="setup_label_wheel_heat">Heated steering wheel</string>
     <string name="setup_label_dual_zone">Separate temperatures</string>
     <string name="setup_ask_again">ASK ME AGAIN</string>
+    <string name="setup_ready_body">Your climate bar is live at the bottom of the screen. Changes here save as you make them.</string>
+    <string name="setup_done">DONE</string>
 </resources>

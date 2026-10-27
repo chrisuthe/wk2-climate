@@ -212,6 +212,8 @@ class SetupActivity : ComponentActivity() {
                 Mono(palette, getString(R.string.setup_your_car))
                 Spacer(Modifier.height(10.dp))
                 BasicText(status.vehicle.displayName, style = Type.panelTitle.copy(color = palette.ink))
+                Spacer(Modifier.height(18.dp))
+                BasicText(getString(R.string.setup_ready_body), style = Type.panelStatus.copy(color = palette.inkMuted))
                 Spacer(Modifier.height(24.dp))
                 for (q in questionsFor(status.vehicle.table)) {
                     val on = status.features.answers[q] == true
@@ -221,9 +223,15 @@ class SetupActivity : ComponentActivity() {
                     Spacer(Modifier.height(Dimens.tileGap))
                 }
                 Spacer(Modifier.height(26.dp))
-                BigButton(palette, getString(R.string.setup_ask_again), filled = false) {
-                    onConfirm()
-                    store.update { it.askAgain(status.vehicle.id) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
+                    BigButton(palette, getString(R.string.setup_ask_again), filled = false, modifier = Modifier.weight(1f)) {
+                        onConfirm()
+                        store.update { it.askAgain(status.vehicle.id) }
+                    }
+                    // Every switch saves as it is flipped, so this only closes.
+                    BigButton(palette, getString(R.string.setup_done), filled = true, modifier = Modifier.weight(1f)) {
+                        finish()
+                    }
                 }
             }
         }
