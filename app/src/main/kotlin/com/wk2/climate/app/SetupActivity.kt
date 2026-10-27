@@ -149,8 +149,15 @@ class SetupActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Center,
         ) {
             when (state) {
-                Setup.DISABLED ->
+                Setup.DISABLED -> {
                     Message(palette, getString(R.string.setup_disabled_title), getString(R.string.setup_disabled_body))
+                    Spacer(Modifier.height(40.dp))
+                    // The automatic jump happens once per activity; this is the way
+                    // back after leaving Settings without enabling the service.
+                    BigButton(palette, getString(R.string.setup_open_settings), filled = true) {
+                        openAccessibilitySettings()
+                    }
+                }
                 Setup.NO_SETTINGS_SCREEN ->
                     Message(palette, getString(R.string.setup_nosettings_title), getString(R.string.setup_nosettings_body))
                 Setup.ENABLED -> VehicleSetup(palette, saved, confirmed, onConfirm = { confirmed = true })
