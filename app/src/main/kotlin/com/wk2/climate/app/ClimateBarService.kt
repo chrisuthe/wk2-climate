@@ -28,12 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
+import com.wk2.climate.bus.Features
 import com.wk2.climate.bus.RefreshRetry
 import com.wk2.climate.bus.SeatMenuLatch
 import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
+import com.wk2.climate.bus.VehicleCatalog
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
@@ -346,6 +348,7 @@ class ClimateBarService : AccessibilityService() {
 
         ClimateBar(
             state = state,
+            features = wk2Features,
             onCommand = { bus.send(it) },
             // Both nav keys close the panel first when it is open.
             //
@@ -591,6 +594,7 @@ class ClimateBarService : AccessibilityService() {
             palette = Palette.forNight(state.isNight),
             side = side,
             state = state,
+            features = wk2Features,
             onCommand = { taps++; bus.send(it) },
         )
     }
@@ -611,7 +615,7 @@ class ClimateBarService : AccessibilityService() {
     private fun seatMenuWindowParams(side: SeatSide): WindowManager.LayoutParams {
         val density = resources.displayMetrics.density
         val width = (Dimens.seatMenuWidth.value * density).roundToInt()
-        val height = (seatMenuHeight(side).value * density).roundToInt()
+        val height = (seatMenuHeight(side, wk2Features).value * density).roundToInt()
         val left = (seatMenuX(side).value * density).roundToInt()
         val top = displayHeightPx() - designBarHeightPx() - height
         Log.i(TAG, "seat menu window ($side): x=$left y=$top ${width}x${height}px")
@@ -997,3 +1001,6 @@ class ClimateBarService : AccessibilityService() {
         const val OUTSIDE_F_MAX = 160
     }
 }
+
+// Replaced by the resolved vehicle's features in Task 7.
+private val wk2Features = Features.allYes(VehicleCatalog.bundled()[2687350]!!.table)

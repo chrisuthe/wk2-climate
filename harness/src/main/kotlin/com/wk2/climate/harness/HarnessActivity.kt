@@ -44,6 +44,8 @@ import kotlinx.coroutines.delay
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
+import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.VehicleCatalog
 import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.design.Dimens
@@ -154,11 +156,12 @@ private fun Harness(bus: FakeVehicleBus) {
                 }
                 Row {
                     Spacer(Modifier.width(seatMenuX(side)))
-                    SeatMenu(palette = palette, side = side, state = state, onCommand = { taps++; bus.send(it) })
+                    SeatMenu(palette = palette, side = side, state = state, features = wk2Features, onCommand = { taps++; bus.send(it) })
                 }
             }
             ClimateBar(
                 state = state,
+                features = wk2Features,
                 onCommand = { bus.send(it) },
                 onHome = {},
                 // In the car this is a system Back; here it walks the harness views.
@@ -208,8 +211,8 @@ private fun Harness(bus: FakeVehicleBus) {
             }
             Mono("menus, live off the fake bus", palette.inkMuted)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                SeatMenu(palette = palette, side = SeatSide.DRIVER, state = state, onCommand = { bus.send(it) })
-                SeatMenu(palette = palette, side = SeatSide.PASSENGER, state = state, onCommand = { bus.send(it) })
+                SeatMenu(palette = palette, side = SeatSide.DRIVER, state = state, features = wk2Features, onCommand = { bus.send(it) })
+                SeatMenu(palette = palette, side = SeatSide.PASSENGER, state = state, features = wk2Features, onCommand = { bus.send(it) })
             }
         }
         return
@@ -364,3 +367,6 @@ private fun Key(label: String, palette: Palette, onClick: () -> Unit) {
         )
     }
 }
+
+// Replaced by the harness's vehicle picker in Task 9.
+private val wk2Features = Features.allYes(VehicleCatalog.bundled()[2687350]!!.table)

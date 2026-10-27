@@ -18,8 +18,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.Features
 import com.wk2.climate.bus.SeatLevel
 import com.wk2.climate.bus.SeatSide
+import com.wk2.climate.bus.SeatSlot
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.design.Type
@@ -32,14 +34,16 @@ import com.wk2.climate.ui.pressedTint
 import com.wk2.climate.ui.rememberPressState
 import com.wk2.climate.ui.target
 
-/** Rows in a side's menu: the driver's has the heated wheel, the passenger's does not. */
-fun seatMenuRows(side: SeatSide): Int = when (side) {
-    SeatSide.DRIVER -> 3
-    SeatSide.PASSENGER -> 2
-}
+/**
+ * Rows in a side's menu: one per control that side has -- seat heat, seat
+ * cool, and on the driver's side the heated wheel. Zero when the side is not
+ * a menu at all (a single control is a direct tap; none is no button).
+ */
+fun seatMenuRows(side: SeatSide, features: Features): Int =
+    (features.seatSlot(side) as? SeatSlot.Menu)?.rows?.size ?: 0
 
 /** The menu's height: whole rows, each on the 96dp floor. */
-fun seatMenuHeight(side: SeatSide): Dp = Dimens.seatMenuRow * seatMenuRows(side)
+fun seatMenuHeight(side: SeatSide, features: Features): Dp = Dimens.seatMenuRow * seatMenuRows(side, features)
 
 /** The menu's left edge in bar coordinates. Driver left-aligns to its button; passenger right-aligns to its own. */
 fun seatMenuX(side: SeatSide): Dp = when (side) {
@@ -49,7 +53,9 @@ fun seatMenuX(side: SeatSide): Dp = when (side) {
 
 /**
  * One seat's menu: seat heat, seat cool, and -- for the driver -- the heated
- * wheel. 360dp wide, 96dp rows, flush on top of the bar.
+ * wheel, each only if the car has it ([Features.seatSlot]). 360dp wide, 96dp
+ * rows, flush on top of the bar. A side with a single control has no menu;
+ * its button sends that control directly.
  *
  * Each tap **cycles**, exactly as the same control does on screen 1d: heat
  * goes `OFF -> HIGH -> LOW -> OFF` per tap, cool likewise, and the vehicle's
@@ -74,6 +80,7 @@ fun SeatMenu(
     palette: Palette,
     side: SeatSide,
     state: ClimateState,
+    features: Features,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -82,59 +89,65 @@ fun SeatMenu(
     val heat = if (driver) state.seatHeatL else state.seatHeatR
     val vent = if (driver) state.seatVentL else state.seatVentR
     val shape = RoundedCornerShape(Dimens.radiusMenu)
+    val rows = (features.seatSlot(side) as? SeatSlot.Menu)?.rows.orEmpty()
 
     Column(
         modifier
             .width(Dimens.seatMenuWidth)
-            .height(seatMenuHeight(side))
+            .height(seatMenuHeight(side, features))
             .background(palette.surface, shape)
             .background(palette.surfaceRaised, shape)
             .clip(shape),
     ) {
-        MenuRow(
-            palette = palette,
-            icon = { tint ->
-                if (driver) SeatHeatLeftGlyph(tint, Dimens.seatMenuIconSize)
-                else SeatHeatRightGlyph(tint, Dimens.seatMenuIconSize)
-            },
-            label = "SEAT HEAT",
-            stateText = levelText(heat),
-            on = heat.isOn,
-            known = heat != SeatLevel.UNAVAILABLE,
-            litColor = palette.warm,
-            divider = true,
-            onClick = { onCommand(if (driver) Command.SEAT_HEAT_L else Command.SEAT_HEAT_R) },
-        )
-        MenuRow(
-            palette = palette,
-            icon = { tint ->
-                if (driver) SeatCoolLeftGlyph(tint, Dimens.seatMenuIconSize)
-                else SeatCoolRightGlyph(tint, Dimens.seatMenuIconSize)
-            },
-            label = "SEAT COOL",
-            stateText = levelText(vent),
-            on = vent.isOn,
-            known = vent != SeatLevel.UNAVAILABLE,
-            litColor = palette.cool,
-            divider = driver,
-            onClick = { onCommand(if (driver) Command.SEAT_VENT_L else Command.SEAT_VENT_R) },
-        )
-        if (driver) {
-            MenuRow(
-                palette = palette,
-                icon = { tint -> WheelHeatGlyph(tint, Dimens.seatMenuIconSize) },
-                label = "STEERING WHEEL",
-                stateText = when {
-                    !live -> "—"
-                    state.wheelHeatOn -> "ON"
-                    else -> "OFF"
-                },
-                on = live && state.wheelHeatOn,
-                known = live,
-                litColor = palette.warm,
-                divider = false,
-                onClick = { onCommand(Command.WHEEL_HEAT) },
-            )
+        rows.forEachIndexed { i, command ->
+            // A divider under every row but the last, as before.
+            val divider = i < rows.lastIndex
+            when (command) {
+                Command.SEAT_HEAT_L, Command.SEAT_HEAT_R -> MenuRow(
+                    palette = palette,
+                    icon = { tint ->
+                        if (driver) SeatHeatLeftGlyph(tint, Dimens.seatMenuIconSize)
+                        else SeatHeatRightGlyph(tint, Dimens.seatMenuIconSize)
+                    },
+                    label = "SEAT HEAT",
+                    stateText = levelText(heat),
+                    on = heat.isOn,
+                    known = heat != SeatLevel.UNAVAILABLE,
+                    litColor = palette.warm,
+                    divider = divider,
+                    onClick = { onCommand(command) },
+                )
+                Command.SEAT_VENT_L, Command.SEAT_VENT_R -> MenuRow(
+                    palette = palette,
+                    icon = { tint ->
+                        if (driver) SeatCoolLeftGlyph(tint, Dimens.seatMenuIconSize)
+                        else SeatCoolRightGlyph(tint, Dimens.seatMenuIconSize)
+                    },
+                    label = "SEAT COOL",
+                    stateText = levelText(vent),
+                    on = vent.isOn,
+                    known = vent != SeatLevel.UNAVAILABLE,
+                    litColor = palette.cool,
+                    divider = divider,
+                    onClick = { onCommand(command) },
+                )
+                Command.WHEEL_HEAT -> MenuRow(
+                    palette = palette,
+                    icon = { tint -> WheelHeatGlyph(tint, Dimens.seatMenuIconSize) },
+                    label = "STEERING WHEEL",
+                    stateText = when {
+                        !live -> "—"
+                        state.wheelHeatOn -> "ON"
+                        else -> "OFF"
+                    },
+                    on = live && state.wheelHeatOn,
+                    known = live,
+                    litColor = palette.warm,
+                    divider = divider,
+                    onClick = { onCommand(command) },
+                )
+                else -> Unit
+            }
         }
     }
 }

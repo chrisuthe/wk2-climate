@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.Features
 import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
@@ -18,8 +19,9 @@ import com.wk2.climate.design.Palette
  * framework's `navigation_bar_height` and claiming more would cover app
  * content. Screen 1d opens *over* app content instead.
  *
- * Seven controls live here permanently: HOME, BACK, the two seat buttons,
- * AUTO, CLIMATE, and the two zones' steppers, plus volume. Everything else is
+ * On the WK2 seven controls live here permanently: HOME, BACK, the two seat
+ * buttons, AUTO, CLIMATE, and the two zones' steppers, plus volume. [features]
+ * narrows that to what this car has -- see [topRowLayout]. Everything else is
  * one tap away on 1d or in a seat's menu. Rendered entirely from [state];
  * every tap dispatches a [Command] and mutates nothing locally.
  *
@@ -38,6 +40,7 @@ import com.wk2.climate.design.Palette
 @Composable
 fun ClimateBar(
     state: ClimateState,
+    features: Features,
     onCommand: (Command) -> Unit,
     onHome: () -> Unit,
     onBack: () -> Unit,
@@ -69,19 +72,22 @@ fun ClimateBar(
             BarTopRow(
                 palette = palette,
                 live = live,
+                features = features,
                 autoOn = state.autoOn,
+                acOn = state.acOn,
                 wheelOn = state.wheelHeatOn,
                 panelOpen = panelOpen,
                 driver = SeatIndicator.of(state.seatHeatL, state.seatVentL),
                 passenger = SeatIndicator.of(state.seatHeatR, state.seatVentR),
                 openMenu = seatMenuOpen,
-                onAuto = { onCommand(Command.AUTO) },
+                onDriverMain = { driverMainCommand(features)?.let(onCommand) },
                 onSeatButton = onSeatButton,
                 onClimate = onToggleClimate,
             )
             BarZones(
                 palette = palette,
                 live = live,
+                dualZone = features.dualZone,
                 driver = state.tempLeft,
                 passenger = state.tempRight,
                 onDriverDown = { onCommand(Command.TEMP_L_DOWN) },
