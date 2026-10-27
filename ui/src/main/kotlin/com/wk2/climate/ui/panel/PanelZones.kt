@@ -51,11 +51,16 @@ import java.util.Locale
  * zone labels are section-header style and stay as they are: they name a
  * region of the cabin and assert nothing about the climate system. The
  * steppers stay live too -- pressing one is what forces the vehicle to report.
+ *
+ * Without [dualZone] there is one zone, labelled TEMPERATURE, at full width.
+ * It is the driver zone -- the left setpoint and `TEMP_L_*`, which is what a
+ * single-zone car's one setpoint is -- and the passenger arguments go unused.
  */
 @Composable
 fun PanelZones(
     palette: Palette,
     live: Boolean,
+    dualZone: Boolean,
     driver: Temp,
     passenger: Temp,
     onDriverDown: () -> Unit,
@@ -65,16 +70,20 @@ fun PanelZones(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth()) {
-        Zone(palette, live, "DRIVER", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
-        Zone(
-            palette,
-            live,
-            "PASSENGER",
-            passenger,
-            onPassengerDown,
-            onPassengerUp,
-            Modifier.weight(1f).sideDivider(palette.divider, start = true),
-        )
+        if (dualZone) {
+            Zone(palette, live, "DRIVER", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
+            Zone(
+                palette,
+                live,
+                "PASSENGER",
+                passenger,
+                onPassengerDown,
+                onPassengerUp,
+                Modifier.weight(1f).sideDivider(palette.divider, start = true),
+            )
+        } else {
+            Zone(palette, live, "TEMPERATURE", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
+        }
     }
 }
 

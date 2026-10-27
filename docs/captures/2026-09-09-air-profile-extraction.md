@@ -131,11 +131,46 @@ the meanings do not.
   notifies only on change - so an unfitted feature and an untouched one look
   identical. See `2026-09-08-vehicle-install.md`.
 
-Reproduce with:
+Reproduce with (2026-10-26 onwards, straight from the APK, no decompiler):
 
 ```
-python tools/extract-air-profiles.py <jadx-out>/sources/com/syu/air/canbus docs/data/air-command-tables.json
+adb shell pm path com.syu.air          # then adb pull that path to air.apk, outside the repo
+python -I tools/extract-vehicles.py air.apk docs/data/air-canbus-ids.json     docs/data/air-command-tables.json bus/src/main/resources/com/wk2/climate/bus/vehicles.tsv
 ```
+
+The original extraction ran over jadx output with `tools/extract-air-profiles.py`.
+That output is gone and jadx could not be run again, so the extractor was
+rebuilt on a standard-library DEX reader (`tools/dexlib.py`). Its tables agree
+with the jadx ones for every trusted profile. The differences, 31 profiles, are
+all untrusted: the DEX path also sees two-argument `sendCmd` overloads and
+constants that jadx folded away.
+
+### Send formats: why only the PA family is driven
+
+Every profile has its own `sendCmd(int)`, and they do not agree on how an index
+becomes a bus frame. Classified from the bytecode, 2026-10-26:
+
+| send format | profiles |
+|---|---|
+| exactly one `sendInt(7, 6, {1, cmd})`, nothing else | **2** |
+| a press frame, then a `postDelayed` release | 125 |
+| one frame with another constant command code (0, 1, 2, 3, 12, 22, 24, 32) | 37 |
+| one frame whose command code is read from a field (`CMD_TYPE` and similar) | 11 |
+| module 7 code 6, but another payload | 8 |
+| several frames, or a branch on a switch or `mCurrCanbus` | 35 |
+| other calls in the body (object construction) | 3 |
+| no `sendCmd(int)` of its own | 7 |
+
+The classifier is an allow-list: a body is trusted only if it holds nothing but
+constants, the `mTools` read and null check, one two-element array, its two
+stores, the single `sendInt`, and the return -- with the argument stored
+unmodified. `sendCmd(int)` is selected by its signature, so another overload
+can never stand in for it.
+
+The app sends only the first, which is the frame verified on the WK2, so the
+two matching profiles -- `Car_0374_PA_Jeep_Wrangler` (58 ids) and
+`Car_0374_PA_Jeep_All` (2 ids) -- are the only ones in `vehicles.tsv`. See
+`docs/superpowers/specs/2026-10-26-multi-vehicle-design.md` §4.
 
 ---
 
@@ -178,7 +213,7 @@ class name; `canbus >> 16` is the vehicle variant. The low-16 rule holds for
 
 Settled, and the earlier attribution was wrong.
 
-`FinalCanbus.CAR_PA_Cherokee_14_22 = 2621814` is base 374, variant 40 - a
+`FinalCanbus.CAR_PA_GrandCherokee_14_22 = 2687350` is base 374, variant 41 - a
 2014-2022 Grand Cherokee on the PA canbus. `AirFactory` wires that id to
 **`Car_0374_PA_Jeep_Wrangler`**, despite the class name. The PA family shares one
 profile class across Wrangler, RAM, Durango, GMC and Escalade, and the Grand
@@ -199,9 +234,25 @@ factory bar could not have driven seat heat, sync or auto - all empty there -
 yet it did. It ran Wrangler, which implements them. Nothing extra needed
 explaining; the profile identification was simply wrong.
 
-**Still worth reading code 1000 on the vehicle** to confirm the id is 2621814
-rather than another PA variant. The profile class is the same either way, so the
-command table does not depend on the answer.
+### Read on the vehicle, 2026-10-26: it arrives unprompted, and it is Wrangler
+
+Build `dc5c009`, which registers code 1000 and logs it, installed over adb. The
+reinstall restarted the service cold, and the id arrived 40 ms after
+registration without any button being touched:
+
+```
+15:38:06.258 I/wk2-bus: module 7: registered 21/21 codes
+15:38:06.299 I/wk2-bus: canbus id 2687350 (0x290176) base=374 variant=41
+```
+
+- **`2687350` is `CAR_PA_GrandCherokee_14_22`**, which `AirFactory` wires to
+  `Car_0374_PA_Jeep_Wrangler`. The falsifiable test passes: not `_All`. This
+  section first named `CAR_PA_Cherokee_14_22` (variant 40), which is the KL
+  Cherokee - same profile class, wrong constant.
+- **It is delivered on registration**, unlike the cold-start temperatures that
+  stayed blank until a button was pressed. So the id is usable for choosing a
+  command table at startup rather than only after the first change. Not yet seen
+  from an ignition-off boot, where `com.syu.ms` itself may come up after us.
 
 ## Correction: `com.syu.canbus` does hold climate code
 

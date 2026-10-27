@@ -8,12 +8,12 @@ class CanbusIdTest {
 
     @Test
     fun `decodes this vehicle's id`() {
-        // CAR_PA_Cherokee_14_22, which AirFactory maps to
+        // CAR_PA_GrandCherokee_14_22, read off the truck, which AirFactory maps to
         // Car_0374_PA_Jeep_Wrangler - the profile whose 18 command indices
         // match the table in Command.
-        val id = 2621814
+        val id = 2687350
         assertEquals(374, CanbusId.base(id))
-        assertEquals(40, CanbusId.variant(id))
+        assertEquals(41, CanbusId.variant(id))
     }
 
     @Test
@@ -37,8 +37,8 @@ class CanbusIdTest {
 
     @Test
     fun `describe is readable in a log`() {
-        assertEquals("2621814 (0x280176) base=374 variant=40",
-            CanbusId.describe(2621814))
+        assertEquals("2687350 (0x290176) base=374 variant=41",
+            CanbusId.describe(2687350))
     }
 
     @Test

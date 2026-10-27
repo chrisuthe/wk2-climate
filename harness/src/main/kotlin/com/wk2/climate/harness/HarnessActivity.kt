@@ -44,7 +44,11 @@ import kotlinx.coroutines.delay
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.FakeVehicleBus
+import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.Question
+import com.wk2.climate.bus.VehicleCatalog
 import com.wk2.climate.bus.SeatSide
+import com.wk2.climate.bus.SeatSlot
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
@@ -54,6 +58,7 @@ import com.wk2.climate.ui.bar.SeatIndicator
 import com.wk2.climate.ui.bar.SeatMenu
 import com.wk2.climate.ui.bar.seatMenuX
 import com.wk2.climate.ui.panel.ClimatePanel
+
 
 /**
  * Development harness. **Not shipped.**
@@ -88,6 +93,11 @@ private fun Harness(bus: FakeVehicleBus) {
     // through the values that used to matter, plus null for "not decoded".
     var outsideF by remember { mutableStateOf<Int?>(null) }
 
+    // CAR below steps through [presets]; every bar, panel and menu draws from it.
+    var presetIndex by remember { mutableIntStateOf(0) }
+    val preset = presets[presetIndex]
+    val features = preset.features
+
     var showBar by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
     var showSeats by remember { mutableStateOf(false) }
@@ -115,6 +125,7 @@ private fun Harness(bus: FakeVehicleBus) {
             Key("INSPECTOR", palette) { showPanel = false }
             ClimatePanel(
                 state = state,
+                features = features,
                 outsideF = outsideF,
                 onCommand = { bus.send(it) },
                 onClose = { showPanel = false },
@@ -137,6 +148,7 @@ private fun Harness(bus: FakeVehicleBus) {
             if (panelOverBar) {
                 ClimatePanel(
                     state = state,
+                    features = features,
                     outsideF = outsideF,
                     onCommand = { bus.send(it) },
                     onClose = { panelOverBar = false },
@@ -154,11 +166,12 @@ private fun Harness(bus: FakeVehicleBus) {
                 }
                 Row {
                     Spacer(Modifier.width(seatMenuX(side)))
-                    SeatMenu(palette = palette, side = side, state = state, onCommand = { taps++; bus.send(it) })
+                    SeatMenu(palette = palette, side = side, state = state, features = features, onCommand = { taps++; bus.send(it) })
                 }
             }
             ClimateBar(
                 state = state,
+                features = features,
                 onCommand = { bus.send(it) },
                 onHome = {},
                 // In the car this is a system Back; here it walks the harness views.
@@ -166,7 +179,15 @@ private fun Harness(bus: FakeVehicleBus) {
                 panelOpen = panelOverBar,
                 onToggleClimate = { menuSide = null; panelOverBar = !panelOverBar },
                 seatMenuOpen = menuSide,
-                onSeatButton = { side -> menuSide = if (menuSide == side) null else side },
+                // As the service does: one control is sent straight away, two or
+                // more open that side's menu, and an empty slot is never drawn.
+                onSeatButton = { side ->
+                    when (val slot = features.seatSlot(side)) {
+                        is SeatSlot.Direct -> bus.send(slot.command)
+                        is SeatSlot.Menu -> menuSide = if (menuSide == side) null else side
+                        SeatSlot.None -> Unit
+                    }
+                },
             )
         }
         return
@@ -208,8 +229,8 @@ private fun Harness(bus: FakeVehicleBus) {
             }
             Mono("menus, live off the fake bus", palette.inkMuted)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                SeatMenu(palette = palette, side = SeatSide.DRIVER, state = state, onCommand = { bus.send(it) })
-                SeatMenu(palette = palette, side = SeatSide.PASSENGER, state = state, onCommand = { bus.send(it) })
+                SeatMenu(palette = palette, side = SeatSide.DRIVER, state = state, features = features, onCommand = { bus.send(it) })
+                SeatMenu(palette = palette, side = SeatSide.PASSENGER, state = state, features = features, onCommand = { bus.send(it) })
             }
         }
         return
@@ -227,6 +248,7 @@ private fun Harness(bus: FakeVehicleBus) {
             if (connected) "bus: connected" else "bus: DISCONNECTED",
             if (connected) palette.accent else palette.warm,
         )
+        Mono("vehicle: ${preset.name}", palette.ink)
 
         LazyColumn(
             Modifier.fillMaxWidth().height(300.dp),
@@ -303,6 +325,11 @@ private fun Harness(bus: FakeVehicleBus) {
             Key("SEAT R", palette) { bus.send(Command.SEAT_HEAT_R) }
             Key("VENT L", palette) { bus.send(Command.SEAT_VENT_L) }
             Key("WHEEL", palette) { bus.send(Command.WHEEL_HEAT) }
+            // A menu from the previous car may list rows this one lacks.
+            Key("CAR ${presetIndex + 1}", palette) {
+                presetIndex = (presetIndex + 1) % presets.size
+                menuSide = null
+            }
         }
     }
 }
@@ -363,4 +390,35 @@ private fun Key(label: String, palette: Palette, onClick: () -> Unit) {
             ),
         )
     }
+}
+
+/** A vehicle the harness can draw: a bundled table plus a set of setup answers. */
+private class Preset(val name: String, val features: Features)
+
+/**
+ * The approved ladder, heaviest first, plus a table with no MAX A/C. Preset 1
+ * is the WK2 regression gate: it must draw exactly what the harness drew
+ * before vehicles existed.
+ */
+private val presets: List<Preset> = run {
+    val wk2 = VehicleCatalog.bundled()[2687350]!!.table
+    val cherokee = VehicleCatalog.bundled()[2621814]!!.table
+    val jeepAll = VehicleCatalog.bundled()[374]!!.table
+    fun wk2With(heat: Boolean, vent: Boolean, wheel: Boolean) = Features(
+        wk2,
+        mapOf(
+            Question.SEAT_HEAT to heat,
+            Question.SEAT_VENT to vent,
+            Question.WHEEL_HEAT to wheel,
+            Question.DUAL_ZONE to true,
+        ),
+    )
+    listOf(
+        Preset("WK2 (2687350), all yes", Features.allYes(wk2)),
+        Preset("WK2, heat + wheel, no cooling", wk2With(heat = true, vent = false, wheel = true)),
+        Preset("WK2, wheel only", wk2With(heat = false, vent = false, wheel = true)),
+        Preset("WK2, no comfort", wk2With(heat = false, vent = false, wheel = false)),
+        Preset("KL Cherokee (2621814), all yes", Features.allYes(cherokee)),
+        Preset("Jeep_All (374), single zone", Features(jeepAll, mapOf(Question.DUAL_ZONE to false))),
+    )
 }

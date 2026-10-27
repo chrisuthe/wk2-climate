@@ -29,14 +29,23 @@ import com.wk2.climate.design.Type
 import com.wk2.climate.ui.holdRepeatTarget
 import com.wk2.climate.ui.rememberPressState
 
+/**
+ * The fan readout, meter and steppers.
+ *
+ * [hasAuto] is whether the car has an AUTO mode. Without one, the AUTO
+ * sentinel is not a reading we can explain, so it is drawn as unavailable
+ * rather than as an AUTO label for a mode the car does not have.
+ */
 @Composable
 fun PanelFan(
     palette: Palette,
     fan: Fan,
+    hasAuto: Boolean,
     onDown: () -> Unit,
     onUp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val shown = if (fan == Fan.Auto && !hasAuto) Fan.Unavailable else fan
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth(),
@@ -52,7 +61,7 @@ fun PanelFan(
                 modifier = Modifier.alignByBaseline(),
             )
             BasicText(
-                text = fanReadout(fan, palette),
+                text = fanReadout(shown, palette),
                 style = Type.fanValue,
                 modifier = Modifier.alignByBaseline(),
             )
@@ -65,7 +74,7 @@ fun PanelFan(
             horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
         ) {
             FanStepper(palette, "\u2212", Type.fanStepperMinus, onDown)
-            FanMeter(palette, fan, Modifier.weight(1f))
+            FanMeter(palette, shown, Modifier.weight(1f))
             FanStepper(palette, "+", Type.fanStepperPlus, onUp)
         }
     }

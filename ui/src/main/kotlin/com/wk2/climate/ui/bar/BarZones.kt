@@ -31,7 +31,7 @@ import java.util.Locale
 
 /**
  * The centre column's 131dp bottom row: two temperature zones split by a 1dp
- * divider.
+ * divider, or -- when [dualZone] is false -- one zone across the full width.
  *
  * **The numeral is a readout, not a button.** Only `−` and `+` are tappable,
  * at 100 x 131 each. That is well over the 96dp floor in both axes, which is
@@ -47,6 +47,7 @@ import java.util.Locale
 fun BarZones(
     palette: Palette,
     live: Boolean,
+    dualZone: Boolean,
     driver: Temp,
     passenger: Temp,
     onDriverDown: () -> Unit,
@@ -61,6 +62,20 @@ fun BarZones(
             .width(Dimens.barCenterColumn)
             .height(Dimens.barBottomRow),
     ) {
+        if (!dualZone) {
+            // One zone across the whole column: the car has a single setpoint,
+            // which the vehicle reports and accepts on the left channel.
+            Zone(
+                palette = palette,
+                live = live,
+                label = "TEMPERATURE",
+                temp = driver,
+                onDown = onDriverDown,
+                onUp = onDriverUp,
+                modifier = Modifier.width(Dimens.barCenterColumn).fillMaxHeight(),
+            )
+            return@Row
+        }
         Zone(
             palette = palette,
             live = live,

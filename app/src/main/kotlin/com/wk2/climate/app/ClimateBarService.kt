@@ -26,14 +26,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import com.wk2.climate.bus.CanbusId
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.ConnectionGate.followConnection
+import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.SeatSlot
 import com.wk2.climate.bus.RefreshRetry
 import com.wk2.climate.bus.SeatMenuLatch
 import com.wk2.climate.bus.SeatSide
 import com.wk2.climate.bus.Signal
 import com.wk2.climate.bus.SyuVehicleBus
 import com.wk2.climate.bus.TempUnit
+import com.wk2.climate.bus.VehicleCatalog
+import com.wk2.climate.bus.VehicleStatus
+import com.wk2.climate.bus.resolveVehicle
 import com.wk2.climate.design.Dimens
 import com.wk2.climate.design.Palette
 import com.wk2.climate.ui.bar.ClimateBar
@@ -47,10 +53,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
 
 /**
  * Owns the replacement bar.
@@ -70,6 +85,16 @@ class ClimateBarService : AccessibilityService() {
 
     private lateinit var bus: SyuVehicleBus
     private lateinit var barHost: ComposeOverlayHost
+    private lateinit var store: VehicleStore
+    private val catalog by lazy { VehicleCatalog.bundled() }
+
+    /**
+     * Which car this is and whether it is set up, from the persisted id and
+     * answers. Re-created per connection in [onServiceConnected], on the
+     * connection's scope. Only [VehicleStatus.Ready] draws a bar, gives the
+     * bus a command table, or lets a command through.
+     */
+    private var status: StateFlow<VehicleStatus> = MutableStateFlow(VehicleStatus.Waiting)
 
     /**
      * Screen 1d's window, which exists only while the panel is open.
@@ -172,8 +197,17 @@ class ClimateBarService : AccessibilityService() {
         teardown()
         bus = SyuVehicleBus(this).also { it.connect() }
         barHost = ComposeOverlayHost(this)
+        store = VehicleStore(this)
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also {
             scope = it
+            status = store.saved
+                .map { saved -> resolveVehicle(saved, catalog) }
+                .stateIn(it, SharingStarted.Eagerly, resolveVehicle(store.saved.value, catalog))
+            // Launched first: on Main.immediate this runs up to its first
+            // suspension at once, so the bus holds the table before the bar
+            // can be shown and tapped.
+            it.launch { followVehicle() }
+            it.launch { recordCanbusId() }
             it.launch { followBus() }
             // The *same* scope, so teardown() cancels this with everything
             // else. A second scope, or a coroutine launched anywhere it could
@@ -210,8 +244,53 @@ class ClimateBarService : AccessibilityService() {
      * wiring — which flow, which grace, which window calls.
      */
     private suspend fun followBus() {
-        followConnection(bus.connected, BUS_GRACE_MS, ::showBar, ::hidePanelAndBar)
+        // The bar also needs a vehicle that is known and set up. `show` is
+        // guarded as well as the flow, because followConnection shows once up
+        // front before it looks at the flow, and a bar for a car that is not
+        // set up would be an empty window eating every touch on the factory
+        // bar for the whole grace period.
+        val ready = combine(bus.connected, status) { connected, s -> connected && s is VehicleStatus.Ready }
+            .stateIn(checkNotNull(scope), SharingStarted.Eagerly, false)
+        followConnection(
+            ready,
+            BUS_GRACE_MS,
+            show = { if (status.value is VehicleStatus.Ready) showBar() },
+            hide = ::hidePanelAndBar,
+        )
     }
+
+    /**
+     * Hands the bus the ready vehicle's command table, and takes it away the
+     * moment the vehicle is anything else, so no command is ever framed with a
+     * table that no longer describes the car.
+     */
+    private suspend fun followVehicle() {
+        status.collect { s ->
+            bus.table = (s as? VehicleStatus.Ready)?.vehicle?.table
+            Log.i(TAG, "vehicle: ${describe(s)}")
+        }
+    }
+
+    /**
+     * Records the canbus id whenever the vehicle reports it. The same id
+     * changes nothing; a different one clears the answers, which takes the
+     * status out of Ready and the bar with it until setup runs again.
+     */
+    private suspend fun recordCanbusId() {
+        bus.state.mapNotNull { it[Signal.CANBUS_ID] }.distinctUntilChanged().collect { id ->
+            store.update { it.onLiveId(id) }
+        }
+    }
+
+    private fun describe(s: VehicleStatus): String = when (s) {
+        VehicleStatus.Waiting -> "Waiting (no canbus id yet)"
+        is VehicleStatus.Unknown -> "Unknown (${CanbusId.describe(s.id)})"
+        is VehicleStatus.NeedsSetup -> "NeedsSetup ${s.vehicle.displayName} (${s.vehicle.id})"
+        is VehicleStatus.Ready -> "Ready ${s.vehicle.displayName} (${s.vehicle.id})"
+    }
+
+    /** The ready vehicle's features, or null while there is none. */
+    private fun readyFeatures(): Features? = (status.value as? VehicleStatus.Ready)?.features
 
     /**
      * What a dead bus costs us: both windows, panel first.
@@ -343,9 +422,14 @@ class ClimateBarService : AccessibilityService() {
     @Composable
     private fun BarContent() {
         val state by bus.state.collectAsState()
+        val vehicle by status.collectAsState()
+        // The window is only added for a ready vehicle and removed when it
+        // stops being one, so this is only ever empty for a frame.
+        val features = (vehicle as? VehicleStatus.Ready)?.features ?: return
 
         ClimateBar(
             state = state,
+            features = features,
             onCommand = { bus.send(it) },
             // Both nav keys close the panel first when it is open.
             //
@@ -513,9 +597,20 @@ class ClimateBarService : AccessibilityService() {
         panelOpen.value = false
     }
 
-    /** A seat button click, from the bar. */
+    /**
+     * A seat button click, from the bar. A side with one control sends it
+     * straight away, like a factory switch; a side with several opens its
+     * menu. A side with nothing has no button to click.
+     */
     private fun onSeatButton(side: SeatSide) {
-        applySeatMenu(seatMenuLatch.onButtonTap(side, SystemClock.elapsedRealtime()))
+        when (val slot = readyFeatures()?.seatSlot(side)) {
+            is SeatSlot.Direct -> {
+                closeSeatMenu()
+                bus.send(slot.command)
+            }
+            is SeatSlot.Menu -> applySeatMenu(seatMenuLatch.onButtonTap(side, SystemClock.elapsedRealtime()))
+            SeatSlot.None, null -> Unit
+        }
     }
 
     /** `ACTION_OUTSIDE` on the open menu's window. */
@@ -579,6 +674,8 @@ class ClimateBarService : AccessibilityService() {
     @Composable
     private fun SeatMenuContent(side: SeatSide) {
         val state by bus.state.collectAsState()
+        val vehicle by status.collectAsState()
+        val features = (vehicle as? VehicleStatus.Ready)?.features ?: return
         // A forgotten menu sits over app content indefinitely otherwise. Scoped
         // to this window's composition, so closing the menu any other way
         // cancels it.
@@ -591,6 +688,7 @@ class ClimateBarService : AccessibilityService() {
             palette = Palette.forNight(state.isNight),
             side = side,
             state = state,
+            features = features,
             onCommand = { taps++; bus.send(it) },
         )
     }
@@ -611,7 +709,7 @@ class ClimateBarService : AccessibilityService() {
     private fun seatMenuWindowParams(side: SeatSide): WindowManager.LayoutParams {
         val density = resources.displayMetrics.density
         val width = (Dimens.seatMenuWidth.value * density).roundToInt()
-        val height = (seatMenuHeight(side).value * density).roundToInt()
+        val height = (seatMenuHeight(side, checkNotNull(readyFeatures())).value * density).roundToInt()
         val left = (seatMenuX(side).value * density).roundToInt()
         val top = displayHeightPx() - designBarHeightPx() - height
         Log.i(TAG, "seat menu window ($side): x=$left y=$top ${width}x${height}px")
@@ -635,6 +733,8 @@ class ClimateBarService : AccessibilityService() {
     @Composable
     private fun PanelContent() {
         val state by bus.state.collectAsState()
+        val vehicle by status.collectAsState()
+        val features = (vehicle as? VehicleStatus.Ready)?.features ?: return
 
         // Screen 1d's entrance: 220ms ease-out translate-Y, the only animation
         // on this screen. Nothing fades and no *value* animates -- no numeral,
@@ -722,6 +822,7 @@ class ClimateBarService : AccessibilityService() {
 
         ClimatePanel(
             state = state,
+            features = features,
             outsideF = outsideF(state),
             onCommand = { bus.send(it) },
             onClose = { requestPanelClose() },

@@ -9,7 +9,7 @@ functions at a 96dp minimum target and moves everything else one tap away onto a
 full-page climate view.
 
 **Status: built and running in the vehicle.** Both screens are implemented,
-reviewed and verified on hardware. 129 tests.
+reviewed and verified on hardware. 219 tests (152 bus, 55 ui, 12 tools).
 
 ---
 
@@ -122,9 +122,18 @@ design is used directly as a dp value.
 ## Portability
 
 Read codes (`U_AIR_*`) are universal across FYT UIS7870 units. **Command indices
-are per-vehicle** and the ones here match `Car_0374_PA_Jeep_Wrangler`. On another
-vehicle they must be swept and rebuilt — see
-[wiki: Sending Commands](https://github.com/chrisuthe/7870-Projects/wiki/6-Sending-Commands).
+are per-vehicle**, so the app reads the head unit's canbus id (module 7, read code
+1000) and looks the car up in `vehicles.tsv`, which `tools/extract-vehicles.py`
+builds straight from the `com.syu.air` APK. On first run it asks a few yes/no
+questions — heated seats, cooled seats, heated wheel, separate temperatures —
+and draws only what the car has. The answers can be changed later from the app
+icon.
+
+Only cars whose vendor profile sends commands exactly the way the WK2's does are
+driven: the PA canbus family, 60 ids across Jeep, RAM, Dodge, Chrysler, GM and
+Ford. Every other car is left alone and keeps the factory bar. The list is on
+[wiki: Supported Vehicles](https://github.com/chrisuthe/7870-Projects/wiki/14-Supported-Vehicles);
+only the WK2 Grand Cherokee has been tested on a real vehicle.
 
 ## Safety
 

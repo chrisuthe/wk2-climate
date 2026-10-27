@@ -1,5 +1,8 @@
 package com.wk2.climate.bus
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+
 /**
  * An immutable snapshot of everything the vehicle has told us.
  *
@@ -155,4 +158,14 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
         fun of(vararg pairs: Pair<Signal, Int>): ClimateState =
             pairs.fold(EMPTY) { acc, (s, v) -> acc.with(s, v) }
     }
+}
+
+/**
+ * Folds one reported value into the state, atomically. Each vendor module calls
+ * back on its own binder thread; a plain read-then-write here let one module's
+ * update erase another's, and the canbus id, sent once per registration, was
+ * lost that way on the vehicle.
+ */
+fun MutableStateFlow<ClimateState>.record(signal: Signal, value: Int) {
+    update { it.with(signal, value) }
 }

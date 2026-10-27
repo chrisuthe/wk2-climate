@@ -28,15 +28,18 @@ object Dimens {
     val barTopRow = 96.dp
     val barBottomRow = 131.dp
     val barNavRow = 113.5.dp
-    // The top row, left to right. These four must sum to [barCenterColumn] --
-    // asserted in ui's BarGeometryTest, because an overflow here would push
-    // CLIMATE off the edge silently rather than failing.
+    // The top row is two halves, each directly above its own temperature: a
+    // seat button plus its main cell, or the main cell alone at the full half
+    // when that side has no seat controls. `topRowLayout` derives the cells
+    // per vehicle; ui's BarGeometryTest asserts every derived row sums to
+    // [barCenterColumn], because an overflow here would push CLIMATE off the
+    // edge silently rather than failing.
     //
-    // Mirror-symmetric about the centre divider, like the zones beneath: a
-    // seat button at each end, AUTO and CLIMATE between them. Nothing in this
-    // row changes what it holds any more -- the two adaptive cells that used
-    // to sit between AUTO and CLIMATE are gone, and every cell can be found
-    // by feel.
+    // On the WK2 the row is mirror-symmetric about the centre divider, like
+    // the zones beneath: a seat button at each end, AUTO and CLIMATE between
+    // them. For a given car nothing in this row changes what it holds, so
+    // every cell can be found by feel.
+    val barHalf = 384.dp
     val seatButton = 128.dp
     val slotAuto = 256.dp
     val slotClimate = 256.dp

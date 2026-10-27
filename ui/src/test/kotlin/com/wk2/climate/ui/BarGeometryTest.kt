@@ -1,12 +1,22 @@
 package com.wk2.climate.ui
 
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.wk2.climate.bus.Command
+import com.wk2.climate.bus.CommandTable
+import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.Question
 import com.wk2.climate.bus.SeatSide
+import com.wk2.climate.bus.VehicleCatalog
 import com.wk2.climate.design.Dimens
+import com.wk2.climate.ui.bar.TopCell.CLIMATE
+import com.wk2.climate.ui.bar.TopCell.DRIVER_MAIN
+import com.wk2.climate.ui.bar.TopCell.DRIVER_SEAT
+import com.wk2.climate.ui.bar.TopCell.PASSENGER_SEAT
+import com.wk2.climate.ui.bar.driverMainCommand
 import com.wk2.climate.ui.bar.seatMenuHeight
 import com.wk2.climate.ui.bar.seatMenuRows
 import com.wk2.climate.ui.bar.seatMenuX
+import com.wk2.climate.ui.bar.topRowLayout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,32 +32,84 @@ import org.junit.Test
  */
 class BarGeometryTest {
 
-    /** The top row, left to right, as `BarTopRow` lays it out. */
-    private val topRow: List<Pair<String, Dp>> = listOf(
-        "driver seat" to Dimens.seatButton,
-        "AUTO" to Dimens.slotAuto,
-        "CLIMATE" to Dimens.slotClimate,
-        "passenger seat" to Dimens.seatButton,
+    private val wk2 = VehicleCatalog.bundled()[2687350]!!.table
+
+    private fun f(
+        heat: Boolean = true,
+        vent: Boolean = true,
+        wheel: Boolean = true,
+        dual: Boolean = true,
+        table: CommandTable = wk2,
+    ) = Features(
+        table,
+        mapOf(
+            Question.SEAT_HEAT to heat,
+            Question.SEAT_VENT to vent,
+            Question.WHEEL_HEAT to wheel,
+            Question.DUAL_ZONE to dual,
+        ),
+    )
+
+    private val bools = listOf(true, false)
+
+    @Test
+    fun `WK2 all yes is today's row`() = assertEquals(
+        listOf(DRIVER_SEAT to 128.dp, DRIVER_MAIN to 256.dp, CLIMATE to 256.dp, PASSENGER_SEAT to 128.dp),
+        topRowLayout(f()).map { it.cell to it.width },
     )
 
     @Test
-    fun `the top row's four cells fill the centre column exactly`() {
-        val sum = topRow.fold(0.dp) { acc, (_, width) -> acc + width }
-        assertEquals(Dimens.barCenterColumn, sum)
+    fun `wheel only widens CLIMATE to 384`() = assertEquals(
+        listOf(DRIVER_SEAT to 128.dp, DRIVER_MAIN to 256.dp, CLIMATE to 384.dp),
+        topRowLayout(f(heat = false, vent = false)).map { it.cell to it.width },
+    )
+
+    @Test
+    fun `no comfort is two halves`() = assertEquals(
+        listOf(DRIVER_MAIN to 384.dp, CLIMATE to 384.dp),
+        topRowLayout(f(heat = false, vent = false, wheel = false)).map { it.cell to it.width },
+    )
+
+    @Test
+    fun `without AUTO the driver main cell is A-C`() =
+        assertEquals(Command.AC, driverMainCommand(Features.allYes(VehicleCatalog.bundled()[374]!!.table)))
+
+    @Test
+    fun `with neither AUTO nor A-C, CLIMATE absorbs the driver half's main cell`() {
+        val table = CommandTable(mapOf(Command.TEMP_L_UP to 4, Command.TEMP_L_DOWN to 5, Command.FAN_UP to 6, Command.FAN_DOWN to 7))
+        assertEquals(listOf(CLIMATE to 768.dp), topRowLayout(Features.allYes(table)).map { it.cell to it.width })
     }
 
     @Test
-    fun `every top row cell clears the 96dp touch floor`() {
-        for ((name, width) in topRow) {
-            assertTrue(
-                "$name is ${width.value}dp, below the ${Dimens.minTarget.value}dp floor",
-                width >= Dimens.minTarget,
-            )
+    fun `every derived row fills the centre column and clears the floor`() {
+        for (h in bools) for (v in bools) for (w in bools) {
+            val row = topRowLayout(f(h, v, w))
+            assertEquals(Dimens.barCenterColumn, row.fold(0.dp) { a, c -> a + c.width })
+            for (cell in row) {
+                assertTrue("${cell.cell} is ${cell.width.value}dp, below the floor", cell.width >= Dimens.minTarget)
+            }
         }
         assertTrue(
             "the top row is ${Dimens.barTopRow.value}dp tall, below the floor",
             Dimens.barTopRow >= Dimens.minTarget,
         )
+    }
+
+    @Test
+    fun `the centre line never moves when both halves have a main cell`() {
+        for (h in bools) for (w in bools) {
+            val row = topRowLayout(f(heat = h, vent = false, wheel = w))
+            val driverHalf = row.takeWhile { it.cell != CLIMATE && it.cell != PASSENGER_SEAT }
+                .fold(0.dp) { a, c -> a + c.width }
+            assertEquals(Dimens.barHalf, driverHalf)
+        }
+    }
+
+    @Test
+    fun `menus have one row per control`() {
+        assertEquals(3, seatMenuRows(SeatSide.DRIVER, f()))
+        assertEquals(2, seatMenuRows(SeatSide.PASSENGER, f()))
+        assertEquals(2, seatMenuRows(SeatSide.DRIVER, f(vent = false)))
     }
 
     @Test
@@ -69,18 +131,13 @@ class BarGeometryTest {
     }
 
     @Test
-    fun `AUTO and CLIMATE meet on the centre divider, so the row mirrors the zones beneath it`() {
-        assertEquals(Dimens.barCenterColumn / 2, Dimens.seatButton + Dimens.slotAuto)
-    }
-
-    @Test
     fun `each seat menu is a whole number of rows and every row clears the touch floor`() {
         assertTrue(Dimens.seatMenuRow >= Dimens.minTarget)
         for (side in SeatSide.entries) {
-            assertEquals(Dimens.seatMenuRow * seatMenuRows(side), seatMenuHeight(side))
+            assertEquals(Dimens.seatMenuRow * seatMenuRows(side, f()), seatMenuHeight(side, f()))
         }
-        assertEquals(3, seatMenuRows(SeatSide.DRIVER))
-        assertEquals(2, seatMenuRows(SeatSide.PASSENGER))
+        assertEquals(3, seatMenuRows(SeatSide.DRIVER, f()))
+        assertEquals(2, seatMenuRows(SeatSide.PASSENGER, f()))
     }
 
     @Test

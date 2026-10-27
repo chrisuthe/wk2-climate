@@ -49,34 +49,19 @@ class SignalCommandTableTest {
     }
 
     @Test
-    fun `climate commands all use the fixed code 6 and a leading 1`() {
+    fun `climate commands all use the fixed code 6 and carry no index of their own`() {
+        // The index is per vehicle and comes from CommandTable; see
+        // VehicleCatalogTest for the WK2's hand-swept values.
         Command.entries.filter { it.module == 7 }.forEach { c ->
             assertEquals("${c.name} must use command code 6", 6, c.code)
-            assertEquals("${c.name} payload must be {1, index}", 2, c.payload.size)
-            assertEquals("${c.name} payload[0] must be 1", 1, c.payload[0])
+            assertEquals("${c.name} must not bake in a payload", 0, c.payload.size)
         }
-    }
-
-    @Test
-    fun `climate command indices are unique and inside the known space`() {
-        val indices = Command.entries.filter { it.module == 7 }.map { it.payload[1] }
-        assertEquals(indices.size, indices.toSet().size)
-        indices.forEach { assertTrue("index $it out of range 1..25", it in 1..25) }
-    }
-
-    @Test
-    fun `unmapped and duplicate vehicle indices are omitted`() {
-        val indices = Command.entries.filter { it.module == 7 }.map { it.payload[1] }.toSet()
-        // 19 has no effect on this vehicle; 25 duplicates 10 (airflow -> feet).
-        assertTrue("index 19 is unmapped and must not be exposed", 19 !in indices)
-        assertTrue("index 25 duplicates 10 and must not be exposed", 25 !in indices)
     }
 
     @Test
     fun `climate power is the only destructive command`() {
         val destructive = Command.entries.filter { it.destructive }
         assertEquals(listOf(Command.CLIMATE_POWER), destructive)
-        assertEquals(16, Command.CLIMATE_POWER.payload[1])
     }
 
     @Test

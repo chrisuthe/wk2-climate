@@ -18,4 +18,40 @@
 
     <string name="setup_nosettings_title">Cannot open Settings</string>
     <string name="setup_nosettings_body">This ROM has no accessibility settings screen, so the service has to be enabled over adb. Append this service to enabled_accessibility_services &#8212; append, never overwrite, or the services already listed will stop working.</string>
+    <!-- Vehicle setup: identify the car, then one question per screen. -->
+    <string name="setup_waiting_title">Reading your car&#8230;</string>
+    <string name="setup_waiting_body">Waiting for the head unit to report its canbus setting. This takes a moment after the climate bar service starts.</string>
+
+    <string name="setup_found_title">We found your vehicle.</string>
+    <string name="setup_found_body">Read from the head unit&#8217;s own canbus setting. If this is not your car, change the canbus setting on the head unit, not here.</string>
+    <string name="setup_found_id">PA CANBUS &#183; %1$d</string>
+    <string name="setup_continue">CONTINUE</string>
+
+    <string name="setup_unknown_title">This car isn&#8217;t supported yet.</string>
+    <string name="setup_unknown_body">The head unit reports a canbus id that has no climate profile we can trust. The factory climate bar stays as it is.</string>
+    <string name="setup_unknown_id">ID %1$d &#183; BASE %2$d &#183; VARIANT %3$d</string>
+    <string name="setup_close">CLOSE</string>
+
+    <string name="setup_question_count">QUESTION %1$d OF %2$d</string>
+    <string name="setup_preview_label">YOUR BAR WILL LOOK LIKE</string>
+    <string name="setup_yes">YES</string>
+    <string name="setup_no">NO</string>
+
+    <string name="setup_q_seat_heat_title">Do your front seats have heating?</string>
+    <string name="setup_q_seat_heat_hint">Look for a seat with wavy lines on the seat button.</string>
+    <string name="setup_q_seat_vent_title">Do your front seats have cooling?</string>
+    <string name="setup_q_seat_vent_hint">Sometimes called ventilated seats. Look for a fan symbol on the seat button.</string>
+    <string name="setup_q_wheel_heat_title">Does your steering wheel have heating?</string>
+    <string name="setup_q_wheel_heat_hint"></string>
+    <string name="setup_q_dual_zone_title">Can the driver and passenger set different temperatures?</string>
+    <string name="setup_q_dual_zone_hint"></string>
+
+    <string name="setup_your_car">YOUR CAR</string>
+    <string name="setup_label_seat_heat">Heated front seats</string>
+    <string name="setup_label_seat_vent">Cooled front seats</string>
+    <string name="setup_label_wheel_heat">Heated steering wheel</string>
+    <string name="setup_label_dual_zone">Separate temperatures</string>
+    <string name="setup_ask_again">ASK ME AGAIN</string>
+    <string name="setup_ready_body">Your climate bar is live at the bottom of the screen. Changes here save as you make them.</string>
+    <string name="setup_done">DONE</string>
 </resources>
