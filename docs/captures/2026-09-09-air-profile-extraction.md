@@ -154,7 +154,7 @@ becomes a bus frame. Classified from the bytecode, 2026-10-26:
 |---|---|
 | exactly one `sendInt(7, 6, {1, cmd})` | **2** |
 | a press frame, then a `postDelayed` release | 125 |
-| one frame with another command code (0, 2, 3, 22, 24, …) | 55 |
+| one frame with another command code (0, 2, 3, 22, 24, …) | 59 |
 | several frames, or a branch on a switch or `mCurrCanbus` | 35 |
 | no `sendCmd` body of its own | 7 |
 
