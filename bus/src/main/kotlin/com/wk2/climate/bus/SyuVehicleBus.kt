@@ -305,7 +305,7 @@ class SyuVehicleBus(private val context: Context) : VehicleBus {
             loggedCanbusId = value
             Log.i(TAG, "canbus id ${CanbusId.describe(value)}")
         }
-        _state.value = _state.value.with(signal, value)
+        _state.record(signal, value)
     }
 
     companion object {
