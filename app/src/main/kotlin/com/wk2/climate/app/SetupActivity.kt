@@ -43,6 +43,7 @@ import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Features
 import com.wk2.climate.bus.Question
 import com.wk2.climate.bus.SavedVehicle
+import com.wk2.climate.bus.Vehicle
 import com.wk2.climate.bus.VehicleCatalog
 import com.wk2.climate.bus.VehicleStatus
 import com.wk2.climate.bus.questionsFor
@@ -198,24 +199,17 @@ class SetupActivity : ComponentActivity() {
                     Spacer(Modifier.height(40.dp))
                     BigButton(palette, getString(R.string.setup_continue), filled = true, onClick = onConfirm)
                 } else {
-                    val q = status.questions.first { it !in status.answers }
-                    QuestionScreen(
-                        palette = palette,
-                        number = status.questions.indexOf(q) + 1,
-                        of = status.questions.size,
-                        question = q,
-                        // Unasked questions preview as YES, so the bar shows the car as it
-                        // will be if the remaining answers are yes -- not a single-zone
-                        // bar for a dual-zone car before that question comes up.
-                        preview = Features(
-                            status.vehicle.table,
-                            Question.entries.associateWith { true } + status.answers + (q to true),
-                        ),
-                        onAnswer = { yes -> store.update { it.withAnswer(status.vehicle.id, q, yes) } },
-                    )
+                    Ask(palette, status.vehicle, status.questions, status.answers, status.questions.first { it !in status.answers })
                 }
 
-            is VehicleStatus.Ready -> {
+            // Mid-walkthrough, a question that does not block the bar is still
+            // asked: the car turned Ready on the last answer that did, and the
+            // walkthrough carries on to the rest. Opened afresh, the same car
+            // shows its answers instead, the unasked one as a switch that is off.
+            is VehicleStatus.Ready -> if (confirmed && status.pending.isNotEmpty()) {
+                val questions = questionsFor(status.vehicle.table)
+                Ask(palette, status.vehicle, questions, status.features.answers, status.pending.first())
+            } else {
                 Mono(palette, getString(R.string.setup_your_car))
                 Spacer(Modifier.height(10.dp))
                 BasicText(status.vehicle.displayName, style = Type.panelTitle.copy(color = palette.ink))
@@ -244,18 +238,60 @@ class SetupActivity : ComponentActivity() {
         }
     }
 
+    /** One setup question for [vehicle], numbered within [questions]. */
+    @Composable
+    private fun Ask(
+        palette: Palette,
+        vehicle: Vehicle,
+        questions: List<Question>,
+        answers: Map<Question, Boolean>,
+        q: Question,
+    ) {
+        QuestionScreen(
+            palette = palette,
+            number = questions.indexOf(q) + 1,
+            of = questions.size,
+            question = q,
+            // Unasked questions preview as YES, so the bar shows the car as it
+            // will be if the remaining answers are yes -- not a single-zone
+            // bar for a dual-zone car before that question comes up. Rear
+            // climate gets no preview: it adds a page to the climate window
+            // and leaves the bar exactly as it is.
+            preview = if (q == Question.REAR_CLIMATE) {
+                null
+            } else {
+                Features(vehicle.table, Question.entries.associateWith { true } + answers + (q to true))
+            },
+            onAnswer = { yes -> store.update { it.withAnswer(vehicle.id, q, yes) } },
+        )
+    }
+
     @Composable
     private fun QuestionScreen(
         palette: Palette,
         number: Int,
         of: Int,
         question: Question,
-        preview: Features,
+        preview: Features?,
         onAnswer: (Boolean) -> Unit,
     ) {
         Mono(palette, getString(R.string.setup_question_count, number, of))
         Spacer(Modifier.height(18.dp))
         Message(palette, getString(question.title), getString(question.hint))
+        if (preview != null) BarPreview(palette, preview)
+        Spacer(Modifier.height(48.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
+            BigButton(palette, getString(R.string.setup_no), filled = false, modifier = Modifier.weight(1f)) {
+                onAnswer(false)
+            }
+            BigButton(palette, getString(R.string.setup_yes), filled = true, modifier = Modifier.weight(1f)) {
+                onAnswer(true)
+            }
+        }
+    }
+
+    @Composable
+    private fun BarPreview(palette: Palette, preview: Features) {
         Spacer(Modifier.height(36.dp))
         Mono(palette, getString(R.string.setup_preview_label))
         Spacer(Modifier.height(10.dp))
@@ -286,15 +322,6 @@ class SetupActivity : ComponentActivity() {
                         transformOrigin = TransformOrigin(0f, 0f)
                     },
             )
-        }
-        Spacer(Modifier.height(48.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap)) {
-            BigButton(palette, getString(R.string.setup_no), filled = false, modifier = Modifier.weight(1f)) {
-                onAnswer(false)
-            }
-            BigButton(palette, getString(R.string.setup_yes), filled = true, modifier = Modifier.weight(1f)) {
-                onAnswer(true)
-            }
         }
     }
 
@@ -398,6 +425,7 @@ private val Question.title: Int
         Question.SEAT_VENT -> R.string.setup_q_seat_vent_title
         Question.WHEEL_HEAT -> R.string.setup_q_wheel_heat_title
         Question.DUAL_ZONE -> R.string.setup_q_dual_zone_title
+        Question.REAR_CLIMATE -> R.string.setup_q_rear_climate_title
     }
 
 private val Question.hint: Int
@@ -406,6 +434,7 @@ private val Question.hint: Int
         Question.SEAT_VENT -> R.string.setup_q_seat_vent_hint
         Question.WHEEL_HEAT -> R.string.setup_q_wheel_heat_hint
         Question.DUAL_ZONE -> R.string.setup_q_dual_zone_hint
+        Question.REAR_CLIMATE -> R.string.setup_q_rear_climate_hint
     }
 
 private val Question.label: Int
@@ -414,4 +443,5 @@ private val Question.label: Int
         Question.SEAT_VENT -> R.string.setup_label_seat_vent
         Question.WHEEL_HEAT -> R.string.setup_label_wheel_heat
         Question.DUAL_ZONE -> R.string.setup_label_dual_zone
+        Question.REAR_CLIMATE -> R.string.setup_label_rear_climate
     }

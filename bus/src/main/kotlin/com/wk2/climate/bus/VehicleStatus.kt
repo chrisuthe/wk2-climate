@@ -57,20 +57,28 @@ sealed interface VehicleStatus {
         val answers: Map<Question, Boolean>,
     ) : VehicleStatus
 
-    /** A known car, fully set up. */
-    data class Ready(val vehicle: Vehicle, val features: Features) : VehicleStatus
+    /** A known car, set up enough to draw the bar. */
+    data class Ready(val vehicle: Vehicle, val features: Features) : VehicleStatus {
+
+        /**
+         * Questions this car raises that were never answered: only ones that
+         * do not block the bar (see [Question.blocksBar]). They read as no
+         * until the setup screen asks them.
+         */
+        val pending: List<Question> get() = questionsFor(vehicle.table).filter { it !in features.answers }
+    }
 }
 
 /**
  * Turns what is persisted into a status. Ready only when every question this
- * car's table raises has an answer -- an abandoned setup stays NeedsSetup and
- * resumes at the first unanswered question.
+ * car's table raises that blocks the bar has an answer -- an abandoned setup
+ * stays NeedsSetup and resumes at the first unanswered question.
  */
 fun resolveVehicle(saved: SavedVehicle, catalog: VehicleCatalog): VehicleStatus {
     val id = saved.id ?: return VehicleStatus.Waiting
     val vehicle = catalog[id] ?: return VehicleStatus.Unknown(id)
     val questions = questionsFor(vehicle.table)
-    return if (questions.all { it in saved.answers }) {
+    return if (questions.all { !it.blocksBar || it in saved.answers }) {
         VehicleStatus.Ready(vehicle, Features(vehicle.table, saved.answers))
     } else {
         VehicleStatus.NeedsSetup(vehicle, questions, saved.answers)

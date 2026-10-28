@@ -3,8 +3,9 @@ package com.wk2.climate.bus
 /**
  * A **write** on the vendor bus.
  *
- * This type deliberately hides two unrelated calling conventions:
+ * This type deliberately hides three calling conventions:
  *  - climate is `module 7, code 6, {1, index}` where index is per-vehicle
+ *  - the rear zone is `module 7, code 8, {index}`, also per-vehicle
  *  - volume is `module 4, code 0, {sentinel}`
  *
  * Keeping it separate from [Signal] is not decoration. Module 4 code 0 is
@@ -74,6 +75,25 @@ enum class Command(
     SEAT_VENT_L(7, 6),
     SEAT_VENT_R(7, 6),
     WHEEL_HEAT(7, 6),
+
+    // ---- module 7, code 8: the rear zone. One int, `{index}` ----
+    //
+    // What FYT's own climate screen sends from its REAR tab, decoded from
+    // `com.syu.canbus` (docs/captures/2026-10-28-pa-rear-climate.md). Not
+    // measured on a vehicle with rear climate yet; the WK2 has none.
+
+    REAR_POWER(7, 8),
+    REAR_AUTO(7, 8),
+    REAR_TEMP_UP(7, 8),
+    REAR_TEMP_DOWN(7, 8),
+    REAR_FAN_UP(7, 8),
+    REAR_FAN_DOWN(7, 8),
+    REAR_FACE(7, 8),
+    REAR_FACE_FEET(7, 8),
+    REAR_FEET(7, 8),
+
+    /** Locks out the rear-seat climate controls. */
+    REAR_LOCK(7, 8),
 
     // ---- module 4: SOUND. code 0 is C_VOL; the payload is a single sentinel ----
     VOL_UP(4, 0, intArrayOf(-1)),

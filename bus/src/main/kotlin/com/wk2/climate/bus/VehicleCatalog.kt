@@ -63,7 +63,7 @@ class VehicleCatalog(private val byId: Map<Int, Vehicle>) {
                             id = id,
                             profile = f[2],
                             vendorName = f[3].takeUnless { it == "-" },
-                            table = CommandTable(base + extra),
+                            table = CommandTable(base + extra + REAR.getOrDefault(f[2], emptyMap())),
                         )
                     }
                     else -> throw IllegalArgumentException("unknown record: $line")
@@ -79,6 +79,31 @@ class VehicleCatalog(private val byId: Map<Int, Vehicle>) {
             }
             return parse(stream.bufferedReader(Charsets.UTF_8).use { it.readText() })
         }
+
+        /**
+         * The rear-zone numbers, per profile.
+         *
+         * Not in `vehicles.tsv`, because that is generated from `com.syu.air`
+         * -- the factory bar -- and the bar has no rear controls. These come
+         * from `com.syu.canbus`'s full-screen climate activity, which FYT opens
+         * with a REAR tab for exactly the ids of this profile. See
+         * `docs/captures/2026-10-28-pa-rear-climate.md`. Whether a given car
+         * actually has rear climate is the driver's answer, not ours.
+         */
+        private val REAR: Map<String, Map<Command, Int>> = mapOf(
+            "Car_0374_PA_Jeep_Wrangler" to mapOf(
+                Command.REAR_POWER to 16,
+                Command.REAR_AUTO to 2,
+                Command.REAR_TEMP_UP to 4,
+                Command.REAR_TEMP_DOWN to 5,
+                Command.REAR_FAN_UP to 6,
+                Command.REAR_FAN_DOWN to 7,
+                Command.REAR_FACE to 8,
+                Command.REAR_FACE_FEET to 9,
+                Command.REAR_FEET to 10,
+                Command.REAR_LOCK to 32,
+            ),
+        )
 
         private fun pairs(spec: String): Map<Command, Int> =
             spec.split(',').associate { pair ->

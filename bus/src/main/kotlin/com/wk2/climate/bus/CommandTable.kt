@@ -10,7 +10,9 @@ package com.wk2.climate.bus
  *
  * Two commands on one index are refused outright. A table where AC and AUTO
  * share an index is an extraction that has gone wrong, and sending through it
- * would press one control while the screen showed the other.
+ * would press one control while the screen showed the other. "One index" is
+ * per command code: AUTO and REAR_AUTO are both 2, and that is right, because
+ * one goes out on code 6 and the other on code 8.
  */
 class CommandTable(indices: Map<Command, Int>) {
 
@@ -20,7 +22,7 @@ class CommandTable(indices: Map<Command, Int>) {
         require(indices.keys.all { it.module == Signal.MODULE_CANBUS }) {
             "only climate commands carry a per-vehicle index: ${indices.keys.filter { it.module != Signal.MODULE_CANBUS }}"
         }
-        require(indices.values.toSet().size == indices.size) {
+        require(indices.entries.groupBy { it.key.code }.values.all { e -> e.map { it.value }.toSet().size == e.size }) {
             "two commands share an index: $indices"
         }
     }
@@ -40,13 +42,17 @@ class CommandTable(indices: Map<Command, Int>) {
  * The payload to send for [command] on this vehicle, or null if it must not be
  * sent.
  *
- * Climate: `{1, index}` -- the only frame the app speaks, and the one verified
- * on the WK2 -- when the table has the command. No table, or no entry, is null:
- * a tap that arrives before the vehicle is known is dropped, never sent with a
- * guessed index. Volume is not per-vehicle and frames from its own sentinel.
+ * Climate: `{1, index}` -- the frame verified on the WK2 -- when the table has
+ * the command. The rear zone, on code 8: `{index}`, the frame FYT's own REAR
+ * tab sends. No table, or no entry, is null: a tap that arrives before the
+ * vehicle is known is dropped, never sent with a guessed index. Volume is not
+ * per-vehicle and frames from its own sentinel.
  */
 fun CommandTable?.frame(command: Command): IntArray? {
     if (command.module != Signal.MODULE_CANBUS) return command.payload
     val index = this?.get(command) ?: return null
-    return intArrayOf(1, index)
+    return if (command.code == REAR_CODE) intArrayOf(index) else intArrayOf(1, index)
 }
+
+/** The command code the rear zone is sent on. */
+private const val REAR_CODE = 8

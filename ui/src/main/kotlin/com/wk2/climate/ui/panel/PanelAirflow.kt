@@ -46,6 +46,9 @@ import com.wk2.climate.ui.target
  * key present, so a partial arrival can reach here with a known-absent
  * airflow, and rendering that at full strength would be the page's one
  * confident claim about something the vehicle never said.
+ *
+ * [modes] and [commandFor] default to the front's four tiles; the REAR page
+ * passes its three and the rear setters.
  */
 @Composable
 fun PanelAirflow(
@@ -54,12 +57,14 @@ fun PanelAirflow(
     mode: AirflowMode,
     onSelect: (Command) -> Unit,
     modifier: Modifier = Modifier,
+    modes: List<AirflowMode> = AirflowMode.selectable,
+    commandFor: (AirflowMode) -> Command? = { it.command },
 ) {
     Row(
         modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Dimens.tileGap),
     ) {
-        AirflowMode.selectable.forEach { candidate ->
+        modes.forEach { candidate ->
             AirflowTile(
                 palette = palette,
                 // AirflowMode.from returns UNKNOWN precisely when a BLOW_*
@@ -72,7 +77,7 @@ fun PanelAirflow(
                 active = candidate == mode,
                 res = candidate.glyphRes(),
                 glyphHeight = candidate.glyphHeight(),
-                onClick = { candidate.command?.let(onSelect) },
+                onClick = { commandFor(candidate)?.let(onSelect) },
                 modifier = Modifier.weight(1f),
             )
         }

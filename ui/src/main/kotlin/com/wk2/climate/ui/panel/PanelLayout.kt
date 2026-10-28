@@ -1,5 +1,6 @@
 package com.wk2.climate.ui.panel
 
+import com.wk2.climate.bus.AirflowMode
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.Features
 
@@ -60,3 +61,30 @@ fun comfortRows(features: Features): ComfortRows = ComfortRows(
     vent = features.has(Command.SEAT_VENT_L) && features.has(Command.SEAT_VENT_R),
     wheel = features.has(Command.WHEEL_HEAT),
 )
+
+/** The climate window's pages. FRONT is screen 1d as it has always been. */
+enum class PanelPage { FRONT, REAR }
+
+/**
+ * The pages this car gets. One page means no FRONT | REAR toggle at all, so
+ * a car without rear climate keeps today's header.
+ */
+fun panelPages(features: Features): List<PanelPage> =
+    if (features.hasRear) listOf(PanelPage.FRONT, PanelPage.REAR) else listOf(PanelPage.FRONT)
+
+/** The REAR page's tile row: REAR ON, REAR AUTO, LOCK REAR, each only if present. */
+fun rearModeRows(features: Features): List<List<Command>> =
+    listOf(listOf(Command.REAR_POWER, Command.REAR_AUTO, Command.REAR_LOCK).filter { features.has(it) })
+        .filter { it.isNotEmpty() }
+
+/** The rear airflow tiles. The rear has no glass setting, so three, not four. */
+val rearAirflowModes: List<AirflowMode> = listOf(AirflowMode.FACE, AirflowMode.FACE_FEET, AirflowMode.FEET)
+
+/** The rear setter for a rear airflow tile; null for the modes the rear lacks. */
+val AirflowMode.rearCommand: Command?
+    get() = when (this) {
+        AirflowMode.FACE -> Command.REAR_FACE
+        AirflowMode.FACE_FEET -> Command.REAR_FACE_FEET
+        AirflowMode.FEET -> Command.REAR_FEET
+        else -> null
+    }

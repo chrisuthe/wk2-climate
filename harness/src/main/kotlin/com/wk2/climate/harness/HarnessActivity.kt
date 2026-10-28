@@ -74,7 +74,10 @@ import com.wk2.climate.ui.panel.ClimatePanel
  */
 class HarnessActivity : ComponentActivity() {
 
-    private val bus = FakeVehicleBus()
+    // REAR_DEMO is the measured baseline plus a made-up rear zone, so the
+    // Durango preset's REAR page has something to draw. The front is the
+    // measured baseline either way.
+    private val bus = FakeVehicleBus(FakeVehicleBus.REAR_DEMO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -396,14 +399,15 @@ private fun Key(label: String, palette: Palette, onClick: () -> Unit) {
 private class Preset(val name: String, val features: Features)
 
 /**
- * The approved ladder, heaviest first, plus a table with no MAX A/C. Preset 1
- * is the WK2 regression gate: it must draw exactly what the harness drew
- * before vehicles existed.
+ * The approved ladder, heaviest first, plus a table with no MAX A/C and a car
+ * with a REAR page. Preset 1 is the WK2 regression gate: it must draw exactly
+ * what the harness drew before vehicles existed.
  */
 private val presets: List<Preset> = run {
     val wk2 = VehicleCatalog.bundled()[2687350]!!.table
     val cherokee = VehicleCatalog.bundled()[2621814]!!.table
     val jeepAll = VehicleCatalog.bundled()[374]!!.table
+    val durango = VehicleCatalog.bundled()[1442166]!!.table
     fun wk2With(heat: Boolean, vent: Boolean, wheel: Boolean) = Features(
         wk2,
         mapOf(
@@ -414,11 +418,14 @@ private val presets: List<Preset> = run {
         ),
     )
     listOf(
-        Preset("WK2 (2687350), all yes", Features.allYes(wk2)),
+        // All yes but rear: the WK2 has no rear climate, and this preset is the
+        // regression gate, so it must not grow a FRONT | REAR toggle.
+        Preset("WK2 (2687350), all yes", Features(wk2, Question.entries.associateWith { it != Question.REAR_CLIMATE })),
         Preset("WK2, heat + wheel, no cooling", wk2With(heat = true, vent = false, wheel = true)),
         Preset("WK2, wheel only", wk2With(heat = false, vent = false, wheel = true)),
         Preset("WK2, no comfort", wk2With(heat = false, vent = false, wheel = false)),
         Preset("KL Cherokee (2621814), all yes", Features.allYes(cherokee)),
         Preset("Jeep_All (374), single zone", Features(jeepAll, mapOf(Question.DUAL_ZONE to false))),
+        Preset("Durango 13-18 high trim (1442166), rear yes", Features.allYes(durango)),
     )
 }

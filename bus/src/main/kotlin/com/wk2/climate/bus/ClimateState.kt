@@ -126,6 +126,22 @@ class ClimateState private constructor(private val raw: Map<Signal, Int>) {
 
     val powerOn: Boolean get() = flag(Signal.POWER)
 
+    // ---- derived: the rear zone ----
+    val rearTemp: Temp get() = Temp.from(raw[Signal.REAR_TEMP], tempUnit)
+    val rearFan: Fan get() = Fan.from(raw[Signal.REAR_FAN])
+
+    /**
+     * Rear airflow, from two bits: face and feet. There is no glass setting at
+     * the back, so `up` is a constant 0 and [AirflowMode.FEET_GLASS] cannot
+     * come out. An unreported bit is [AirflowMode.UNKNOWN], as at the front.
+     */
+    val rearAirflow: AirflowMode
+        get() = AirflowMode.from(up = 0, body = raw[Signal.REAR_BLOW_BODY], foot = raw[Signal.REAR_BLOW_FOOT])
+
+    val rearPowerOn: Boolean get() = flag(Signal.REAR_POWER)
+    val rearAutoOn: Boolean get() = flag(Signal.REAR_AUTO)
+    val rearLockOn: Boolean get() = flag(Signal.REAR_LOCK)
+
     // ---- derived: other modules ----
     val volume: Int? get() = raw[Signal.VOLUME]
 

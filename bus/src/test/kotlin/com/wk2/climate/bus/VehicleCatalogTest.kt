@@ -11,7 +11,17 @@ import com.wk2.climate.bus.Command.FAN_DOWN
 import com.wk2.climate.bus.Command.FAN_UP
 import com.wk2.climate.bus.Command.FRONT_DEFROST
 import com.wk2.climate.bus.Command.MAX_AC
+import com.wk2.climate.bus.Command.REAR_AUTO
 import com.wk2.climate.bus.Command.REAR_DEFROST
+import com.wk2.climate.bus.Command.REAR_FACE
+import com.wk2.climate.bus.Command.REAR_FACE_FEET
+import com.wk2.climate.bus.Command.REAR_FAN_DOWN
+import com.wk2.climate.bus.Command.REAR_FAN_UP
+import com.wk2.climate.bus.Command.REAR_FEET
+import com.wk2.climate.bus.Command.REAR_LOCK
+import com.wk2.climate.bus.Command.REAR_POWER
+import com.wk2.climate.bus.Command.REAR_TEMP_DOWN
+import com.wk2.climate.bus.Command.REAR_TEMP_UP
 import com.wk2.climate.bus.Command.RECIRC
 import com.wk2.climate.bus.Command.SEAT_HEAT_L
 import com.wk2.climate.bus.Command.SEAT_HEAT_R
@@ -37,9 +47,16 @@ class VehicleCatalogTest {
 
     private val catalog = VehicleCatalog.bundled()
 
+    private companion object {
+        const val FRONT_CODE = 6
+        const val REAR_CODE = 8
+    }
+
     @Test
     fun `the WK2 table is the hand-swept one`() {
         val table = catalog[2687350]!!.table
+        // The front commands only: the rear ones come from com.syu.canbus, below.
+        val front = table.commands.filter { it.code == FRONT_CODE }
         assertEquals(
             mapOf(
                 AC to 1, AUTO to 2, RECIRC to 3, TEMP_L_UP to 4, TEMP_L_DOWN to 5, FAN_UP to 6, FAN_DOWN to 7,
@@ -48,9 +65,25 @@ class VehicleCatalogTest {
                 SEAT_HEAT_L to 17, SEAT_HEAT_R to 18, TEMP_R_UP to 20, TEMP_R_DOWN to 21,
                 SEAT_VENT_L to 22, SEAT_VENT_R to 23, WHEEL_HEAT to 24,
             ),
-            table.commands.associateWith { table[it]!! },
+            front.associateWith { table[it]!! },
         )
     }
+
+    @Test
+    fun `the Wrangler profile carries the rear page's numbers, Durango 13-18 high trim included`() {
+        val rear = mapOf(
+            REAR_POWER to 16, REAR_AUTO to 2, REAR_TEMP_UP to 4, REAR_TEMP_DOWN to 5, REAR_FAN_UP to 6,
+            REAR_FAN_DOWN to 7, REAR_FACE to 8, REAR_FACE_FEET to 9, REAR_FEET to 10, REAR_LOCK to 32,
+        )
+        for (id in listOf(1442166, 1376630, 2687350)) {
+            val table = catalog[id]!!.table
+            assertEquals("id $id", rear, table.commands.filter { it.code == REAR_CODE }.associateWith { table[it]!! })
+        }
+    }
+
+    @Test
+    fun `the Renegade profile has no rear page`() =
+        assertTrue(catalog[374]!!.table.commands.none { it.code == REAR_CODE })
 
     @Test
     fun `the amplified Grand Cherokee also gets native MAX A-C`() =

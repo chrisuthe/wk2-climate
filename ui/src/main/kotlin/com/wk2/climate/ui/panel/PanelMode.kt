@@ -57,9 +57,10 @@ fun PanelMode(
     features: Features,
     onCommand: (Command) -> Unit,
     modifier: Modifier = Modifier,
+    rows: List<List<Command>> = modeRows(features),
 ) {
     Column(modifier.fillMaxWidth()) {
-        modeRows(features).forEachIndexed { index, row ->
+        rows.forEachIndexed { index, row ->
             if (index > 0) Spacer(Modifier.height(Dimens.tileGap))
             Row(
                 Modifier.fillMaxWidth(),
@@ -158,7 +159,28 @@ private fun ModeTileFor(
             }
         }
 
-        // modeRows names only the seven tiles above.
+        // The REAR page's row (rearModeRows). Labelled REAR even on a page
+        // titled REAR: a glance at a lit AUTO tile must never be mistaken for
+        // the front's AUTO.
+        Command.REAR_POWER -> ModeTile(
+            palette, live, on = state.rearPowerOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.REAR_POWER) }, modifier = modifier,
+        ) { ink -> BasicText("REAR ON", style = Type.modeLabelLarge.copy(color = ink)) }
+
+        Command.REAR_AUTO -> ModeTile(
+            palette, live, on = state.rearAutoOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.REAR_AUTO) }, modifier = modifier,
+        ) { ink -> BasicText("REAR AUTO", style = Type.modeLabelLarge.copy(color = ink)) }
+
+        Command.REAR_LOCK -> ModeTile(
+            palette, live, on = state.rearLockOn, height = Dimens.modeTileHeight,
+            activeFill = palette.accent, activeInk = palette.accentInk,
+            onClick = { onCommand(Command.REAR_LOCK) }, modifier = modifier,
+        ) { ink -> BasicText("LOCK REAR", style = Type.modeLabelLarge.copy(color = ink)) }
+
+        // modeRows and rearModeRows name only the tiles above.
         else -> error("$command has no mode tile")
     }
 }

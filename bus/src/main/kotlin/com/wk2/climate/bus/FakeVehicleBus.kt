@@ -156,6 +156,20 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         Command.SEAT_VENT_L -> s.cycleSeat(Signal.SEAT_VENT_L, Signal.SEAT_HEAT_L)
         Command.SEAT_VENT_R -> s.cycleSeat(Signal.SEAT_VENT_R, Signal.SEAT_HEAT_R)
 
+        // The rear zone. Nothing here is measured -- no car with rear climate
+        // has been on the bench -- so it models only the plain reading of each
+        // control and invents no macros.
+        Command.REAR_POWER -> s.toggle(Signal.REAR_POWER)
+        Command.REAR_AUTO -> s.toggle(Signal.REAR_AUTO)
+        Command.REAR_LOCK -> s.toggle(Signal.REAR_LOCK)
+        Command.REAR_TEMP_UP -> s.stepTemp(Signal.REAR_TEMP, +1)
+        Command.REAR_TEMP_DOWN -> s.stepTemp(Signal.REAR_TEMP, -1)
+        Command.REAR_FAN_UP -> s.stepRearFan(+1)
+        Command.REAR_FAN_DOWN -> s.stepRearFan(-1)
+        Command.REAR_FACE -> s.with(Signal.REAR_BLOW_BODY, 1).with(Signal.REAR_BLOW_FOOT, 0)
+        Command.REAR_FACE_FEET -> s.with(Signal.REAR_BLOW_BODY, 1).with(Signal.REAR_BLOW_FOOT, 1)
+        Command.REAR_FEET -> s.with(Signal.REAR_BLOW_BODY, 0).with(Signal.REAR_BLOW_FOOT, 1)
+
         Command.VOL_UP -> s.stepVolume(+1)
         Command.VOL_DOWN -> s.stepVolume(-1)
         Command.VOL_HIDE_OSD -> s   // affects the OEM overlay only, no state
@@ -219,6 +233,11 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         return if (next != 0) stepped.with(opposite, 0) else stepped
     }
 
+    private fun ClimateState.stepRearFan(delta: Int): ClimateState {
+        val current = this[Signal.REAR_FAN] ?: return this
+        return with(Signal.REAR_FAN, (current + delta).coerceIn(0, Fan.MAX_STEP))
+    }
+
     private fun ClimateState.stepVolume(delta: Int): ClimateState {
         val current = this[Signal.VOLUME] ?: 0
         return with(Signal.VOLUME, (current + delta).coerceIn(0, VOLUME_MAX))
@@ -258,5 +277,19 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
             Signal.VOLUME to 10,
             Signal.ILLUMINATION to 0,
         )
+
+        /**
+         * [VEHICLE_BASELINE] with a rear zone, for drawing the REAR page in the
+         * harness. The rear values are **made up**: no car with rear climate
+         * has been measured.
+         */
+        val REAR_DEMO: ClimateState = VEHICLE_BASELINE
+            .with(Signal.REAR_POWER, 1)
+            .with(Signal.REAR_AUTO, 0)
+            .with(Signal.REAR_TEMP, 70)
+            .with(Signal.REAR_FAN, 3)
+            .with(Signal.REAR_BLOW_BODY, 1)
+            .with(Signal.REAR_BLOW_FOOT, 0)
+            .with(Signal.REAR_LOCK, 0)
     }
 }

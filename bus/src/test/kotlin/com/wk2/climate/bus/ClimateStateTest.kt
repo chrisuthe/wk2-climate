@@ -165,7 +165,43 @@ class ClimateStateTest {
         // missing": every signal the baseline holds is accounted for, and the
         // one gap is named, so adding TEMP_OUT to the baseline later fails
         // here loudly instead of silently.
-        assertEquals(setOf(Signal.TEMP_OUT), FakeVehicleBus.VEHICLE_BASELINE.missingSignals)
+        //
+        // The rear signals are the other named gap: the capture predates
+        // registering them, and the WK2 has no rear zone to report.
+        assertEquals(
+            setOf(
+                Signal.TEMP_OUT, Signal.REAR_TEMP, Signal.REAR_POWER, Signal.REAR_AUTO, Signal.REAR_FAN,
+                Signal.REAR_BLOW_BODY, Signal.REAR_BLOW_FOOT, Signal.REAR_LOCK,
+            ),
+            FakeVehicleBus.VEHICLE_BASELINE.missingSignals,
+        )
+    }
+
+    @Test
+    fun `the rear setpoint decodes like the front, sentinels included`() {
+        assertEquals(Temp.Degrees(72f, TempUnit.FAHRENHEIT), ClimateState.of(Signal.REAR_TEMP to 72).rearTemp)
+        assertEquals(Temp.Lo, ClimateState.of(Signal.REAR_TEMP to -2).rearTemp)
+        assertEquals(Temp.Unavailable, ClimateState.EMPTY.rearTemp)
+    }
+
+    @Test
+    fun `rear airflow is read from the face and feet bits`() {
+        fun rear(body: Int, foot: Int) =
+            ClimateState.of(Signal.REAR_BLOW_BODY to body, Signal.REAR_BLOW_FOOT to foot).rearAirflow
+        assertEquals(AirflowMode.FACE, rear(1, 0))
+        assertEquals(AirflowMode.FEET, rear(0, 1))
+        assertEquals(AirflowMode.FACE_FEET, rear(1, 1))
+        assertEquals(AirflowMode.NONE, rear(0, 0))
+        assertEquals(AirflowMode.UNKNOWN, ClimateState.of(Signal.REAR_BLOW_BODY to 1).rearAirflow)
+    }
+
+    @Test
+    fun `rear flags and fan`() {
+        val s = ClimateState.of(Signal.REAR_POWER to 1, Signal.REAR_AUTO to 1, Signal.REAR_LOCK to 0, Signal.REAR_FAN to 5)
+        assertTrue(s.rearPowerOn)
+        assertTrue(s.rearAutoOn)
+        assertFalse(s.rearLockOn)
+        assertEquals(Fan.Level(5), s.rearFan)
     }
 
     @Test

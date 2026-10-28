@@ -52,9 +52,10 @@ import java.util.Locale
  * region of the cabin and assert nothing about the climate system. The
  * steppers stay live too -- pressing one is what forces the vehicle to report.
  *
- * Without [dualZone] there is one zone, labelled TEMPERATURE, at full width.
- * It is the driver zone -- the left setpoint and `TEMP_L_*`, which is what a
- * single-zone car's one setpoint is -- and the passenger arguments go unused.
+ * Without [dualZone] there is one zone, labelled [singleLabel], at full
+ * width. It is the driver zone -- the left setpoint and `TEMP_L_*`, which is
+ * what a single-zone car's one setpoint is -- and the passenger arguments go
+ * unused. The REAR page draws its one rear setpoint the same way.
  */
 @Composable
 fun PanelZones(
@@ -68,6 +69,7 @@ fun PanelZones(
     onPassengerDown: () -> Unit,
     onPassengerUp: () -> Unit,
     modifier: Modifier = Modifier,
+    singleLabel: String = "TEMPERATURE",
 ) {
     Row(modifier.fillMaxWidth()) {
         if (dualZone) {
@@ -82,7 +84,7 @@ fun PanelZones(
                 Modifier.weight(1f).sideDivider(palette.divider, start = true),
             )
         } else {
-            Zone(palette, live, "TEMPERATURE", driver, onDriverDown, onDriverUp, Modifier.weight(1f))
+            Zone(palette, live, singleLabel, driver, onDriverDown, onDriverUp, Modifier.weight(1f))
         }
     }
 }

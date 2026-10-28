@@ -1,6 +1,7 @@
 package com.wk2.climate.bus
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -37,6 +38,27 @@ class VehicleStatusTest {
         val s = resolveVehicle(SavedVehicle(2687350, mapOf(Question.SEAT_HEAT to true, Question.SEAT_VENT to false)), catalog)
         assertTrue(s is VehicleStatus.NeedsSetup)
         assertEquals(Question.WHEEL_HEAT, (s as VehicleStatus.NeedsSetup).questions.first { it !in s.answers })
+    }
+
+    @Test
+    fun `a setup from before the rear question existed stays Ready, without rear`() {
+        // Four front answers and no rear one: what every install made before
+        // the rear page has saved. Blocking on the new question would take the
+        // bar away after an update until the driver happened to open the app.
+        val front = mapOf(Question.SEAT_HEAT to true, Question.SEAT_VENT to true, Question.WHEEL_HEAT to true, Question.DUAL_ZONE to true)
+        val s = resolveVehicle(SavedVehicle(2687350, front), catalog) as VehicleStatus.Ready
+        assertFalse(s.features.hasRear)
+        assertEquals(listOf(Question.REAR_CLIMATE), s.pending)
+    }
+
+    @Test
+    fun `a full setup has nothing pending`() =
+        assertEquals(emptyList<Question>(), (resolveVehicle(SavedVehicle(2687350, allYes), catalog) as VehicleStatus.Ready).pending)
+
+    @Test
+    fun `a new setup is still walked through the rear question, last`() {
+        val s = resolveVehicle(SavedVehicle(1442166, emptyMap()), catalog) as VehicleStatus.NeedsSetup
+        assertEquals(Question.REAR_CLIMATE, s.questions.last())
     }
 
     @Test

@@ -240,4 +240,57 @@ class FakeVehicleBusTest {
         b.send(Command.AC)
         assertEquals(before, b.now)
     }
+
+    // ---- the rear zone (not measured: no rear-climate car has been on the bench) ----
+
+    private fun rearBus() = FakeVehicleBus(FakeVehicleBus.REAR_DEMO)
+
+    @Test
+    fun `rear temperature steps and rear fan clamps at seven`() {
+        val b = rearBus()
+        val before = b.now[Signal.REAR_TEMP]!!
+        b.send(Command.REAR_TEMP_UP)
+        assertEquals(before + 1, b.now[Signal.REAR_TEMP])
+        b.send(Command.REAR_TEMP_DOWN)
+        b.send(Command.REAR_TEMP_DOWN)
+        assertEquals(before - 1, b.now[Signal.REAR_TEMP])
+        repeat(10) { b.send(Command.REAR_FAN_UP) }
+        assertEquals(Fan.Level(Fan.MAX_STEP), b.now.rearFan)
+        b.send(Command.REAR_FAN_DOWN)
+        assertEquals(Fan.Level(Fan.MAX_STEP - 1), b.now.rearFan)
+    }
+
+    @Test
+    fun `rear power, AUTO and lock toggle`() {
+        val b = rearBus()
+        val power = b.now.rearPowerOn
+        val auto = b.now.rearAutoOn
+        val lock = b.now.rearLockOn
+        b.send(Command.REAR_POWER)
+        b.send(Command.REAR_AUTO)
+        b.send(Command.REAR_LOCK)
+        assertEquals(!power, b.now.rearPowerOn)
+        assertEquals(!auto, b.now.rearAutoOn)
+        assertEquals(!lock, b.now.rearLockOn)
+    }
+
+    @Test
+    fun `rear airflow setters are direct`() {
+        val b = rearBus()
+        b.send(Command.REAR_FEET)
+        assertEquals(AirflowMode.FEET, b.now.rearAirflow)
+        b.send(Command.REAR_FACE_FEET)
+        assertEquals(AirflowMode.FACE_FEET, b.now.rearAirflow)
+        b.send(Command.REAR_FACE)
+        b.send(Command.REAR_FACE)
+        assertEquals(AirflowMode.FACE, b.now.rearAirflow)
+    }
+
+    @Test
+    fun `rear commands leave the front alone`() {
+        val b = rearBus()
+        val front = b.now.tempLeft
+        b.send(Command.REAR_TEMP_UP)
+        assertEquals(front, b.now.tempLeft)
+    }
 }

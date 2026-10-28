@@ -21,6 +21,22 @@ class CommandTableTest {
     fun `volume frames without a table`() =
         assertArrayEquals(intArrayOf(-1), (null as CommandTable?).frame(Command.VOL_UP))
 
+    @Test
+    fun `a rear command frames as its index alone`() =
+        assertArrayEquals(intArrayOf(4), CommandTable(mapOf(Command.REAR_TEMP_UP to 4)).frame(Command.REAR_TEMP_UP))
+
+    @Test
+    fun `front and rear may share an index, because they go out on different codes`() {
+        val t = CommandTable(mapOf(Command.AUTO to 2, Command.REAR_AUTO to 2))
+        assertArrayEquals(intArrayOf(1, 2), t.frame(Command.AUTO))
+        assertArrayEquals(intArrayOf(2), t.frame(Command.REAR_AUTO))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `two rear commands on one index are refused`() {
+        CommandTable(mapOf(Command.REAR_FAN_UP to 6, Command.REAR_FAN_DOWN to 6))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `two commands on one index are refused`() {
         CommandTable(mapOf(Command.AC to 1, Command.AUTO to 1))

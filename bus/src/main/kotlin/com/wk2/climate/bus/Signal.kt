@@ -52,6 +52,21 @@ enum class Signal(
     FRONT_DEFROST(7, 65),
     WHEEL_HEAT(7, 66),
 
+    // The rear zone: the codes FYT's own REAR tab reads
+    // (docs/captures/2026-10-28-pa-rear-climate.md). Registered on every car;
+    // only a car whose driver said it has rear climate draws them.
+    /** Rear setpoint; the front's sentinels and [TEMP_UNIT] apply. */
+    REAR_TEMP(7, 40),
+    REAR_POWER(7, 42),
+    REAR_AUTO(7, 43),
+    /** Rear fan, 0..7. */
+    REAR_FAN(7, 44),
+    /** Rear airflow to the face. With [REAR_BLOW_FOOT] too, face and feet. */
+    REAR_BLOW_BODY(7, 46),
+    REAR_BLOW_FOOT(7, 47),
+    /** The rear-seat climate controls are locked out. */
+    REAR_LOCK(7, 67),
+
     /**
      * The canbus id: which vehicle the unit is configured for.
      *
