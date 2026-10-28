@@ -9,7 +9,7 @@ functions at a 96dp minimum target and moves everything else one tap away onto a
 full-page climate view.
 
 **Status: built and running in the vehicle.** Both screens are implemented,
-reviewed and verified on hardware. 224 tests (157 bus, 55 ui, 12 tools).
+reviewed and verified on hardware. 248 tests (176 bus, 60 ui, 12 tools).
 
 ---
 
@@ -140,6 +140,14 @@ builds straight from the `com.syu.air` APK. On first run it asks a few yes/no
 questions — heated seats, cooled seats, heated wheel, separate temperatures —
 and draws only what the car has. The answers can be changed later from the app
 icon.
+
+Cars on the same vendor profile as the WK2 (Durango, RAM, Wrangler, GMC,
+Escalade and others) are also asked whether they have **rear climate**. A yes
+adds a FRONT | REAR toggle to the climate page and a REAR page: rear
+temperature, fan, airflow, REAR ON, REAR AUTO and LOCK REAR. Those commands come
+from FYT's own climate screen rather than the bar
+([decode](docs/captures/2026-10-28-pa-rear-climate.md)) and have not yet been
+tried on a car that has rear climate — the WK2 does not.
 
 Only cars whose vendor profile sends commands exactly the way the WK2's does are
 driven: the PA canbus family, 60 ids across Jeep, RAM, Dodge, Chrysler, GM and
