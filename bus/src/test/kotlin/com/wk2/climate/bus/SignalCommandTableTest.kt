@@ -42,6 +42,17 @@ class SignalCommandTableTest {
     }
 
     @Test
+    fun `rear signals are the codes FYT's rear page reads`() {
+        assertEquals(
+            listOf(40, 42, 43, 44, 46, 47, 67),
+            listOf(
+                Signal.REAR_TEMP, Signal.REAR_POWER, Signal.REAR_AUTO, Signal.REAR_FAN,
+                Signal.REAR_BLOW_BODY, Signal.REAR_BLOW_FOOT, Signal.REAR_LOCK,
+            ).map { assertEquals(Signal.MODULE_CANBUS, it.module); it.code },
+        )
+    }
+
+    @Test
     fun `we never subscribe to the high rate flood codes`() {
         // U_SPECTRUM is module 4 code 0; U_CANBUS_FRAME_TO_UI is module 7 code 1019.
         assertNull(Signal.of(4, 0))

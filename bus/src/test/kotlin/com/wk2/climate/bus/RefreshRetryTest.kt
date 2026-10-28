@@ -202,10 +202,11 @@ class RefreshRetryTest {
         advanceUntilIdle()
         assertEquals("every attempt used, none wasted", delays.size, silent.refreshes)
 
-        // The measured baseline is missing only TEMP_OUT, so the retry must
-        // keep going for it — this is the case the old `hasClimateData` rule
-        // completed on immediately.
-        val baseline = FakeVehicleBus(FakeVehicleBus.VEHICLE_BASELINE)
+        // A car missing only TEMP_OUT, so the retry must keep going for it —
+        // this is the case the old `hasClimateData` rule completed on
+        // immediately. REAR_DEMO rather than the measured baseline, which
+        // predates the rear signals and so is missing those too.
+        val baseline = FakeVehicleBus(FakeVehicleBus.REAR_DEMO)
         launch {
             RefreshRetry.refreshUntilNothingMissing(
                 missing = { baseline.state.value.missingSignals },
