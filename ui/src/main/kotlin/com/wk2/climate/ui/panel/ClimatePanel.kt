@@ -10,11 +10,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wk2.climate.bus.ClimateState
 import com.wk2.climate.bus.Command
 import com.wk2.climate.bus.Features
+import com.wk2.climate.bus.Temp
 import com.wk2.climate.design.Palette
 
 /**
@@ -30,6 +35,11 @@ import com.wk2.climate.design.Palette
  * [features] decides which sections and tiles exist at all (see
  * [panelSections]): what the car lacks is omitted and the rest closes up. For
  * the WK2 with every answer yes that is every section, exactly as before.
+ *
+ * A car with rear climate (see [panelPages]) gets a FRONT | REAR toggle in
+ * the header. FRONT is the page above, unchanged; REAR drives the rear zone.
+ * The page lives in this composition, which [ClimatePanel]'s host creates per
+ * open, so the window always opens on FRONT.
  */
 @Composable
 fun ClimatePanel(
@@ -69,6 +79,10 @@ fun ClimatePanel(
     // readout is already drawn in inkFaint.
     val live = state.hasClimateData
     val sections = panelSections(features)
+    val pages = panelPages(features)
+    var chosen by remember { mutableStateOf(PanelPage.FRONT) }
+    // A page the car no longer has (rear switched off while open) falls back.
+    val page = if (chosen in pages) chosen else PanelPage.FRONT
 
     // BoxWithConstraints, not a bare Column, purely to learn the viewport
     // height: `heightIn(min = maxHeight)` is what makes the footer's
@@ -99,7 +113,19 @@ fun ClimatePanel(
                 // Spacer measures zero, and the page scrolls as before.
                 .heightIn(min = viewportHeight),
         ) {
-            PanelHeader(palette = palette, outsideF = outsideF, onClose = onClose)
+            PanelHeader(
+                palette = palette,
+                outsideF = outsideF,
+                onClose = onClose,
+                pages = pages,
+                page = page,
+                onPage = { chosen = it },
+            )
+
+            if (page == PanelPage.REAR) {
+                RearPage(state = state, features = features, live = live, palette = palette, onCommand = onCommand)
+                return@Column
+            }
 
             // Zero padding: each zone supplies the page gutter itself. See
             // PanelSection's contentPadding doc.
@@ -167,6 +193,66 @@ fun ClimatePanel(
             if (PanelSectionId.FOOTER in sections) {
                 PanelFooter(palette = palette, onPowerOff = { onCommand(Command.CLIMATE_POWER) })
             }
+        }
+    }
+}
+
+/**
+ * The REAR page: the rear setpoint, the rear fan, three rear airflow tiles,
+ * and REAR ON / REAR AUTO / LOCK REAR. Built from the FRONT page's own
+ * sections so it reads, and gates on [live], exactly the same way.
+ *
+ * No footer: HOLD · OFF is the front system's power, and the rear has its
+ * own REAR ON tile.
+ */
+@Composable
+private fun RearPage(
+    state: ClimateState,
+    features: Features,
+    live: Boolean,
+    palette: Palette,
+    onCommand: (Command) -> Unit,
+) {
+    PanelSection(palette = palette, header = null, topBorder = true, contentPadding = PaddingValues(0.dp)) {
+        PanelZones(
+            palette = palette,
+            live = live,
+            dualZone = false,
+            driver = state.rearTemp,
+            passenger = Temp.Unavailable,
+            onDriverDown = { onCommand(Command.REAR_TEMP_DOWN) },
+            onDriverUp = { onCommand(Command.REAR_TEMP_UP) },
+            onPassengerDown = {},
+            onPassengerUp = {},
+            singleLabel = "REAR",
+        )
+    }
+
+    PanelSection(palette = palette, header = null) {
+        PanelFan(
+            palette = palette,
+            fan = state.rearFan,
+            hasAuto = features.has(Command.REAR_AUTO),
+            onDown = { onCommand(Command.REAR_FAN_DOWN) },
+            onUp = { onCommand(Command.REAR_FAN_UP) },
+        )
+    }
+
+    PanelSection(palette = palette, header = "REAR AIRFLOW") {
+        PanelAirflow(
+            palette = palette,
+            live = live,
+            mode = state.rearAirflow,
+            onSelect = onCommand,
+            modes = rearAirflowModes,
+            commandFor = { it.rearCommand },
+        )
+    }
+
+    val rows = rearModeRows(features)
+    if (rows.isNotEmpty()) {
+        PanelSection(palette = palette, header = "REAR") {
+            PanelMode(palette = palette, state = state, live = live, features = features, onCommand = onCommand, rows = rows)
         }
     }
 }
