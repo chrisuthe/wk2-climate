@@ -156,6 +156,10 @@ class FakeVehicleBus(initial: ClimateState = VEHICLE_BASELINE) : VehicleBus {
         Command.SEAT_VENT_L -> s.cycleSeat(Signal.SEAT_VENT_L, Signal.SEAT_HEAT_L)
         Command.SEAT_VENT_R -> s.cycleSeat(Signal.SEAT_VENT_R, Signal.SEAT_HEAT_R)
 
+        Command.REAR_POWER, Command.REAR_AUTO, Command.REAR_TEMP_UP, Command.REAR_TEMP_DOWN,
+        Command.REAR_FAN_UP, Command.REAR_FAN_DOWN, Command.REAR_FACE, Command.REAR_FACE_FEET,
+        Command.REAR_FEET, Command.REAR_LOCK -> s
+
         Command.VOL_UP -> s.stepVolume(+1)
         Command.VOL_DOWN -> s.stepVolume(-1)
         Command.VOL_HIDE_OSD -> s   // affects the OEM overlay only, no state

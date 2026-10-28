@@ -49,11 +49,17 @@ class SignalCommandTableTest {
     }
 
     @Test
-    fun `climate commands all use the fixed code 6 and carry no index of their own`() {
+    fun `climate commands use code 6, rear-zone commands code 8, and none carries an index of its own`() {
         // The index is per vehicle and comes from CommandTable; see
-        // VehicleCatalogTest for the WK2's hand-swept values.
+        // VehicleCatalogTest for the WK2's hand-swept values and the rear
+        // page's numbers.
+        val rear = setOf(
+            Command.REAR_POWER, Command.REAR_AUTO, Command.REAR_TEMP_UP, Command.REAR_TEMP_DOWN,
+            Command.REAR_FAN_UP, Command.REAR_FAN_DOWN, Command.REAR_FACE, Command.REAR_FACE_FEET,
+            Command.REAR_FEET, Command.REAR_LOCK,
+        )
         Command.entries.filter { it.module == 7 }.forEach { c ->
-            assertEquals("${c.name} must use command code 6", 6, c.code)
+            assertEquals("${c.name} command code", if (c in rear) 8 else 6, c.code)
             assertEquals("${c.name} must not bake in a payload", 0, c.payload.size)
         }
     }
