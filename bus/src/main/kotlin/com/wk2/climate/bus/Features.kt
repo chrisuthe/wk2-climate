@@ -8,12 +8,28 @@ package com.wk2.climate.bus
  * the car **has**. A question is only ever asked when the table holds every
  * command in [needs] -- there is no point asking about cooled seats on a
  * profile with no seat cooling commands.
+ *
+ * [blocksBar] is whether the bar waits for an answer. Every question asked
+ * since the first release does; one added later must not, or every existing
+ * install would lose its bar on update until the driver happened to open the
+ * app. Unanswered, it reads as no -- like any unanswered question -- and the
+ * setup walkthrough still asks it.
  */
-enum class Question(val needs: Set<Command>) {
+enum class Question(val needs: Set<Command>, val blocksBar: Boolean = true) {
     SEAT_HEAT(setOf(Command.SEAT_HEAT_L, Command.SEAT_HEAT_R)),
     SEAT_VENT(setOf(Command.SEAT_VENT_L, Command.SEAT_VENT_R)),
     WHEEL_HEAT(setOf(Command.WHEEL_HEAT)),
     DUAL_ZONE(setOf(Command.TEMP_R_UP, Command.TEMP_R_DOWN)),
+
+    /** Asked last: it changes only the climate window, never the bar. */
+    REAR_CLIMATE(
+        setOf(
+            Command.REAR_POWER, Command.REAR_AUTO, Command.REAR_TEMP_UP, Command.REAR_TEMP_DOWN,
+            Command.REAR_FAN_UP, Command.REAR_FAN_DOWN, Command.REAR_FACE, Command.REAR_FACE_FEET,
+            Command.REAR_FEET, Command.REAR_LOCK,
+        ),
+        blocksBar = false,
+    ),
 }
 
 /** The questions to ask for this table, in asking order. */
@@ -51,6 +67,9 @@ class Features(val table: CommandTable, val answers: Map<Question, Boolean>) {
     }
 
     val dualZone: Boolean get() = has(Command.TEMP_R_UP) && has(Command.TEMP_R_DOWN)
+
+    /** A REAR page in the climate window: the profile has one and the driver said yes. */
+    val hasRear: Boolean get() = Question.REAR_CLIMATE.needs.all { has(it) }
 
     /**
      * All four idempotent airflow setters. A car with only some of them, or

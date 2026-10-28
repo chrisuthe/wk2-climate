@@ -398,6 +398,7 @@ private val Question.title: Int
         Question.SEAT_VENT -> R.string.setup_q_seat_vent_title
         Question.WHEEL_HEAT -> R.string.setup_q_wheel_heat_title
         Question.DUAL_ZONE -> R.string.setup_q_dual_zone_title
+        Question.REAR_CLIMATE -> R.string.setup_q_rear_climate_title
     }
 
 private val Question.hint: Int
@@ -406,6 +407,7 @@ private val Question.hint: Int
         Question.SEAT_VENT -> R.string.setup_q_seat_vent_hint
         Question.WHEEL_HEAT -> R.string.setup_q_wheel_heat_hint
         Question.DUAL_ZONE -> R.string.setup_q_dual_zone_hint
+        Question.REAR_CLIMATE -> R.string.setup_q_rear_climate_hint
     }
 
 private val Question.label: Int
@@ -414,4 +416,5 @@ private val Question.label: Int
         Question.SEAT_VENT -> R.string.setup_label_seat_vent
         Question.WHEEL_HEAT -> R.string.setup_label_wheel_heat
         Question.DUAL_ZONE -> R.string.setup_label_dual_zone
+        Question.REAR_CLIMATE -> R.string.setup_label_rear_climate
     }

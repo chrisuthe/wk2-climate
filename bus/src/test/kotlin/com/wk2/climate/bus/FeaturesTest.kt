@@ -18,11 +18,33 @@ class FeaturesTest {
     private val wk2 = VehicleCatalog.bundled()[2687350]!!.table
 
     @Test
-    fun `the WK2 asks all four questions`() = assertEquals(Question.entries, questionsFor(wk2))
+    fun `the WK2 asks every question`() = assertEquals(Question.entries, questionsFor(wk2))
 
     @Test
     fun `a table without seat cooling never asks about it`() =
         assertEquals(listOf(DUAL_ZONE), questionsFor(VehicleCatalog.bundled()[374]!!.table))
+
+    @Test
+    fun `the rear question comes last, and only for the profile with a rear page`() {
+        assertEquals(Question.REAR_CLIMATE, questionsFor(wk2).last())
+        assertEquals(Question.REAR_CLIMATE, questionsFor(VehicleCatalog.bundled()[1442166]!!.table).last())
+        assertFalse(Question.REAR_CLIMATE in questionsFor(VehicleCatalog.bundled()[374]!!.table))
+    }
+
+    @Test
+    fun `rear is off until the driver says yes`() {
+        val front = mapOf(SEAT_HEAT to true, SEAT_VENT to true, Question.WHEEL_HEAT to true, DUAL_ZONE to true)
+        assertFalse(Features(wk2, front).hasRear)
+        assertFalse(Features(wk2, front).has(Command.REAR_AUTO))
+        assertFalse(Features(wk2, front + (Question.REAR_CLIMATE to false)).hasRear)
+        val yes = Features(wk2, front + (Question.REAR_CLIMATE to true))
+        assertTrue(yes.hasRear)
+        assertTrue(yes.has(Command.REAR_AUTO))
+    }
+
+    @Test
+    fun `a yes to rear on a profile without rear numbers adds nothing`() =
+        assertFalse(Features(VehicleCatalog.bundled()[374]!!.table, mapOf(Question.REAR_CLIMATE to true)).hasRear)
 
     @Test
     fun `a yes answer cannot add a command the table lacks`() =
