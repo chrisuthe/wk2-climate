@@ -155,6 +155,52 @@ Ford. Every other car is left alone and keeps the factory bar. The list is on
 [wiki: Supported Vehicles](https://github.com/chrisuthe/7870-Projects/wiki/14-Supported-Vehicles);
 only the WK2 Grand Cherokee has been tested on a real vehicle.
 
+## Install
+
+Builds are published as
+[GitHub pre-releases](https://github.com/chrisuthe/wk2-climate/releases). The
+easiest way to install them and get updates is [Obtainium](https://obtainium.imranr.dev/).
+On the head unit, with Obtainium installed, open:
+
+**[Add WK2 Climate to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.android.wk2climate%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fchrisuthe%2Fwk2-climate%22%2C%22author%22%3A%22chrisuthe%22%2C%22name%22%3A%22WK2%20Climate%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5Ewk2-climate-.%2A%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%2206%3A70%3A58%3A54%3A82%3ABF%3AF5%3A46%3A98%3A5E%3AE7%3AEA%3AE3%3A88%3AF9%3A43%3A72%3A96%3AA6%3AD5%3A8A%3AE5%3A1B%3A0C%3A0F%3A54%3A96%3AB3%3A00%3AA1%3AFD%3A0A%5C%22%7D%22%7D)**
+
+It goes through Obtainium's redirect page and sets up three things that pasting
+the repository URL into Obtainium does not:
+
+- **Pre-releases are included.** Every build so far is one; without this,
+  Obtainium finds no releases.
+- **The APK is picked by name**: `wk2-climate-<version>.apk`.
+- **The signing certificate is pinned** (SHA-256
+  `06:70:58:…:A1:FD:0A`). Obtainium refuses an APK signed with any other key.
+
+Then open WK2 Climate from the launcher. It walks through enabling the service
+under Accessibility and the setup questions.
+
+Installed this way, Android does not block the Accessibility toggle. Installed
+by opening the APK from a browser or file manager, it does: the toggle is greyed
+out as a "restricted setting" until you open **Settings → Apps → WK2 Climate**,
+choose **⋮ → Allow restricted settings**, and try again.
+
+On a head unit with Google Play, Play Protect may say **Unsafe app blocked**,
+because the app targets Android 13 — the head unit's own version — on purpose.
+Tap **More details → Install anyway**.
+
+<details>
+<summary>What the link contains</summary>
+
+```json
+{
+  "id": "com.android.wk2climate",
+  "url": "https://github.com/chrisuthe/wk2-climate",
+  "author": "chrisuthe",
+  "name": "WK2 Climate",
+  "additionalSettings": "{\"includePrereleases\":true,\"apkFilterRegEx\":\"^wk2-climate-.*\\\\.apk$\",\"allowedSigningCertHashes\":\"06:70:58:54:82:BF:F5:46:98:5E:E7:EA:E3:88:F9:43:72:96:A6:D5:8A:E5:1B:0C:0F:54:96:B3:00:A1:FD:0A\"}"
+}
+```
+
+URL-encoded after `obtainium://app/`. A new signing key means a new link.
+</details>
+
 ## Safety
 
 This touches the climate control of a vehicle with no physical HVAC controls.
